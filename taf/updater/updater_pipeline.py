@@ -1642,6 +1642,68 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         self.state.target_branches_data_from_auth_repo = repo_branches
         return UpdateStatus.SUCCESS
 
+    def _collect_commits_with_old_head(self, repository, branch, old_head):
+        if not self.only_validate:
+            fetched_commits = repository.all_commits_on_branch(
+                branch=f"origin/{branch}"
+            )
+            if old_head in fetched_commits:
+                commits = fetched_commits[fetched_commits.index(old_head) + 1 :]
+            else:
+                commits = repository.all_commits_since_commit(old_head, branch)
+                for commit in fetched_commits:
+                    if commit not in commits:
+                        commits.append(commit)
+        else:
+            commits = repository.all_commits_since_commit(old_head, branch)
+        commits.insert(0, old_head)
+        return commits
+
+    def _collect_initial_branch_commits(self, repository, branch, local_branch_exists):
+        if local_branch_exists:
+            commits = repository.all_commits_on_branch(branch=branch, reverse=True)
+        else:
+            commits = []
+        try:
+            fetched_commits = repository.all_commits_on_branch(
+                branch=f"origin/{branch}"
+            )
+            for commit in fetched_commits:
+                if commit not in commits:
+                    commits.append(commit)
+        except GitError:
+            pass
+        return commits
+
+    def _fetch_commits_for_branch(self, repository, branch, old_head):
+        local_branch_exists = repository.branch_exists(branch, include_remotes=False)
+        branch_exists = repository.branch_exists(branch, include_remotes=True)
+
+        if repository.name in self.state.repos_on_disk:
+            if self.only_validate:
+                if not branch_exists:
+                    self.state.targets_data = {}
+                    msg = f"{repository.name} does not contain a branch named {branch} and cannot be validated. Please update the repositories."
+                    taf_logger.error(msg)
+                    raise UpdateFailedError(msg)
+            elif not branch_exists:
+                raise UpdateFailedError(
+                    f"Target repository '{repository.name}' does not contain branch '{branch}', "
+                    f"which is referenced by authentication repository '{self.state.auth_repo_name}'. "
+                    "All branches referenced by the authentication repository's target metadata "
+                    "must be present in the target repositories."
+                )
+            # else: clone_target_repositories_to_temp already fetched from
+            # origin, so refs/remotes/origin/* are current — skip re-fetch.
+
+        if old_head is not None:
+            commits = self._collect_commits_with_old_head(repository, branch, old_head)
+        else:
+            commits = self._collect_initial_branch_commits(
+                repository, branch, local_branch_exists
+            )
+        return branch, commits
+
     def get_target_repositories_commits(self):
         """Returns a list of newly fetched commits belonging to the specified branch."""
         taf_logger.debug(
@@ -1649,74 +1711,10 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         )
         self.state.fetched_commits_per_target_repos_branches = defaultdict(dict)
 
-        def fetch_commits(repository, branch, old_head):
-            fetched_commits_on_target_repo_branch = []
-            local_branch_exists = repository.branch_exists(
-                branch, include_remotes=False
-            )
-            branch_exists = repository.branch_exists(branch, include_remotes=True)
-
-            if repository.name in self.state.repos_on_disk:
-                if self.only_validate:
-                    if not branch_exists:
-                        self.state.targets_data = {}
-                        msg = f"{repository.name} does not contain a branch named {branch} and cannot be validated. Please update the repositories."
-                        taf_logger.error(msg)
-                        raise UpdateFailedError(msg)
-                elif not branch_exists:
-                    raise UpdateFailedError(
-                        f"Target repository '{repository.name}' does not contain branch '{branch}', "
-                        f"which is referenced by authentication repository '{self.state.auth_repo_name}'. "
-                        "All branches referenced by the authentication repository's target metadata "
-                        "must be present in the target repositories."
-                    )
-                # else: clone_target_repositories_to_temp already fetched from
-                # origin, so refs/remotes/origin/* are current — skip re-fetch.
-
-            if old_head is not None:
-                if not self.only_validate:
-                    fetched_commits = repository.all_commits_on_branch(
-                        branch=f"origin/{branch}"
-                    )
-                    if old_head in fetched_commits:
-                        fetched_commits_on_target_repo_branch = fetched_commits[
-                            fetched_commits.index(old_head) + 1 :
-                        ]
-                    else:
-                        fetched_commits_on_target_repo_branch = (
-                            repository.all_commits_since_commit(old_head, branch)
-                        )
-                        for commit in fetched_commits:
-                            if commit not in fetched_commits_on_target_repo_branch:
-                                fetched_commits_on_target_repo_branch.append(commit)
-                else:
-                    fetched_commits_on_target_repo_branch = (
-                        repository.all_commits_since_commit(old_head, branch)
-                    )
-                fetched_commits_on_target_repo_branch.insert(0, old_head)
-            else:
-                if local_branch_exists:
-                    fetched_commits_on_target_repo_branch = (
-                        repository.all_commits_on_branch(branch=branch, reverse=True)
-                    )
-                else:
-                    fetched_commits_on_target_repo_branch = []
-                try:
-                    fetched_commits = repository.all_commits_on_branch(
-                        branch=f"origin/{branch}"
-                    )
-                    for commit in fetched_commits:
-                        if commit not in fetched_commits_on_target_repo_branch:
-                            fetched_commits_on_target_repo_branch.append(commit)
-                except GitError:
-                    pass
-
-            return branch, fetched_commits_on_target_repo_branch
-
         with ThreadPoolExecutor() as executor:
             future_to_branch = {
                 executor.submit(
-                    fetch_commits,
+                    self._fetch_commits_for_branch,
                     repository,
                     branch,
                     self.state.old_heads_per_target_repos_branches[repository.name].get(
