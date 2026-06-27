@@ -35,7 +35,7 @@ from yubikit.piv import (
 
 from taf.config import load_config
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
-from taf.exceptions import InvalidPINError, YubikeyError
+from taf.exceptions import InvalidConfigError, InvalidPINError, YubikeyError
 from taf.utils import get_pin_for
 from taf.log import taf_logger
 
@@ -316,6 +316,9 @@ def get_pin_from_env(
     except FileNotFoundError as e:
         taf_logger.debug(f"No config file found, skipping PIN from env. {str(e)}")
         return None
+    except InvalidConfigError as e:
+        taf_logger.warning(f"Invalid config.toml, skipping PIN from env. {str(e)}")
+        return None
 
     if public_key is None:
         taf_logger.debug("No public key provided, skipping PIN from env.")
@@ -466,14 +469,19 @@ def _read_and_check_single_yubikey(
 
     pin = None
     if pin_manager.get_pin(serial_num) is None:
-        if creating_new_key:
-            pin = get_pin_for(key_name, pin_confirm, pin_repeat)
-            taf_logger.debug("Attempting to load key pin from environment variables")
-
-        taf_dir = find_taf_directory(taf_repo.path)
+        taf_logger.debug("Attempting to load key pin from environment variables")
+        lookup_path = taf_repo.path if taf_repo is not None else Path.cwd()
+        taf_dir = find_taf_directory(lookup_path)
         pin = get_pin_from_env(public_key, serial_num, taf_dir)
 
-        if pin is None:
+        if creating_new_key:
+            # A new key is being provisioned: the entered PIN becomes the new
+            # PIN written to the freshly reset YubiKey. It must not be validated
+            # against the card's current PIN, since doing so would fail on every
+            # attempt and eventually lock the key.
+            if pin is None:
+                pin = get_pin_for(key_name, pin_confirm, pin_repeat)
+        elif pin is None:
             pin = get_and_validate_pin(
                 key_name,
                 pin_confirm,
@@ -537,7 +545,8 @@ def _read_and_check_yubikeys(
     invalid_keys = []
     all_loaded = True
 
-    taf_dir = find_taf_directory(taf_repo.path)
+    lookup_path = taf_repo.path if taf_repo is not None else Path.cwd()
+    taf_dir = find_taf_directory(lookup_path)
 
     for index, serial_num in enumerate(serials):
         if not taf_repo.yubikey_store.is_loaded_for_role(serial_num, role):
