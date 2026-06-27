@@ -11,6 +11,15 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+### Fixed
+
+
+## [0.39.0]
+
+### Added
+
+### Changed
+
 - Reduce `taf repo clone` and `taf repo update` execution time by eliminating redundant network fetches ([743])
 - Improve TAF performance by roughly two thirds for both `clone` and `update` ([743])
 
@@ -23,6 +32,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 [751]: https://github.com/openlawlibrary/taf/pull/751
 [748]: https://github.com/openlawlibrary/taf/pull/748
+[743]: https://github.com/openlawlibrary/taf/pull/743
 
 
 
@@ -40,7 +50,6 @@ and this project adheres to [Semantic Versioning][semver].
 - Fix false out-of-band authentication failures on update and clone ([740])
 
 [744]: https://github.com/openlawlibrary/taf/pull/744
-[743]: https://github.com/openlawlibrary/taf/pull/743
 [742]: https://github.com/openlawlibrary/taf/pull/742
 [740]: https://github.com/openlawlibrary/taf/pull/740
 
@@ -1854,7 +1863,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
-[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.38.4...HEAD
+[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.39.0...HEAD
+[0.39.0]: https://github.com/openlawlibrary/taf/compare/v0.38.4...v0.39.0
 [0.38.4]: https://github.com/openlawlibrary/taf/compare/v0.38.3...v0.38.4
 [0.38.3]: https://github.com/openlawlibrary/taf/compare/v0.38.2...v0.38.3
 [0.38.2]: https://github.com/openlawlibrary/taf/compare/v0.38.1...v0.38.2
