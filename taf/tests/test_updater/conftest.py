@@ -84,6 +84,7 @@ UNCOMMITTED_CHANGES_RESET_PATTERN = r"There are uncommited changes in ([A-Za-z0-
 DETACHED_HEAD_RESET_PATTERN = r"(\w+\/\w+) is in detached head state. Fix the state manually or run reset with force flag."
 OLD_LVC_FORMAT_ERROR_PATTERN = r"Failure to set excluded targets for repo (\w+\/\w+) - last_validated_commit file is in old format which is not supported anymore. Please delete the file and re-run the command."
 DEFAULT_BRANCH_NOT_FOUND_PATTERN = r"Update of ([\w/]+) failed due to error: Could not find branch '[\w-]+' in local repository ([\w/]+)\. This can happen if the repository's default branch was changed after cloning\. Please re-clone the repository using 'taf repo clone'\."
+TARGET_MISSING_BRANCH_PATTERN = r"Update of (\w+\/\w+) failed due to error: Target repository '([\w/-]+)' does not contain branch '[^']+', which is referenced by authentication repository '([\w/-]+)'.*All branches referenced by the authentication repository's target metadata must be present in the target repositories\."
 
 
 # Disable console logging for all tests
@@ -661,6 +662,21 @@ def switch_target_branch_and_sign(
     sign_target_repositories(
         TEST_DATA_ORIGIN_PATH, auth_repo.name, KEYSTORE_PATH, pin_manager
     )
+
+
+def delete_target_branch(
+    target_repos: list,
+    target_name: str,
+    branch_name: str,
+):
+    """Delete a branch from the named target repository, checking out the
+    default branch first. This simulates a target repository that is missing
+    a branch which the authentication repository's target metadata references."""
+    for repo in target_repos:
+        if target_name in repo.name:
+            repo.checkout_branch(repo.default_branch)
+            repo.delete_local_branch(branch_name)
+            break
 
 
 def create_index_lock(auth_repo: AuthenticationRepository, client_dir: Path):
