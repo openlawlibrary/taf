@@ -494,15 +494,16 @@ def rotate_signing_key_command():
 
     return rotate_key
 
-
+# Zuriel: made the Role optional
 def list_keys_command():
     @click.command(help="""
         List all keys of the specified role. If certs directory exists and contains certificates exported from YubiKeys,
         include additional information read from these certificates, like name or organization.
+        If role isn't specified, list all keys with their roles.
         """)
     @find_repository
     @catch_cli_exception(handle=TAFError)
-    @click.argument("role")
+    @click.argument("role", required=False, default=None)
     @click.option(
         "--path",
         default=".",

@@ -917,38 +917,68 @@ def _get_roles_key_size(role: str, keystore: str, keys_num: int) -> int:
     return get_key_size(key_path)
 
 
+def _format_role_keys_block(role_label: str, key_ids: List[str], certs_dir: str) -> str:
+    key_lines = [
+        str(get_metadata_key_info(certs_dir, key_id)) for key_id in key_ids
+    ]
+    return f"Role: {role_label}\n" + "\n".join(key_lines)
+
+
+def _roles_for_keys(auth_repo: AuthenticationRepository) -> Dict[str, set]:
+    roles_for_key: Dict[str, set] = defaultdict(set)
+    for role_name in auth_repo.get_all_roles():
+        role_key_ids = auth_repo.get_role_keys(role=role_name)
+        if role_key_ids:
+            for key_id in role_key_ids:
+                roles_for_key[key_id].add(role_name)
+    return roles_for_key
+
+
 @log_on_error(
     ERROR,
-    "Could not list keys of {role:s}: {e}",
+    "Could not list keys: {e}",
     logger=taf_logger,
     on_exceptions=TAFError,
     reraise=True,
 )
 def list_keys_of_role(
     path: str,
-    role: str,
+    role: Optional[str] = None,
 ) -> List[str]:
     """
-     Print information about signing keys of role. If a certificate whose name matches
-     a key's id exists, include information contained by that certificate (like name and valid to/from dates)
+    Return formatted information about signing keys. If a certificate whose name matches
+    a key's id exists, include information contained by that certificate (like name and
+    valid to/from dates).
 
-     Arguments:
-         path: Path to the authentication repository.
-         role: Name of the role which is to be removed.
+    Arguments:
+        path: Path to the authentication repository.
+        role (optional): Name of the role whose keys should be listed. If omitted, each
+            unique key is listed once with all roles that reference it.
 
     Side Effects:
-         None
+        None
 
-     Returns:
-         None
+    Returns:
+        A list of formatted key blocks, each starting with a Role line.
     """
     auth_repo = AuthenticationRepository(path=path)
-    key_ids = auth_repo.get_role_keys(role=role)
-    if key_ids is None:
-        raise TAFError(f"Role {role} does not exist")
 
+    if role is not None:
+        key_ids = auth_repo.get_role_keys(role=role)
+        if key_ids is None:
+            raise TAFError(f"Role {role} does not exist")
+        if not key_ids:
+            return []
+        return [_format_role_keys_block(role, key_ids, auth_repo.certs_dir)]
+
+    roles_for_key = _roles_for_keys(auth_repo)
     return [
-        str(get_metadata_key_info(auth_repo.certs_dir, key_id)) for key_id in key_ids
+        _format_role_keys_block(
+            ", ".join(sorted(roles_for_key[key_id])),
+            [key_id],
+            auth_repo.certs_dir,
+        )
+        for key_id in sorted(roles_for_key.keys())
     ]
 
 
