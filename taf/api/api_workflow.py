@@ -10,7 +10,6 @@ from taf.api.utils._conf import (
 )
 from taf.auth_repo import AuthenticationRepository
 from taf.config import load_config
-from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import InvalidConfigError, PushFailedError, TAFError
 from taf.keys import load_signers
 from taf.messages import git_commit_message
@@ -257,7 +256,6 @@ def manage_repo_and_signers(
     auth_repo: AuthenticationRepository,
     roles: Optional[List[str]] = None,
     keystore: Optional[Union[str, Path]] = None,
-    scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
     prompt_for_keys: Optional[bool] = False,
     paths_to_reset_on_error: Optional[List[Union[str, Path]]] = None,
     load_roles: Optional[bool] = True,
@@ -279,7 +277,6 @@ def manage_repo_and_signers(
         auth_repo (AuthenticationRepository): Already instantiated authentication repository.
         roles (Optional[List[str]]): List of roles that are expected to be updated.
         keystore (Optional[Union[str, Path]]): Path to the keystore containing signing keys.
-        scheme (Optional[str]): The signature scheme.
         prompt_for_keys (Optional[bool]): If True, prompts for keys if not found. Defaults to False.
         paths_to_reset_on_error (Optional[List[Union[str, Path]]]): Paths to reset if an error occurs.
         load_roles (Optional[bool]): If True, loads signing keys of the roles specified using the argument of the same name.
@@ -314,7 +311,6 @@ def manage_repo_and_signers(
                         auth_repo,
                         role,
                         keystore=keystore_path,
-                        scheme=scheme,
                         prompt_for_keys=prompt_for_keys,
                     )
                     auth_repo.add_signers_to_cache({role: keystore_signers})

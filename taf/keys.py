@@ -185,17 +185,17 @@ def load_sorted_keys_of_new_roles(
 
 
 def _load_signer_from_keystore(
-    taf_repo, keystore_path, key_name, num_of_signatures, scheme, role
+    taf_repo, keystore_path, key_name, num_of_signatures, role
 ) -> CryptoSigner:
     if keystore_path is None:
         return None
     if (keystore_path / key_name).is_file():
         try:
             signer = load_signer_from_private_keystore(
-                keystore=keystore_path, key_name=key_name, scheme=scheme
+                keystore=keystore_path, key_name=key_name
             )
             # load only valid keys
-            if taf_repo.is_valid_metadata_key(role, signer.public_key, scheme=scheme):
+            if taf_repo.is_valid_metadata_key(role, signer.public_key):
                 return signer
         except KeystoreError:
             pass
@@ -270,7 +270,6 @@ def load_signers(
     taf_repo: TUFRepository,
     role: str,
     keystore: Optional[str] = None,
-    scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
     prompt_for_keys: Optional[bool] = False,
     key_id_pins: Optional[Dict] = None,
     use_yubikeys_to_sign: bool = False,
@@ -318,7 +317,7 @@ def load_signers(
         if num_of_signatures < len(keystore_files):
             key_name = keystore_files[num_of_signatures]
             signer = _load_signer_from_keystore(
-                taf_repo, keystore_path, key_name, num_of_signatures, scheme, role
+                taf_repo, keystore_path, key_name, num_of_signatures, role
             )
             if signer is not None:
                 signers_keystore.append(signer)
@@ -370,7 +369,7 @@ def load_signers(
 
         if prompt_for_keys and click.confirm(f"Manually enter {role} key?"):
             keys = [signer.public_key for signer in signers_keystore]
-            key = key_cmd_prompt(key_name, role, taf_repo, keys, scheme)
+            key = key_cmd_prompt(key_name, role, taf_repo, keys)
             signer = load_signer_from_pem(key)
             signers_keystore.append(key)
             num_of_signatures += 1
@@ -570,7 +569,6 @@ def _setup_keystore_key(
                 signer = load_signer_from_private_keystore(
                     keystore_path,
                     key_name,
-                    scheme=scheme,
                     password=password,
                 )
             except KeystoreError:

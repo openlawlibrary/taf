@@ -123,6 +123,7 @@ def add_role(
     new_role.number = keys_number
     new_role.threshold = threshold
     new_role.yubikey = yubikey
+    new_role.scheme = scheme
 
     signers, verification_keys = load_sorted_keys_of_new_roles(
         roles=new_role,
@@ -136,7 +137,6 @@ def add_role(
         auth_repo,
         roles=[parent_role],
         keystore=keystore_path,
-        scheme=scheme,
         prompt_for_keys=prompt_for_keys,
         load_roles=True,
         load_snapshot_and_timestamp=True,
@@ -244,7 +244,6 @@ def add_roles(
     pin_manager: PinManager,
     keystore: Optional[str] = None,
     roles_key_infos: Optional[str] = None,
-    scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
     prompt_for_keys: Optional[bool] = False,
     commit: Optional[bool] = True,
     push: Optional[bool] = True,
@@ -258,7 +257,7 @@ def add_roles(
         path: Path to the authentication repository.
         keystore (optional): Location of the keystore files.
         roles_key_infos: Path to a json file which contains information about repository's roles and keys.
-        scheme (optional): Signing scheme. Set to rsa-pkcs1v15-sha256 by default.
+            Each role's signing scheme can be specified per-role in this file (defaults to rsa-pkcs1v15-sha256).
         prompt_for_keys (optional): Whether to ask the user to enter their key if it is not located inside the keystore directory.
         commit (optional): Indicates if the changes should be committed and pushed automatically.
         push (optional): Flag specifying whether to push to remote.
@@ -321,7 +320,6 @@ def add_roles(
         auth_repo,
         roles=roles_to_load,
         keystore=keystore_path,
-        scheme=scheme,
         prompt_for_keys=prompt_for_keys,
         load_snapshot_and_timestamp=True,
         commit_msg=commit_msg,
@@ -353,7 +351,6 @@ def add_signing_key(
     pub_key_path: Optional[str] = None,
     pub_key: Optional[SSlibKey] = None,
     keystore: Optional[str] = None,
-    scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
     commit: Optional[bool] = True,
     prompt_for_keys: Optional[bool] = False,
     push: Optional[bool] = True,
@@ -370,7 +367,6 @@ def add_signing_key(
         pub_key_path (optional): path to the file containing the public component of the new key. If not provided,
             it will be necessary to ender the key when prompted.
         keystore (optional): Location of the keystore files.
-        scheme (optional): Signing scheme. Set to rsa-pkcs1v15-sha256 by default.
         prompt_for_keys (optional): Whether to ask the user to enter their key if it is not located inside the keystore directory.
         commit (optional): Indicates if the changes should be committed and pushed automatically.
         push (optional): Flag specifying whether to push to remote.
@@ -384,7 +380,7 @@ def add_signing_key(
     """
 
     pub_key = pub_key or _load_pub_key_from_file(
-        pub_key_path, prompt_for_keys=prompt_for_keys, scheme=scheme
+        pub_key_path, prompt_for_keys=prompt_for_keys
     )
 
     roles_keys = {role: [pub_key] for role in roles}
@@ -395,10 +391,9 @@ def add_signing_key(
 
     with manage_repo_and_signers(
         auth_repo,
-        roles,
-        keystore,
-        scheme,
-        prompt_for_keys,
+        roles=roles,
+        keystore=keystore,
+        prompt_for_keys=prompt_for_keys,
         load_snapshot_and_timestamp=True,
         load_parents=True,
         load_roles=False,
@@ -436,7 +431,6 @@ def revoke_signing_key(
     key_id: str,
     roles: Optional[List[str]] = None,
     keystore: Optional[str] = None,
-    scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
     commit: Optional[bool] = True,
     prompt_for_keys: Optional[bool] = False,
     push: Optional[bool] = True,
@@ -452,7 +446,6 @@ def revoke_signing_key(
         roles: A list of roles whose signing keys need to be extended.
         key_id: id of the key to be removed
         keystore (optional): Location of the keystore files.
-        scheme (optional): Signing scheme. Set to rsa-pkcs1v15-sha256 by default.
         prompt_for_keys (optional): Whether to ask the user to enter their key if it is not located inside the keystore directory.
         commit (optional): Indicates if the changes should be committed and pushed automatically.
         push (optional): Flag specifying whether to push to remote.
@@ -473,10 +466,9 @@ def revoke_signing_key(
 
     with manage_repo_and_signers(
         auth_repo,
-        roles_to_update,
-        keystore,
-        scheme,
-        prompt_for_keys,
+        roles=roles_to_update,
+        keystore=keystore,
+        prompt_for_keys=prompt_for_keys,
         load_snapshot_and_timestamp=True,
         load_parents=True,
         load_roles=False,
@@ -521,7 +513,6 @@ def rotate_signing_key(
     pub_key_path: Optional[str] = None,
     roles: Optional[List[str]] = None,
     keystore: Optional[str] = None,
-    scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
     prompt_for_keys: Optional[bool] = False,
     push: Optional[bool] = True,
     revoke_commit_msg: Optional[str] = None,
@@ -541,7 +532,6 @@ def rotate_signing_key(
         pub_key_path (optional): path to the file containing the public component of the new key. If not provided,
             it will be necessary to ender the key when prompted.
         keystore (optional): Location of the keystore files.
-        scheme (optional): Signing scheme. Set to rsa-pkcs1v15-sha256 by default.
         prompt_for_keys (optional): Whether to ask the user to enter their key if it is not located inside the keystore directory.
         commit (optional): Indicates if the changes should be committed and pushed automatically.
         push (optional): Flag specifying whether to push to remote.
@@ -555,9 +545,7 @@ def rotate_signing_key(
         None
     """
 
-    pub_key = _load_pub_key_from_file(
-        pub_key_path, prompt_for_keys=prompt_for_keys, scheme=scheme
-    )
+    pub_key = _load_pub_key_from_file(pub_key_path, prompt_for_keys=prompt_for_keys)
     auth_repo = AuthenticationRepository(path=path, pin_manager=pin_manager)
     keys_name_mappings = read_keys_name_mapping(keys_description)
     auth_repo.add_key_names(keys_name_mappings)
@@ -570,7 +558,6 @@ def rotate_signing_key(
             key_id=key_id,
             roles=roles,
             keystore=keystore,
-            scheme=scheme,
             commit=commit,
             prompt_for_keys=prompt_for_keys,
             push=False,
@@ -583,7 +570,6 @@ def rotate_signing_key(
             roles=roles,
             pub_key=pub_key,
             keystore=keystore,
-            scheme=scheme,
             commit=commit,
             prompt_for_keys=prompt_for_keys,
             push=push,
@@ -706,7 +692,7 @@ def _enter_role_info(
     return role_info
 
 
-def _load_pub_key_from_file(pub_key_path, prompt_for_keys, scheme) -> SSlibKey:
+def _load_pub_key_from_file(pub_key_path, prompt_for_keys) -> SSlibKey:
     pub_key_pem = None
     if pub_key_path is not None:
         pub_key_pem_path = Path(pub_key_path)
@@ -714,7 +700,7 @@ def _load_pub_key_from_file(pub_key_path, prompt_for_keys, scheme) -> SSlibKey:
             pub_key_pem = Path(pub_key_path).read_text()
 
     if pub_key_pem is None and prompt_for_keys:
-        pub_key_pem = new_public_key_cmd_prompt(scheme)["keyval"]["public"]
+        pub_key_pem = new_public_key_cmd_prompt()["keyval"]["public"]
 
     if pub_key_pem is None:
         raise TAFError("Public key not provided or invalid")
@@ -1100,7 +1086,6 @@ def remove_paths(
     pin_manager: PinManager,
     paths: List[str],
     keystore: str,
-    scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
     commit: Optional[bool] = True,
     commit_msg: Optional[str] = None,
     prompt_for_keys: Optional[bool] = False,
@@ -1144,7 +1129,6 @@ def remove_paths(
         auth_repo,
         roles=list(paths_to_remove_from_roles.keys()),
         keystore=keystore,
-        scheme=scheme,
         prompt_for_keys=prompt_for_keys,
         load_roles=False,
         load_parents=True,

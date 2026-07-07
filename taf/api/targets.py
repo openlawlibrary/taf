@@ -118,7 +118,7 @@ def add_target_repo(
                 threshold=threshold,
                 yubikey=yubikey,
                 keystore=keystore,
-                scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
+                scheme=scheme,
                 commit=True,
                 push=False,
                 auth_repo=auth_repo,
@@ -148,7 +148,6 @@ def add_target_repo(
         pin_manager=pin_manager,
         keystore=keystore,
         commit=commit,
-        scheme=scheme,
         auth_repo=auth_repo,
         update_snapshot_and_timestamp=True,
         prompt_for_keys=prompt_for_keys,
@@ -337,7 +336,6 @@ def register_target_files(
     keystore: Optional[str] = None,
     roles_key_infos: Optional[str] = None,
     commit: Optional[bool] = True,
-    scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
     auth_repo: Optional[AuthenticationRepository] = None,
     update_snapshot_and_timestamp: Optional[bool] = True,
     prompt_for_keys: Optional[bool] = False,
@@ -355,7 +353,6 @@ def register_target_files(
         path: Authentication repository's path.
         keystore: Location of the keystore files.
         roles_key_infos: A dictionary whose keys are role names, while values contain information about the keys.
-        scheme (optional): Signing scheme. Set to rsa-pkcs1v15-sha256 by default.
         auth_repo (optional): If auth repository is already initialized, it can be passed and used.
         write (optional): Write metadata updates to disk if set to True
         commit (optional): Indicates if the changes should be committed and pushed automatically.
@@ -407,10 +404,9 @@ def register_target_files(
                 roles_to_load.append(role)
     with manage_repo_and_signers(
         auth_repo,
-        roles_to_load,
-        keystore,
-        scheme,
-        prompt_for_keys,
+        roles=roles_to_load,
+        keystore=keystore,
+        prompt_for_keys=prompt_for_keys,
         load_snapshot_and_timestamp=update_snapshot_and_timestamp,
         load_parents=False,
         load_roles=True,
@@ -449,7 +445,6 @@ def remove_target_repo(
     keystore: str,
     prompt_for_keys: Optional[bool] = False,
     push: Optional[bool] = True,
-    scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
     keys_description: Optional[str] = None,
 ) -> None:
     """
@@ -491,7 +486,6 @@ def remove_target_repo(
             pin_manager=pin_manager,
             keystore=keystore,
             commit=True,
-            scheme=scheme,
             auth_repo=auth_repo,
             update_snapshot_and_timestamp=True,
             prompt_for_keys=prompt_for_keys,
@@ -579,7 +573,6 @@ def update_target_repos_from_repositories_json(
     library_dir: str,
     keystore: str,
     add_branch: Optional[bool] = True,
-    scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
     commit: Optional[bool] = True,
     prompt_for_keys: Optional[bool] = False,
     push: Optional[bool] = True,
@@ -592,7 +585,6 @@ def update_target_repos_from_repositories_json(
         library_dir: Path to the library's root directory. Determined based on the authentication repository's path if not provided.
         keystore: Location of the keystore files.
         add_branch: Indicates whether to add the current branch's name to the target file.
-        scheme (optional): Signing scheme. Set to rsa-pkcs1v15-sha256 by default.
         commit (optional): Indicates if the changes should be committed and pushed automatically.
         prompt_for_keys (optional): Whether to ask the user to enter their key if it is not located inside the keystore directory.
         push (optional): Flag specifying whether to push to remote
@@ -616,12 +608,10 @@ def update_target_repos_from_repositories_json(
         )
 
     register_target_files(
-        repo_path,
-        pin_manager,
-        keystore,
-        None,
-        commit,
-        scheme,
+        path=repo_path,
+        pin_manager=pin_manager,
+        keystore=keystore,
+        commit=commit,
         prompt_for_keys=prompt_for_keys,
         push=push,
         update_snapshot_and_timestamp=True,
@@ -646,7 +636,6 @@ def update_and_sign_targets(
     target_types: list,
     keystore: str,
     roles_key_infos: str,
-    scheme: str,
     commit: Optional[bool] = True,
     prompt_for_keys: Optional[bool] = False,
     push: Optional[bool] = True,
@@ -660,7 +649,6 @@ def update_and_sign_targets(
         target_types: Types of target repositories whose corresponding target files should be updated and signed.
         keystore: Location of the keystore files.
         roles_key_infos: A dictionary whose keys are role names, while values contain information about the keys.
-        scheme (optional): Signing scheme. Set to rsa-pkcs1v15-sha256 by default.
         commit (optional): Indicates if the changes should be committed and pushed automatically.
         prompt_for_keys (optional): Whether to ask the user to enter their key if it is not located inside the keystore directory.
 
@@ -706,13 +694,12 @@ def update_and_sign_targets(
         taf_logger.log("NOTICE", f"Updated {target_name} target file")
 
     register_target_files(
-        repo_path,
-        pin_manager,
-        keystore,
-        roles_key_infos,
-        commit,
-        push,
-        scheme,
+        path=repo_path,
+        pin_manager=pin_manager,
+        keystore=keystore,
+        roles_key_infos=roles_key_infos,
+        commit=commit,
+        push=push,
         prompt_for_keys=prompt_for_keys,
         reset_updated_targets_on_error=True,
         update_snapshot_and_timestamp=True,

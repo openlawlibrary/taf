@@ -20,7 +20,7 @@ from taf.api.metadata import (
     update_metadata_expiration_date,
 )
 from taf.auth_repo import AuthenticationRepository
-from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME, TARGETS_DIRECTORY_NAME
+from taf.constants import TARGETS_DIRECTORY_NAME
 from taf import repositoriesdb, settings
 from taf.exceptions import GitError
 from taf.utils import on_rm_error
@@ -826,7 +826,6 @@ def update_timestamp_metadata_invalid_signature(
         auth_repo,
         [role],
         keystore=KEYSTORE_PATH,
-        scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
         prompt_for_keys=False,
         load_snapshot_and_timestamp=False,
         commit=True,
@@ -850,7 +849,6 @@ def update_and_sign_metadata_without_clean_check(
         pin_manager=pin_manager,
         roles=roles,
         keystore=KEYSTORE_PATH,
-        scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
         prompt_for_keys=False,
         skip_clean_check=True,
         update_snapshot_and_timestamp=True,
