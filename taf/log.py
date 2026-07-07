@@ -53,11 +53,12 @@ def disable_console_logging():
 
 
 def disable_file_logging():
-    try:
-        taf_logger.remove(file_loggers["log"])
-    except (KeyError, ValueError):
-        # will be raised if this is called twice
-        pass
+    for handler_id in file_loggers:
+        try:
+            taf_logger.remove(file_loggers[handler_id])
+        except (KeyError, ValueError):
+            # will be raised if this is called twice
+            pass
 
 
 def _get_log_location():
