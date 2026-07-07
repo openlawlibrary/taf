@@ -17,11 +17,15 @@ from cryptography.hazmat.primitives.serialization import (
     load_pem_public_key,
 )
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
+from cryptography.hazmat.primitives.asymmetric.ec import (
+    EllipticCurvePublicKey,
+    SECP256R1,
+)
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 
-from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
+from taf.constants import DEFAULT_ECDSA_SIGNATURE_SCHEME, DEFAULT_RSA_SIGNATURE_SCHEME
 
 
 def generate_rsa_keypair(key_size=3072, password=None) -> Tuple[bytes, bytes]:
@@ -101,12 +105,31 @@ def _get_legacy_keyid(key: SSlibKey) -> str:
     return hasher.hexdigest()
 
 
-def _from_crypto(pub: RSAPublicKey, scheme=DEFAULT_RSA_SIGNATURE_SCHEME) -> SSlibKey:
+def _from_crypto(
+    pub: Union[RSAPublicKey, EllipticCurvePublicKey],
+    scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
+) -> SSlibKey:
     """Converts pyca/cryptography public key to SSlibKey with default signing
-    scheme and legacy keyid."""
+    scheme and legacy keyid.
+
+    Detects the key's actual type (RSA or ECDSA P-256) from the key material
+    itself. This lets callers that only pass the historical RSA default
+    scheme (because they don't know ahead of time what type of key they're
+    about to load, e.g. reading a YubiKey's public key) still get back a
+    correctly scheme-tagged key when it turns out to be an EC key.
+    """
     # securesystemslib does not (yet) check if keytype and scheme are compatible
     # https://github.com/secure-systems-lab/securesystemslib/issues/766
-    if not isinstance(pub, RSAPublicKey):
+    if isinstance(pub, RSAPublicKey):
+        pass
+    elif isinstance(pub, EllipticCurvePublicKey):
+        if not isinstance(pub.curve, SECP256R1):
+            raise ValueError(f"unsupported EC curve '{pub.curve.name}'")
+        if scheme in (DEFAULT_RSA_SIGNATURE_SCHEME, DEFAULT_ECDSA_SIGNATURE_SCHEME):
+            scheme = DEFAULT_ECDSA_SIGNATURE_SCHEME
+        else:
+            raise ValueError(f"scheme '{scheme}' not valid for an ecdsa key")
+    else:
         raise ValueError(f"keytype '{type(pub)}' not supported")
     key = SSlibKey.from_crypto(pub, scheme=scheme)
     # FIXME: include the 'keyid_hash_algorithms' entry in the key portion
@@ -117,17 +140,14 @@ def _from_crypto(pub: RSAPublicKey, scheme=DEFAULT_RSA_SIGNATURE_SCHEME) -> SSli
     return key
 
 
-def load_public_key_from_file(
-    path: Union[str, Path], scheme=DEFAULT_RSA_SIGNATURE_SCHEME
-) -> SSlibKey:
-    """Load SSlibKey from RSA public key file.
+def load_public_key_from_file(path: Union[str, Path]) -> SSlibKey:
+    """Load SSlibKey from a public key file.
 
     * Expected key file format is SubjectPublicKeyInfo/PEM
-    * Signing scheme defaults to 'rsa-pkcs1v15-sha256'
+    * Signing scheme is detected from the key material (RSA or ECDSA P-256)
     * Keyid is computed from legacy canonical representation of public key
 
     """
-    # TODO handle scheme
     with open(path, "rb") as f:
         pem = f.read()
 
@@ -136,20 +156,18 @@ def load_public_key_from_file(
 
 
 def load_signer_from_file(
-    path: Path, password: Optional[str] = None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME
+    path: Path, password: Optional[str] = None
 ) -> CryptoSigner:
-    """Load CryptoSigner from RSA private key file.
+    """Load CryptoSigner from a private key file.
 
     * Expected key file format is PKCS8/PEM
-    * Signing scheme defaults to 'rsa-pkcs1v15-sha256'
+    * Signing scheme is detected from the key material (RSA or ECDSA P-256)
     * Keyid is computed from legacy canonical representation of public key
     * If password is None, the key is expected to be unencrypted
 
     """
     with open(path, "rb") as f:
         pem = f.read()
-
-    # TODO scheme
 
     password_encoded = password.encode() if password is not None else None
     priv = load_pem_private_key(pem, password_encoded)
@@ -158,10 +176,10 @@ def load_signer_from_file(
 
 
 def load_signer_from_pem(pem: bytes, password: Optional[bytes] = None) -> CryptoSigner:
-    """Load CryptoSigner from RSA private key file.
+    """Load CryptoSigner from a private key in PEM format.
 
     * Expected key file format is PKCS8/PEM
-    * Signing scheme defaults to 'rsa-pkcs1v15-sha256'
+    * Signing scheme is detected from the key material (RSA or ECDSA P-256)
     * Keyid is computed from legacy canonical representation of public key
     * If password is None, the key is expected to be unencrypted
 
