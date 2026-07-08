@@ -8,10 +8,12 @@ from taf.auth_repo import AuthenticationRepository
 from taf.api.targets import (
     add_target_repo,
     register_target_files,
+    update_and_sign_targets,
     update_target_repos_from_repositories_json,
 )
 from taf.tests.test_api.util import (
     check_if_targets_signed,
+    check_role_scheme,
     check_target_file,
 )
 from taf.yubikey.yubikey_manager import PinManager
@@ -194,6 +196,38 @@ def test_update_target_repos_from_repositories_json(
     assert commits[0].message.strip() == git_commit_message("update-targets")
 
 
+def test_update_and_sign_targets(
+    auth_repo_when_add_repositories_json: AuthenticationRepository,
+    pin_manager: PinManager,
+    library: Path,
+    keystore_delegations: str,
+):
+    """update_and_sign_targets had a bug where it called register_target_files
+    with positional arguments that no longer lined up after the scheme
+    parameter was removed, silently corrupting later arguments. This is the
+    first direct test of this function.
+    """
+    repo_path = library / "auth"
+    initial_commits_num = len(auth_repo_when_add_repositories_json.list_pygit_commits())
+    namespace = library.name
+    update_and_sign_targets(
+        str(repo_path),
+        pin_manager,
+        str(library.parent),
+        ["type1"],
+        keystore_delegations,
+        None,
+        push=False,
+    )
+    target_repo_name = f"{namespace}/target1"
+    target_repo_path = library.parent / target_repo_name
+    assert check_target_file(
+        target_repo_path, target_repo_name, auth_repo_when_add_repositories_json
+    )
+    commits = auth_repo_when_add_repositories_json.list_pygit_commits()
+    assert len(commits) == initial_commits_num + 1
+
+
 def test_add_target_repository_when_not_on_filesystem(
     auth_repo_when_add_repositories_json: AuthenticationRepository,
     pin_manager: PinManager,
@@ -232,6 +266,47 @@ def test_add_target_repository_when_not_on_filesystem(
         "delegated_role"
     )
     assert target_repo_name in delegated_paths
+
+
+def test_add_target_repo_applies_requested_scheme_when_creating_new_role(
+    auth_repo_when_add_repositories_json: AuthenticationRepository,
+    pin_manager: PinManager,
+    library: Path,
+    roles_keystore: str,
+):
+    """When add_target_repo has to create a brand-new role for the target,
+    it must forward the scheme it was called with to add_role, instead of
+    hardcoding the RSA default regardless of what was requested.
+
+    Uses roles_keystore (an ephemeral, per-module copy that gets deleted
+    after the test module runs) rather than keystore_delegations directly,
+    since this test generates a brand-new key and keystore_delegations is
+    a shared, persistent fixture data directory.
+    """
+    requested_scheme = "rsassa-pss-sha256"
+    ROLE_NAME = "role_for_custom_scheme"
+    repo_path = str(library / "auth")
+    namespace = library.name
+    target_repo_name = f"{namespace}/target_with_new_role"
+    add_target_repo(
+        repo_path,
+        pin_manager,
+        None,
+        target_repo_name,
+        ROLE_NAME,
+        None,
+        roles_keystore,
+        paths=[target_repo_name],
+        keys_number=1,
+        threshold=1,
+        yubikey=False,
+        scheme=requested_scheme,
+        push=False,
+        should_create_new_role=True,
+        skip_prompt=True,
+    )
+
+    check_role_scheme(auth_repo_when_add_repositories_json, ROLE_NAME, requested_scheme)
 
 
 def test_add_target_repository_when_on_filesystem(

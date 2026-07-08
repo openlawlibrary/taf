@@ -10,7 +10,7 @@ from taf.api.roles import (
 )
 from taf.messages import git_commit_message
 from taf.auth_repo import AuthenticationRepository
-from taf.tests.test_api.util import check_new_role
+from taf.tests.test_api.util import check_new_role, check_role_scheme
 from taf.yubikey.yubikey_manager import PinManager
 
 
@@ -72,6 +72,36 @@ def test_add_role_when_delegated_role_is_parent(
     check_new_role(
         auth_repo_with_delegations, ROLE_NAME, PATHS, roles_keystore, PARENT_NAME
     )
+
+
+def test_add_role_applies_requested_scheme_to_generated_key(
+    auth_repo: AuthenticationRepository,
+    roles_keystore: str,
+    pin_manager: PinManager,
+):
+    """add_role must apply the scheme it was called with to the newly
+    generated key, instead of silently defaulting to rsa-pkcs1v15-sha256
+    regardless of what was requested.
+    """
+    requested_scheme = "rsassa-pss-sha256"
+    ROLE_NAME = "role_with_custom_scheme"
+    add_role(
+        path=str(auth_repo.path),
+        pin_manager=pin_manager,
+        auth_repo=auth_repo,
+        role=ROLE_NAME,
+        parent_role="targets",
+        paths=["some-scheme-path"],
+        keys_number=1,
+        threshold=1,
+        yubikey=False,
+        keystore=roles_keystore,
+        scheme=requested_scheme,
+        push=False,
+        skip_prompt=True,
+    )
+
+    check_role_scheme(auth_repo, ROLE_NAME, requested_scheme)
 
 
 def test_add_multiple_roles(

@@ -604,11 +604,11 @@ def _setup_keystore_key(
             private_pem = generate_and_write_rsa_keypair(
                 path=Path(keystore, key_name), key_size=length, password=password
             )
-            signer = load_signer_from_pem(private_pem)
+            signer = load_signer_from_pem(private_pem, scheme=scheme)
         else:
             _, private_pem = generate_rsa_keypair(key_size=length)
             print(f"{role_name} key:\n\n{private_pem.decode()}\n\n")
-            signer = load_signer_from_pem(private_pem)
+            signer = load_signer_from_pem(private_pem, scheme=scheme)
 
     if signer is not None:
         return signer, _get_legacy_keyid(signer.public_key)
