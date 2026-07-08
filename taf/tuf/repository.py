@@ -29,7 +29,6 @@ try:
 except ImportError:
     yk = YubikeyMissingLibrary()  # type: ignore
 
-from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.utils import (
     default_backend,
     get_file_details,
@@ -1376,7 +1375,7 @@ class MetadataRepository(Repository):
             pass
 
     def is_valid_metadata_key(
-        self, role: str, key: Union[SSlibKey, str], scheme=DEFAULT_RSA_SIGNATURE_SCHEME
+        self, role: str, key: Union[SSlibKey, str], scheme: Optional[str] = None
     ) -> bool:
         """Checks if metadata role contains key id of provided key.
 

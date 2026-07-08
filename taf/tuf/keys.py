@@ -78,9 +78,7 @@ def generate_and_write_rsa_keypair(path, key_size, password) -> bytes:
     return private_pem
 
 
-def get_sslib_key_from_value(
-    key: str, scheme: str = DEFAULT_RSA_SIGNATURE_SCHEME
-) -> SSlibKey:
+def get_sslib_key_from_value(key: str, scheme: Optional[str] = None) -> SSlibKey:
     """
     Converts a key from its string representation into an SSlibKey object.
     """
@@ -113,30 +111,23 @@ def _from_crypto(
     scheme and legacy keyid.
 
     Detects the key's actual type (RSA or ECDSA P-256) from the key material
-    itself. This lets callers that pass no scheme, or the historical RSA
-    default, because they don't know ahead of time what type of key they're
-    about to load (e.g. reading a YubiKey's public key) still get back a
-    correctly scheme-tagged key when it turns out to be an EC key. RSA
-    callers that need a specific sub-scheme (e.g. rsassa-pss-sha256) can
-    still request one explicitly, since that can't be inferred from the key
-    bytes alone.
+    itself, so callers that pass scheme=None because they don't know ahead
+    of time what type of key they're about to load (e.g. reading a
+    YubiKey's public key) still get back a correctly scheme-tagged key
+    when it turns out to be an EC key. RSA callers that need a specific
+    sub-scheme (e.g. rsassa-pss-sha256) can still request one explicitly,
+    since that can't be inferred from the key bytes alone.
     """
     # securesystemslib does not (yet) check if keytype and scheme are compatible
     # https://github.com/secure-systems-lab/securesystemslib/issues/766
     if isinstance(pub, RSAPublicKey):
-        if scheme is None:
-            scheme = DEFAULT_RSA_SIGNATURE_SCHEME
+        scheme = scheme or DEFAULT_RSA_SIGNATURE_SCHEME
     elif isinstance(pub, EllipticCurvePublicKey):
         if not isinstance(pub.curve, SECP256R1):
             raise ValueError(f"unsupported EC curve '{pub.curve.name}'")
-        if scheme in (
-            None,
-            DEFAULT_RSA_SIGNATURE_SCHEME,
-            DEFAULT_ECDSA_SIGNATURE_SCHEME,
-        ):
-            scheme = DEFAULT_ECDSA_SIGNATURE_SCHEME
-        else:
+        if scheme not in (None, DEFAULT_ECDSA_SIGNATURE_SCHEME):
             raise ValueError(f"scheme '{scheme}' not valid for an ecdsa key")
+        scheme = DEFAULT_ECDSA_SIGNATURE_SCHEME
     else:
         raise ValueError(f"keytype '{type(pub)}' not supported")
     key = SSlibKey.from_crypto(pub, scheme=scheme)
