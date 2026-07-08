@@ -127,7 +127,7 @@ def _reset_to_commits_before_pull(auth_repo, commits_data, targets_data):
 
     auth_repo.checkout_branch(auth_repo.default_branch)
     _reset_repository(auth_repo, commits_data)
-    auth_repo.set_last_validated_commit(commits_data.before_pull)
+    auth_repo.set_last_validated_of_repo(auth_repo.name, commits_data.before_pull)
 
     for repo_name, repo_data in targets_data.items():
         repo = repositoriesdb.get_repository(auth_repo, repo_name)
