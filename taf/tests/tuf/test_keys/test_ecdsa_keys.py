@@ -6,7 +6,11 @@ from cryptography.hazmat.primitives.asymmetric.ec import (
 )
 
 from taf.constants import DEFAULT_ECDSA_SIGNATURE_SCHEME, DEFAULT_RSA_SIGNATURE_SCHEME
-from taf.tuf.keys import get_sslib_key_from_value, load_signer_from_pem
+from taf.tuf.keys import (
+    generate_rsa_keypair,
+    get_sslib_key_from_value,
+    load_signer_from_pem,
+)
 
 
 def _ec_keypair_pem(curve=SECP256R1()):
@@ -80,10 +84,6 @@ def test_ecdsa_signer_round_trip():
 
 
 def test_rsa_scheme_default_still_used_for_rsa_keys():
-    """Regression guard: the RSA path must be entirely unaffected by the
-    EC-detection branch."""
-    from taf.tuf.keys import generate_rsa_keypair
-
     _, public_pem = generate_rsa_keypair(key_size=2048)
 
     key = get_sslib_key_from_value(public_pem.decode())

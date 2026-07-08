@@ -79,10 +79,6 @@ def test_add_role_applies_requested_scheme_to_generated_key(
     roles_keystore: str,
     pin_manager: PinManager,
 ):
-    """add_role must apply the scheme it was called with to the newly
-    generated key, instead of silently defaulting to rsa-pkcs1v15-sha256
-    regardless of what was requested.
-    """
     requested_scheme = "rsassa-pss-sha256"
     ROLE_NAME = "role_with_custom_scheme"
     add_role(

@@ -123,6 +123,11 @@ def _from_crypto(
     if isinstance(pub, RSAPublicKey):
         scheme = scheme or DEFAULT_RSA_SIGNATURE_SCHEME
     elif isinstance(pub, EllipticCurvePublicKey):
+        # only P-256 is accepted here because securesystemslib.CryptoSigner
+        # (used for signing) only implements ecdsa-sha2-nistp256; sslib's
+        # SSlibKey already supports *verifying* nistp384/nistp521
+        # signatures, so this is a signing-side limitation, not a
+        # fundamental one
         if not isinstance(pub.curve, SECP256R1):
             raise ValueError(f"unsupported EC curve '{pub.curve.name}'")
         if scheme not in (None, DEFAULT_ECDSA_SIGNATURE_SCHEME):

@@ -196,17 +196,12 @@ def test_update_target_repos_from_repositories_json(
     assert commits[0].message.strip() == git_commit_message("update-targets")
 
 
-def test_update_and_sign_targets(
+def test_update_and_sign_targets_when_target_type_matches(
     auth_repo_when_add_repositories_json: AuthenticationRepository,
     pin_manager: PinManager,
     library: Path,
     keystore_delegations: str,
 ):
-    """update_and_sign_targets had a bug where it called register_target_files
-    with positional arguments that no longer lined up after the scheme
-    parameter was removed, silently corrupting later arguments. This is the
-    first direct test of this function.
-    """
     repo_path = library / "auth"
     initial_commits_num = len(auth_repo_when_add_repositories_json.list_pygit_commits())
     namespace = library.name
@@ -274,15 +269,6 @@ def test_add_target_repo_applies_requested_scheme_when_creating_new_role(
     library: Path,
     roles_keystore: str,
 ):
-    """When add_target_repo has to create a brand-new role for the target,
-    it must forward the scheme it was called with to add_role, instead of
-    hardcoding the RSA default regardless of what was requested.
-
-    Uses roles_keystore (an ephemeral, per-module copy that gets deleted
-    after the test module runs) rather than keystore_delegations directly,
-    since this test generates a brand-new key and keystore_delegations is
-    a shared, persistent fixture data directory.
-    """
     requested_scheme = "rsassa-pss-sha256"
     ROLE_NAME = "role_for_custom_scheme"
     repo_path = str(library / "auth")

@@ -257,7 +257,6 @@ def add_roles(
         path: Path to the authentication repository.
         keystore (optional): Location of the keystore files.
         roles_key_infos: Path to a json file which contains information about repository's roles and keys.
-            Each role's signing scheme can be specified per-role in this file (defaults to rsa-pkcs1v15-sha256).
         prompt_for_keys (optional): Whether to ask the user to enter their key if it is not located inside the keystore directory.
         commit (optional): Indicates if the changes should be committed and pushed automatically.
         push (optional): Flag specifying whether to push to remote.
