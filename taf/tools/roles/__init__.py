@@ -81,16 +81,10 @@ def add_roles_command():
         default=".",
         help="Authentication repository's location. If not specified, set to the current directory",
     )
-    @click.option(
-        "--scheme",
-        default=DEFAULT_RSA_SIGNATURE_SCHEME,
-        help="A signature scheme used for signing",
-    )
     @pin_managed
     def add_roles(
         config_file,
         path,
-        scheme,
         keystore,
         no_commit,
         prompt_for_keys,
@@ -103,7 +97,6 @@ def add_roles_command():
             pin_manager=pin_manager,
             keystore=keystore,
             roles_key_infos=config_file,
-            scheme=scheme,
             prompt_for_keys=prompt_for_keys,
             commit=not no_commit,
             keys_description=keys_description,
@@ -264,18 +257,12 @@ def remove_paths_command():
     @click.option(
         "--delegated-path", multiple=True, help="A list of paths to be removed"
     )
-    @click.option(
-        "--scheme",
-        default=DEFAULT_RSA_SIGNATURE_SCHEME,
-        help="A signature scheme used for signing",
-    )
     @click.option("--commit-msg", default=None, help="Commit message")
     @pin_managed
     def remove_delegated_paths(
         path,
         delegated_path,
         keystore,
-        scheme,
         no_commit,
         prompt_for_keys,
         pin_manager,
@@ -292,7 +279,6 @@ def remove_paths_command():
             pin_manager=pin_manager,
             paths=delegated_path,
             keystore=keystore,
-            scheme=scheme,
             commit=not no_commit,
             prompt_for_keys=prompt_for_keys,
             keys_description=keys_description,
@@ -331,11 +317,6 @@ def add_signing_key_command():
         default=None,
         help="Path to the public key corresponding to the private key which should be registered as the role's signing key",
     )
-    @click.option(
-        "--scheme",
-        default=DEFAULT_RSA_SIGNATURE_SCHEME,
-        help="A signature scheme used for signing",
-    )
     @click.option("--commit-msg", default=None, help="Commit message")
     @pin_managed
     def adding_signing_key(
@@ -343,7 +324,6 @@ def add_signing_key_command():
         role,
         pub_key_path,
         keystore,
-        scheme,
         no_commit,
         prompt_for_keys,
         pin_manager,
@@ -361,7 +341,6 @@ def add_signing_key_command():
             roles=role,
             pub_key_path=pub_key_path,
             keystore=keystore,
-            scheme=scheme,
             commit=not no_commit,
             prompt_for_keys=prompt_for_keys,
             keys_description=keys_description,
@@ -390,11 +369,6 @@ def revoke_signing_key_command():
         multiple=True,
         help="A list of roles from which to remove the key. If unspecified, the key is removed from all roles by default.",
     )
-    @click.option(
-        "--scheme",
-        default=DEFAULT_RSA_SIGNATURE_SCHEME,
-        help="A signature scheme used for signing",
-    )
     @click.option("--commit-msg", default=None, help="Commit message")
     @pin_managed
     def revoke_key(
@@ -402,7 +376,6 @@ def revoke_signing_key_command():
         role,
         keyid,
         keystore,
-        scheme,
         no_commit,
         prompt_for_keys,
         pin_manager,
@@ -417,7 +390,6 @@ def revoke_signing_key_command():
             roles=role,
             key_id=keyid,
             keystore=keystore,
-            scheme=scheme,
             commit=not no_commit,
             prompt_for_keys=prompt_for_keys,
             keys_description=keys_description,
@@ -450,11 +422,6 @@ def rotate_signing_key_command():
         default=None,
         help="Path to the public key corresponding to the private key which should be registered as the role's signing key",
     )
-    @click.option(
-        "--scheme",
-        default=DEFAULT_RSA_SIGNATURE_SCHEME,
-        help="A signature scheme used for signing",
-    )
     @click.option("--revoke-commit-msg", default=None, help="Revoke key commit message")
     @click.option(
         "--add-commit-msg", default=None, help="Add new signing key commit message"
@@ -467,7 +434,6 @@ def rotate_signing_key_command():
         keyid,
         pub_key_path,
         keystore,
-        scheme,
         prompt_for_keys,
         revoke_commit_msg,
         add_commit_msg,
@@ -482,7 +448,6 @@ def rotate_signing_key_command():
             roles=role,
             key_id=keyid,
             keystore=keystore,
-            scheme=scheme,
             prompt_for_keys=prompt_for_keys,
             pub_key_path=pub_key_path,
             revoke_commit_msg=revoke_commit_msg,

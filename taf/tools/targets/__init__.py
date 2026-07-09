@@ -294,11 +294,6 @@ def sign_targets_command():
         help="Authentication repository's location. If not specified, set to the current directory",
     )
     @click.option(
-        "--scheme",
-        default=DEFAULT_RSA_SIGNATURE_SCHEME,
-        help="A signature scheme used for signing",
-    )
-    @click.option(
         "--no-commit",
         is_flag=True,
         default=False,
@@ -309,7 +304,6 @@ def sign_targets_command():
         path,
         keystore,
         keys_description,
-        scheme,
         prompt_for_keys,
         no_commit,
         pin_manager,
@@ -320,7 +314,6 @@ def sign_targets_command():
                 pin_manager=pin_manager,
                 keystore=keystore,
                 roles_key_infos=keys_description,
-                scheme=scheme,
                 update_snapshot_and_timestamp=True,
                 prompt_for_keys=prompt_for_keys,
                 commit=not no_commit,
@@ -378,11 +371,6 @@ def update_and_sign_command():
         help="A dictionary containing information about the keys or a path to a json file which stores the needed information",
     )
     @click.option(
-        "--scheme",
-        default=DEFAULT_RSA_SIGNATURE_SCHEME,
-        help="A signature scheme used for signing",
-    )
-    @click.option(
         "--prompt-for-keys",
         is_flag=True,
         default=False,
@@ -401,7 +389,6 @@ def update_and_sign_command():
         target_type,
         keystore,
         keys_description,
-        scheme,
         prompt_for_keys,
         no_commit,
         pin_manager,
@@ -415,7 +402,6 @@ def update_and_sign_command():
                     target_type,
                     keystore=keystore,
                     roles_key_infos=keys_description,
-                    scheme=scheme,
                     prompt_for_keys=prompt_for_keys,
                     commit=not no_commit,
                 )
@@ -425,7 +411,6 @@ def update_and_sign_command():
                     library_dir,
                     add_branch=True,
                     keystore=keystore,
-                    scheme=scheme,
                     prompt_for_keys=prompt_for_keys,
                     commit=not no_commit,
                     keys_description=keys_description,

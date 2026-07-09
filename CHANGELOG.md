@@ -11,8 +11,14 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- Remove unused `scheme` parameters ([757])
+
 ### Fixed
 
+- Detect signing scheme from key material instead of assuming RSA ([757])
+
+
+[757]: https://github.com/openlawlibrary/taf/pull/757
 
 ## [0.39.0]
 
