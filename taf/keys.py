@@ -98,8 +98,8 @@ def _extract_x509(cert_pem: bytes) -> Dict:
         "country": _get_attr(x509.OID_COUNTRY_NAME),
         "state": _get_attr(x509.OID_STATE_OR_PROVINCE_NAME),
         "locality": _get_attr(x509.OID_LOCALITY_NAME),
-        "valid_from": cert.not_valid_before.strftime("%Y-%m-%d"),
-        "valid_to": cert.not_valid_after.strftime("%Y-%m-%d"),
+        "valid_from": cert.not_valid_before_utc.strftime("%Y-%m-%d"),
+        "valid_to": cert.not_valid_after_utc.strftime("%Y-%m-%d"),
     }
 
 

@@ -31,6 +31,12 @@ class FakeYubiKey:
 
         self.tuf_key = load_signer_from_file(priv_key_path)
 
+        # PIV slot state (key/cert per slot), persisted here rather than on
+        # FakePivController, since a new FakePivController is constructed on
+        # every `with _yk_piv_ctrl(...)` block - this is what needs to
+        # survive across separate calls (e.g. setup() then get_slot_status())
+        self.slots: dict = {}
+
     @property
     def driver(self):
         return self
@@ -61,14 +67,57 @@ class FakeYubiKey:
 
 
 class FakePivController:
+    """Fake yubikit.piv.PivSession.
+
+    Tracks key/certificate state per PIV slot, so tests can exercise
+    slot-targeted setup (put_key/put_certificate/get_certificate) instead of
+    always seeing/writing a single fixed key regardless of which slot was
+    requested. SLOT.SIGNATURE starts out "occupied" with the driver's own
+    key/cert, matching a YubiKey that's already been set up the traditional
+    way; every other slot starts free.
+    """
+
     def __init__(self, driver):
+        from yubikit.piv import SLOT
+
         self._driver = driver
+        # slot state lives on the driver (FakeYubiKey), not here, so it
+        # survives across separate `with _yk_piv_ctrl(...)` blocks
+        if SLOT.SIGNATURE not in driver.slots:
+            driver.slots[SLOT.SIGNATURE] = {
+                "priv_key": driver.priv_key,
+                "pub_key": driver.pub_key,
+                "cert": self._build_certificate(driver.pub_key, driver.priv_key),
+            }
+
+    @property
+    def _slots(self):
+        return self._driver.slots
 
     @property
     def driver(self):
         return None
 
+    def _build_certificate(self, pub_key, priv_key):
+        name = x509.Name(
+            [x509.NameAttribute(x509.NameOID.COMMON_NAME, self.__class__.__name__)]
+        )
+        now = datetime.datetime.utcnow()
+        return (
+            x509.CertificateBuilder()
+            .subject_name(name)
+            .issuer_name(name)
+            .public_key(pub_key)
+            .serial_number(self._driver.serial)
+            .not_valid_before(now)
+            .not_valid_after(now + datetime.timedelta(days=365))
+            .sign(priv_key, hashes.SHA256(), default_backend())
+        )
+
     def authenticate(self, *args, **kwargs):
+        pass
+
+    def set_management_key(self, *args, **kwargs):
         pass
 
     def change_pin(self, *args, **kwargs):
@@ -83,27 +132,31 @@ class FakePivController:
     def get_pin_tries(self):
         return 1
 
-    def get_certificate(self, _slot):
-        name = x509.Name(
-            [x509.NameAttribute(x509.NameOID.COMMON_NAME, self.__class__.__name__)]
-        )
-        now = datetime.datetime.utcnow()
+    def put_key(self, slot, private_key, pin_policy=None, touch_policy=None):
+        self._slots[slot] = {
+            "priv_key": private_key,
+            "pub_key": private_key.public_key(),
+            "cert": None,
+        }
 
-        return (
-            x509.CertificateBuilder()
-            .subject_name(name)
-            .issuer_name(name)
-            .public_key(self._driver.pub_key)
-            .serial_number(self._driver.serial)
-            .not_valid_before(now)
-            .not_valid_after(now + datetime.timedelta(days=365))
-            .sign(self._driver.priv_key, hashes.SHA256(), default_backend())
-        )
+    def put_certificate(self, slot, cert):
+        self._slots.setdefault(slot, {})["cert"] = cert
+
+    def get_certificate(self, slot):
+        slot_data = self._slots.get(slot)
+        if not slot_data or slot_data.get("cert") is None:
+            from yubikit.core.smartcard import ApduError, SW
+
+            raise ApduError(b"", SW.FILE_NOT_FOUND)
+        return slot_data["cert"]
 
     def reset(self):
-        pass
+        self._driver.slots.clear()
 
     def set_pin_retries(self, *args, **kwargs):
+        pass
+
+    def set_pin_attempts(self, *args, **kwargs):
         pass
 
     def sign(self, slot, key_type, data, hash, padding):
@@ -111,8 +164,9 @@ class FakePivController:
         if isinstance(data, str):
             data = data.encode("utf-8")
 
-        signature = self._driver.priv_key.sign(data, padding, hash)
-        return signature
+        slot_data = self._slots.get(slot)
+        priv_key = slot_data["priv_key"] if slot_data else self._driver.priv_key
+        return priv_key.sign(data, padding, hash)
 
     def verify_pin(self, pin):
         if self._driver.pin != pin:
