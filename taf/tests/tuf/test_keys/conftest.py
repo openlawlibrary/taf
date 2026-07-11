@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 import shutil
 
@@ -5,6 +7,8 @@ from taf.utils import on_rm_error
 from taf.models.converter import from_dict
 from taf.models.types import RolesKeysData
 from taf.tuf.repository import MetadataRepository
+
+KEYSTORE_PATH = Path(__file__).parents[2] / "data" / "keystores" / "keystore"
 
 
 @pytest.fixture
@@ -16,6 +20,22 @@ def fake_single_yubikey(monkeypatch):
     import taf.yubikey.yubikey as yk
 
     monkeypatch.setattr(yk, "get_serial_nums", lambda: ["1234"])
+
+
+@pytest.fixture
+def fake_yubikey(monkeypatch):
+    """A fake inserted YubiKey backed by a real keystore key in SIGNATURE,
+    with put_key/put_certificate/reset emulated per-slot so slot-management
+    behavior (setup, get_slot_status, get_piv_public_keys_tuf) can be tested
+    without real hardware."""
+    import taf.yubikey.yubikey as yk
+    from taf.tools.yubikey.yubikey_utils import FakeYubiKey, _yk_piv_ctrl_mock
+
+    monkeypatch.setattr(yk, "_yk_piv_ctrl", _yk_piv_ctrl_mock)
+    key = FakeYubiKey(KEYSTORE_PATH / "root1", KEYSTORE_PATH / "root1.pub", scheme=None)
+    key.insert()
+    yield key
+    key.remove()
 
 
 @pytest.fixture(autouse=False)

@@ -1,5 +1,6 @@
 import click
 from taf.api.yubikey import (
+    SETUP_SLOTS,
     export_yk_certificate,
     export_yk_public_pem,
     get_yk_roles,
@@ -12,9 +13,8 @@ from taf.repository_utils import find_valid_repository
 from taf.tools.cli import catch_cli_exception
 from taf.tools.repo import pin_managed
 from taf.yubikey.yubikey import list_connected_yubikeys, list_all_devices
-from yubikit.piv import SLOT
 
-SLOT_NAMES = [s.name for s in SLOT if s != SLOT.ATTESTATION]
+SETUP_SLOT_NAMES = [s.name for s in SETUP_SLOTS]
 
 
 def check_pin_command():
@@ -119,7 +119,7 @@ def setup_signing_key_command():
     )
     @click.option(
         "--slot",
-        type=click.Choice(SLOT_NAMES),
+        type=click.Choice(SETUP_SLOT_NAMES),
         default="SIGNATURE",
         help="PIV slot to set the key up in. Defaults to SIGNATURE.",
     )
@@ -133,8 +133,7 @@ def setup_signing_key_command():
     @click.option(
         "--reset/--no-reset",
         default=False,
-        help="Whether to factory-reset the card first. Defaults to False, so only "
-        "the given slot is touched",
+        help="Whether to factory-reset the card first. Defaults to False.",
     )
     @catch_cli_exception(handle=YubikeyError)
     @pin_managed
@@ -170,7 +169,7 @@ def setup_test_key_command():
     @click.argument("key-path")
     @click.option(
         "--slot",
-        type=click.Choice(SLOT_NAMES),
+        type=click.Choice(SETUP_SLOT_NAMES),
         default="SIGNATURE",
         help="PIV slot to copy the key into. Defaults to SIGNATURE.",
     )
@@ -184,15 +183,12 @@ def setup_test_key_command():
     @click.option(
         "--reset/--no-reset",
         default=False,
-        help="Whether to factory-reset the card first. Defaults to False, so only "
-        "the given slot is touched",
+        help="Whether to factory-reset the card first. Defaults to False.",
     )
     @catch_cli_exception(handle=YubikeyError)
     @pin_managed
     def setup_test_key(key_path, slot, force, reset, pin_manager):
-        setup_test_yubikey(
-            pin_manager, key_path, slot=slot, force=force, reset=reset
-        )
+        setup_test_yubikey(pin_manager, key_path, slot=slot, force=force, reset=reset)
 
     return setup_test_key
 

@@ -380,9 +380,7 @@ def get_piv_public_key_tuf(
 
 
 @raise_yubikey_err("Cannot get public keys in TUF format.")
-def get_piv_public_keys_tuf(
-    scheme=DEFAULT_RSA_SIGNATURE_SCHEME, serial=None
-) -> dict:
+def get_piv_public_keys_tuf(scheme=DEFAULT_RSA_SIGNATURE_SCHEME, serial=None) -> dict:
     """Return the public key of every occupied PIV slot on a YubiKey, in
     TUF's key format.
 
@@ -401,10 +399,14 @@ def get_piv_public_keys_tuf(
         for slot, cert in slot_status.items():
             if cert is None:
                 continue
-            pub_key_pem = cert.public_key().public_bytes(
-                encoding=serialization.Encoding.PEM,
-                format=serialization.PublicFormat.SubjectPublicKeyInfo,
-            ).decode("utf-8")
+            pub_key_pem = (
+                cert.public_key()
+                .public_bytes(
+                    encoding=serialization.Encoding.PEM,
+                    format=serialization.PublicFormat.SubjectPublicKeyInfo,
+                )
+                .decode("utf-8")
+            )
             dev_keys[slot] = get_sslib_key_from_value(pub_key_pem, scheme)
         keys[dev_serial] = dev_keys
     return keys
