@@ -49,23 +49,21 @@ def _resolve_single_serial(prompt: Optional[str] = None) -> str:
     return serials[0]
 
 
-def _confirm_slot_overwrite(serial: str, piv_slot: SLOT, force: bool) -> Optional[bool]:
+def _confirm_slot_overwrite(serial: str, piv_slot: SLOT, force: bool) -> bool:
     """Check whether the target slot is already occupied and, if so, confirm
-    before overwriting it. Returns the force flag to setup with, or None if
-    the user declined."""
+    before overwriting it. Returns whether to proceed."""
     occupied = yk.get_slot_status(serial=serial)[serial][piv_slot] is not None
     if occupied and not force:
         if not click.confirm(
             f"WARNING - the {piv_slot.name} slot already has a key. "
             "This will overwrite it. Proceed?"
         ):
-            return None
-        return True
-    if occupied:
+            return False
+    elif occupied:
         print(f"Overwriting the existing key in the {piv_slot.name} slot.")
     else:
         print(f"Setting up a new key in the {piv_slot.name} slot.")
-    return force
+    return True
 
 
 def _prepare_non_reset_setup(
@@ -73,16 +71,16 @@ def _prepare_non_reset_setup(
     force: bool,
     serial: Optional[str] = None,
     insert_prompt: Optional[str] = None,
-) -> Optional[Tuple[str, bool]]:
+) -> Tuple[bool, str]:
     """Resolve which YubiKey to use (unless already given) and confirm
-    before touching an occupied slot. Returns (serial, force) to proceed
-    with, or None if the user declined an overwrite confirmation."""
+    before touching an occupied slot. Returns (proceed, serial); once
+    proceed is True, the target slot's occupancy has already been dealt
+    with, so it's safe to setup with force=True regardless of the force
+    that was passed in."""
     if serial is None:
         serial = _resolve_single_serial(insert_prompt)
-    force = _confirm_slot_overwrite(serial, piv_slot, force)
-    if force is None:
-        return None
-    return serial, force
+    proceed = _confirm_slot_overwrite(serial, piv_slot, force)
+    return proceed, serial
 
 
 @log_on_start(DEBUG, "Exporting public pem from YubiKey", logger=taf_logger)
@@ -285,14 +283,14 @@ def setup_signing_yubikey(
         # Not resetting, so the card's existing PIN is left untouched and
         # isn't needed for this operation (adding a key to a slot only
         # requires the management key).
-        result = _prepare_non_reset_setup(
+        proceed, serial_num = _prepare_non_reset_setup(
             piv_slot,
             force,
             insert_prompt="Insert the YubiKey you want to set up and press ENTER",
         )
-        if result is None:
+        if not proceed:
             return
-        serial_num, force = result
+        force = True
 
     key = yk.setup_new_yubikey(
         pin_manager,
@@ -391,10 +389,10 @@ def setup_test_yubikey(
         if not click.confirm("WARNING - this will reset the inserted key. Proceed?"):
             return
     else:
-        result = _prepare_non_reset_setup(piv_slot, force, serial=serial)
-        if result is None:
+        proceed, serial = _prepare_non_reset_setup(piv_slot, force, serial=serial)
+        if not proceed:
             return
-        serial, force = result
+        force = True
 
     key_pem_path = Path(key_path)
     key_pem = key_pem_path.read_bytes()
