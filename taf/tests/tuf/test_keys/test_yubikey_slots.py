@@ -1,32 +1,60 @@
-from pathlib import Path
-
 import pytest
+from yubikit.core import NotSupportedError
 from yubikit.piv import SLOT
 
 import taf.api.yubikey as yk_api
 import taf.yubikey.yubikey as yk
 from taf.exceptions import YubikeyError
+from taf.tools.yubikey.yubikey_utils import FakePivController
 from taf.yubikey.yubikey_manager import PinManager
 
-KEYSTORE_PATH = Path(__file__).parents[2] / "data" / "keystores" / "keystore"
 
-
-def test_resolve_setup_slot_rejects_retired_slots():
+def test_resolve_slot_rejects_retired_slots():
     with pytest.raises(YubikeyError):
-        yk_api._resolve_setup_slot("RETIRED1")
+        yk_api._resolve_slot("RETIRED1")
 
 
 def test_get_slot_status_reports_signature_occupied_and_others_free(fake_yubikey):
     status = yk.get_slot_status(serial=fake_yubikey.serial)
 
     slot_status = status[fake_yubikey.serial]
-    assert slot_status[SLOT.SIGNATURE] is not None
+    assert (
+        slot_status[SLOT.SIGNATURE].public_key().public_numbers()
+        == fake_yubikey.pub_key.public_numbers()
+    )
     assert slot_status[SLOT.AUTHENTICATION] is None
     assert slot_status[SLOT.KEY_MANAGEMENT] is None
 
 
-def test_get_piv_public_keys_tuf_covers_every_occupied_slot(fake_yubikey):
-    new_key_pem = (KEYSTORE_PATH / "root2").read_bytes()
+def test_is_slot_occupied_detects_key_without_certificate(fake_yubikey):
+    # a slot's key and certificate are separate objects - simulate one
+    # holding a key but no certificate (e.g. an interrupted setup(), or a
+    # slot provisioned by another tool) and confirm occupancy is still
+    # detected, rather than relying on certificate presence alone
+    fake_yubikey.slots[SLOT.AUTHENTICATION] = {
+        "priv_key": fake_yubikey.priv_key,
+        "pub_key": fake_yubikey.pub_key,
+        "cert": None,
+    }
+
+    assert yk.is_slot_occupied(fake_yubikey.serial, SLOT.AUTHENTICATION)
+
+
+def test_is_slot_occupied_falls_back_to_certificate_on_older_firmware(
+    fake_yubikey, monkeypatch
+):
+    def _unsupported(self, slot):
+        raise NotSupportedError("get_slot_metadata requires firmware 5.3+")
+
+    monkeypatch.setattr(FakePivController, "get_slot_metadata", _unsupported)
+
+    # SIGNATURE has both a key and a certificate (the fixture's default), so
+    # the certificate-based fallback must still detect it as occupied
+    assert yk.is_slot_occupied(fake_yubikey.serial, SLOT.SIGNATURE)
+
+
+def test_get_piv_public_keys_tuf_covers_every_occupied_slot(fake_yubikey, keystore):
+    new_key_pem = (keystore / "root2").read_bytes()
     yk.setup(
         pin="123456",
         serial=fake_yubikey.serial,
@@ -43,8 +71,8 @@ def test_get_piv_public_keys_tuf_covers_every_occupied_slot(fake_yubikey):
     assert keys[SLOT.SIGNATURE].keyid != keys[SLOT.AUTHENTICATION].keyid
 
 
-def test_setup_into_free_slot_does_not_touch_existing_key(fake_yubikey):
-    new_key_pem = (KEYSTORE_PATH / "root2").read_bytes()
+def test_setup_into_free_slot_does_not_touch_existing_key(fake_yubikey, keystore):
+    new_key_pem = (keystore / "root2").read_bytes()
 
     yk.setup(
         pin="123456",
@@ -57,7 +85,6 @@ def test_setup_into_free_slot_does_not_touch_existing_key(fake_yubikey):
     status = yk.get_slot_status(serial=fake_yubikey.serial)[fake_yubikey.serial]
     assert status[SLOT.AUTHENTICATION] is not None
     # the original SIGNATURE key must be untouched, since we didn't reset
-    assert status[SLOT.SIGNATURE] is not None
     original_cert = status[SLOT.SIGNATURE]
     assert (
         original_cert.public_key().public_numbers()
@@ -76,8 +103,8 @@ def test_setup_refuses_to_overwrite_occupied_slot_without_force(fake_yubikey):
         )
 
 
-def test_setup_overwrites_occupied_slot_with_force(fake_yubikey):
-    new_key_pem = (KEYSTORE_PATH / "root2").read_bytes()
+def test_setup_overwrites_occupied_slot_with_force(fake_yubikey, keystore):
+    new_key_pem = (keystore / "root2").read_bytes()
 
     yk.setup(
         pin="123456",
@@ -117,11 +144,11 @@ def test_setup_signing_yubikey_can_write_signature_slot_without_resetting(
 
 
 def test_setup_test_yubikey_declining_occupied_slot_confirmation_leaves_key_untouched(
-    fake_yubikey, monkeypatch
+    fake_yubikey, monkeypatch, keystore
 ):
     monkeypatch.setattr(yk_api.click, "confirm", lambda *args, **kwargs: False)
 
-    new_key_path = KEYSTORE_PATH / "root2"
+    new_key_path = keystore / "root2"
 
     yk_api.setup_test_yubikey(PinManager(), str(new_key_path))
 
@@ -133,11 +160,13 @@ def test_setup_test_yubikey_declining_occupied_slot_confirmation_leaves_key_unto
     )
 
 
-def test_setup_test_yubikey_force_skips_occupied_slot_confirmation(fake_yubikey):
+def test_setup_test_yubikey_force_skips_occupied_slot_confirmation(
+    fake_yubikey, keystore
+):
     # force=True on an already-occupied slot must succeed without any
     # interactive confirmation, so click.confirm is deliberately left
     # unmocked here.
-    new_key_path = KEYSTORE_PATH / "root2"
+    new_key_path = keystore / "root2"
 
     yk_api.setup_test_yubikey(PinManager(), str(new_key_path), force=True)
 
@@ -148,10 +177,12 @@ def test_setup_test_yubikey_force_skips_occupied_slot_confirmation(fake_yubikey)
     )
 
 
-def test_setup_test_yubikey_explicit_reset_wipes_other_slots(fake_yubikey, monkeypatch):
+def test_setup_test_yubikey_explicit_reset_wipes_other_slots(
+    fake_yubikey, monkeypatch, keystore
+):
     monkeypatch.setattr(yk_api.click, "confirm", lambda *args, **kwargs: True)
 
-    new_key_path = KEYSTORE_PATH / "root2"
+    new_key_path = keystore / "root2"
 
     yk_api.setup_test_yubikey(PinManager(), str(new_key_path), reset=True)
 

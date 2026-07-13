@@ -107,6 +107,22 @@ def list_key_command():
     return list_keys
 
 
+def list_slots_command():
+    @click.command(
+        help="Show which PIV slots on the inserted YubiKey(s) are free and which are occupied."
+    )
+    @click.option(
+        "--serial",
+        default=None,
+        help="Serial number of a specific YubiKey. Lists slots for every inserted YubiKey if not specified",
+    )
+    @catch_cli_exception(handle=YubikeyError)
+    def list_slots(serial):
+        list_yk_slots(serial)
+
+    return list_slots
+
+
 def setup_signing_key_command():
     @click.command(
         help="""Generate a new key on the yubikey and copy it to the given PIV slot.
@@ -143,22 +159,6 @@ def setup_signing_key_command():
         )
 
     return setup_signing_key
-
-
-def list_slots_command():
-    @click.command(
-        help="Show which PIV slots on the inserted YubiKey(s) are free and which are occupied."
-    )
-    @click.option(
-        "--serial",
-        default=None,
-        help="Serial number of a specific YubiKey. Lists slots for every inserted YubiKey if not specified",
-    )
-    @catch_cli_exception(handle=YubikeyError)
-    def list_slots(serial):
-        list_yk_slots(serial)
-
-    return list_slots
 
 
 def setup_test_key_command():

@@ -19,6 +19,7 @@ from taf.tuf.keys import _get_legacy_keyid, get_sslib_key_from_value
 from taf.yubikey.yubikey_manager import PinManager
 from taf.models.types import KeysMapping
 from ykman.device import list_all_devices
+from yubikit.core import NotSupportedError
 from yubikit.core.smartcard import SmartCardConnection
 from ykman.piv import (
     KEY_TYPE,
@@ -654,16 +655,39 @@ def sign_piv_rsa_pkcs1v15(data, pin, serial=None):
 
 
 def _slot_occupied(ctrl, slot) -> bool:
-    """Check whether a PIV slot already has a certificate in it.
+    """Check whether a PIV slot already has a key in it.
 
-    Empty slots raise (rather than return None) when read, so absence of
-    an exception is what "occupied" means here.
+    A slot's key and certificate are separate objects, so checking only for
+    a certificate would miss a key left behind without one (e.g. an
+    interrupted setup(), or a slot provisioned by another tool). Prefer
+    get_slot_metadata, which reflects the key directly, and fall back to
+    checking for a certificate on firmware that doesn't support it (requires
+    5.3+; older devices like the YubiKey 4 can't detect a key without a
+    certificate this way).
     """
+    try:
+        ctrl.get_slot_metadata(slot)
+        return True
+    except NotSupportedError:
+        pass
+    except Exception:
+        return False
     try:
         ctrl.get_certificate(slot)
         return True
     except Exception:
         return False
+
+
+def is_slot_occupied(serial, slot) -> bool:
+    """Check whether a PIV slot on the inserted YubiKey already has a key in
+    it. See _slot_occupied for how occupancy is determined.
+
+    Raises:
+        - YubikeyError
+    """
+    with _yk_piv_ctrl(serial=serial) as [(ctrl, _)]:
+        return _slot_occupied(ctrl, slot)
 
 
 def get_slot_status(serial=None) -> dict:
@@ -770,9 +794,7 @@ def setup(
             if mgm_key is not None:
                 ctrl.set_management_key(MANAGEMENT_KEY_TYPE.TDES, mgm_key)
             else:
-                # Leave the management key at the PIV default rather than
-                # randomizing it - a forgotten random key would permanently
-                # block adding a key to any other slot without a full reset.
+                # left at the PIV default - a randomized key would block future non-reset setups
                 mgm_key = DEFAULT_MANAGEMENT_KEY
         else:
             if management_key is None:

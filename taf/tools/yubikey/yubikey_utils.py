@@ -6,6 +6,8 @@ from cryptography import x509
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, serialization
 from taf.tuf.keys import load_signer_from_file
+from yubikit.core.smartcard import ApduError, SW
+from yubikit.piv import SLOT, InvalidPinError
 
 VALID_PIN = "123456"
 WRONG_PIN = "111111"
@@ -78,8 +80,6 @@ class FakePivController:
     """
 
     def __init__(self, driver):
-        from yubikit.piv import SLOT
-
         self._driver = driver
         # slot state lives on the driver (FakeYubiKey), not here, so it
         # survives across separate `with _yk_piv_ctrl(...)` blocks
@@ -145,10 +145,16 @@ class FakePivController:
     def get_certificate(self, slot):
         slot_data = self._slots.get(slot)
         if not slot_data or slot_data.get("cert") is None:
-            from yubikit.core.smartcard import ApduError, SW
-
             raise ApduError(b"", SW.FILE_NOT_FOUND)
         return slot_data["cert"]
+
+    def get_slot_metadata(self, slot):
+        slot_data = self._slots.get(slot)
+        if not slot_data or slot_data.get("priv_key") is None:
+            raise ApduError(b"", SW.FILE_NOT_FOUND)
+        # the actual metadata fields aren't modeled - callers only care
+        # whether this raises or not
+        return object()
 
     def reset(self):
         self._driver.slots.clear()
@@ -170,8 +176,6 @@ class FakePivController:
 
     def verify_pin(self, pin):
         if self._driver.pin != pin:
-            from yubikit.piv import InvalidPinError
-
             raise InvalidPinError(0)
 
 
