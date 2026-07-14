@@ -22,7 +22,7 @@ from yubikit.piv import SLOT
 SETUP_SLOTS = {SLOT.SIGNATURE, SLOT.AUTHENTICATION, SLOT.KEY_MANAGEMENT, SLOT.CARD_AUTH}
 
 
-def _confirm_slot_overwrite(serial: str, piv_slot: SLOT, force: bool) -> bool:
+def _check_if_slot_overwrite_allowed(serial: str, piv_slot: SLOT, force: bool) -> bool:
     """Check whether the target slot is already occupied and, if so, confirm
     before overwriting it. Returns whether to proceed."""
     occupied = yk.is_slot_occupied(serial, piv_slot)
@@ -39,19 +39,6 @@ def _confirm_slot_overwrite(serial: str, piv_slot: SLOT, force: bool) -> bool:
     return True
 
 
-def _ensure_pin(pin_manager: PinManager, serial: str) -> str:
-    """Get the cached PIN for this device, prompting once for its existing
-    PIN (no confirmation needed, since it isn't being changed) if not
-    already known. The PIN is required to unlock the card's stored,
-    PIN-protected management key."""
-    pin = pin_manager.get_pin(serial)
-    if pin is None:
-        name = f"YubiKey {serial}" if len(yk.get_serial_nums()) > 1 else "YubiKey"
-        pin = get_pin_for(name, confirm=False, repeat=False)
-        pin_manager.add_pin(serial, pin)
-    return pin
-
-
 def _prepare_non_reset_setup(
     pin_manager: PinManager,
     piv_slot: SLOT,
@@ -59,15 +46,19 @@ def _prepare_non_reset_setup(
     serial: Optional[str] = None,
     insert_prompt: Optional[str] = None,
 ) -> Tuple[bool, str, str]:
-    """Resolve which YubiKey to use (unless already given), get its PIN, and
-    confirm before touching an occupied slot. Returns (proceed, serial,
-    pin); once proceed is True, the target slot's occupancy has already
-    been dealt with, so it's safe to setup with force=True regardless of
-    the force that was passed in."""
+    """Resolve which YubiKey to use, get its PIN, and confirm before
+    touching an occupied slot."""
     if serial is None:
         serial = _resolve_single_serial(insert_prompt)
-    pin = _ensure_pin(pin_manager, serial)
-    proceed = _confirm_slot_overwrite(serial, piv_slot, force)
+
+    # needed to unlock the card's stored, PIN-protected management key
+    pin = pin_manager.get_pin(serial)
+    if pin is None:
+        name = f"YubiKey {serial}" if len(yk.get_serial_nums()) > 1 else "YubiKey"
+        pin = get_pin_for(name, confirm=False, repeat=False)
+        pin_manager.add_pin(serial, pin)
+
+    proceed = _check_if_slot_overwrite_allowed(serial, piv_slot, force)
     return proceed, serial, pin
 
 
@@ -349,6 +340,8 @@ def setup_signing_yubikey(
         )
         if not proceed:
             return
+        # proceed=True means any occupied-slot warning was already
+        # confirmed, so overwriting is now always allowed
         force = True
 
     key = yk.setup_new_yubikey(
@@ -409,6 +402,8 @@ def setup_test_yubikey(
         )
         if not proceed:
             return
+        # proceed=True means any occupied-slot warning was already
+        # confirmed, so overwriting is now always allowed
         force = True
 
     key_pem_path = Path(key_path)

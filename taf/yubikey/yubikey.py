@@ -657,6 +657,21 @@ def sign_piv_rsa_pkcs1v15(data, pin, serial=None):
         return sig
 
 
+def _get_protected_management_key(ctrl):
+    """Return the management key stored in the card's PIN-protected data
+    object, or None if it was never stored there (e.g. a card set up by an
+    older version of taf). Requires the PIN to already be verified on this
+    session.
+    """
+    try:
+        key = get_pivman_protected_data(ctrl).key
+        taf_logger.debug(f"Protected management key lookup found={key is not None}")
+        return key
+    except Exception as e:
+        taf_logger.debug(f"Protected management key lookup failed: {e}")
+        return None
+
+
 def _slot_occupied(ctrl, slot) -> bool:
     """Check whether a PIV slot already has a key in it.
 
@@ -682,42 +697,14 @@ def _slot_occupied(ctrl, slot) -> bool:
         return False
 
 
-def is_slot_occupied(serial, slot) -> bool:
-    """Check whether a PIV slot on the inserted YubiKey already has a key in
-    it. See _slot_occupied for how occupancy is determined.
-
-    Raises:
-        - YubikeyError
-    """
-    with _yk_piv_ctrl(serial=serial) as [(ctrl, _)]:
-        return _slot_occupied(ctrl, slot)
-
-
 def _store_protected_management_key(ctrl, mgm_key):
     """Set a new management key and store it in the card's PIN-protected
     data object, so it can be recovered later with the PIN alone instead of
     needing to be remembered separately. Requires the PIN to already be
     verified on this session.
     """
-    pivman_set_mgm_key(
-        ctrl, mgm_key, MANAGEMENT_KEY_TYPE.TDES, store_on_device=True
-    )
+    pivman_set_mgm_key(ctrl, mgm_key, MANAGEMENT_KEY_TYPE.TDES, store_on_device=True)
     taf_logger.debug("Stored new management key in protected data object.")
-
-
-def _get_protected_management_key(ctrl):
-    """Return the management key stored in the card's PIN-protected data
-    object, or None if it was never stored there (e.g. a card set up by an
-    older version of taf). Requires the PIN to already be verified on this
-    session.
-    """
-    try:
-        key = get_pivman_protected_data(ctrl).key
-        taf_logger.debug(f"Protected management key lookup found={key is not None}")
-        return key
-    except Exception as e:
-        taf_logger.debug(f"Protected management key lookup failed: {e}")
-        return None
 
 
 def get_slot_status(serial=None) -> dict:
@@ -744,6 +731,17 @@ def get_slot_status(serial=None) -> dict:
                     slot_status[slot] = None
             status[dev_serial] = slot_status
         return status
+
+
+def is_slot_occupied(serial, slot) -> bool:
+    """Check whether a PIV slot on the inserted YubiKey already has a key in
+    it. See _slot_occupied for how occupancy is determined.
+
+    Raises:
+        - YubikeyError
+    """
+    with _yk_piv_ctrl(serial=serial) as [(ctrl, _)]:
+        return _slot_occupied(ctrl, slot)
 
 
 @raise_yubikey_err("Cannot setup Yubikey.")
