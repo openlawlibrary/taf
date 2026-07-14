@@ -13,6 +13,7 @@ from taf.exceptions import TAFError, YubikeyError
 from taf.log import taf_logger
 from taf.tuf.keys import get_sslib_key_from_value
 from taf.tuf.repository import MAIN_ROLES
+from taf.utils import get_pin_for
 import taf.yubikey.yubikey as yk
 from taf.yubikey.yubikey_manager import PinManager
 from yubikit.piv import SLOT
@@ -38,21 +39,36 @@ def _confirm_slot_overwrite(serial: str, piv_slot: SLOT, force: bool) -> bool:
     return True
 
 
+def _ensure_pin(pin_manager: PinManager, serial: str) -> str:
+    """Get the cached PIN for this device, prompting once for its existing
+    PIN (no confirmation needed, since it isn't being changed) if not
+    already known. The PIN is required to unlock the card's stored,
+    PIN-protected management key."""
+    pin = pin_manager.get_pin(serial)
+    if pin is None:
+        name = f"YubiKey {serial}" if len(yk.get_serial_nums()) > 1 else "YubiKey"
+        pin = get_pin_for(name, confirm=False, repeat=False)
+        pin_manager.add_pin(serial, pin)
+    return pin
+
+
 def _prepare_non_reset_setup(
+    pin_manager: PinManager,
     piv_slot: SLOT,
     force: bool,
     serial: Optional[str] = None,
     insert_prompt: Optional[str] = None,
-) -> Tuple[bool, str]:
-    """Resolve which YubiKey to use (unless already given) and confirm
-    before touching an occupied slot. Returns (proceed, serial); once
-    proceed is True, the target slot's occupancy has already been dealt
-    with, so it's safe to setup with force=True regardless of the force
-    that was passed in."""
+) -> Tuple[bool, str, str]:
+    """Resolve which YubiKey to use (unless already given), get its PIN, and
+    confirm before touching an occupied slot. Returns (proceed, serial,
+    pin); once proceed is True, the target slot's occupancy has already
+    been dealt with, so it's safe to setup with force=True regardless of
+    the force that was passed in."""
     if serial is None:
         serial = _resolve_single_serial(insert_prompt)
+    pin = _ensure_pin(pin_manager, serial)
     proceed = _confirm_slot_overwrite(serial, piv_slot, force)
-    return proceed, serial
+    return proceed, serial, pin
 
 
 def _resolve_single_serial(prompt: Optional[str] = None) -> str:
@@ -229,8 +245,10 @@ def get_yk_roles(path: str, serial: Optional[str] = None) -> Dict:
 )
 def list_yk_slots(serial: Optional[str] = None) -> None:
     """
-    Print the free/occupied status of every usable PIV slot on the inserted
-    YubiKey(s), including the holder name and expiry of any certificate found.
+    Print the free/occupied status of every PIV slot taf can set a key up
+    in on the inserted YubiKey(s), including the holder name and expiry of
+    any certificate found. Retired slots are excluded, since taf doesn't
+    offer them as a setup target (see SETUP_SLOTS).
 
     Arguments:
         serial (optional): Serial number of a specific YubiKey. Lists slots
@@ -251,6 +269,8 @@ def list_yk_slots(serial: Optional[str] = None) -> None:
         slot_status = yk.get_slot_status(serial=dev_serial)[dev_serial]
         print(f"\nSerial: {dev_serial}")
         for slot, cert in slot_status.items():
+            if slot not in SETUP_SLOTS:
+                continue
             if cert is None:
                 print(f"  {slot.name:<15} free")
             else:
@@ -319,8 +339,10 @@ def setup_signing_yubikey(
             raise YubikeyError("Could not generate a new key")
         _, serial_num, _ = yubikeys[0]
     else:
-        # not resetting, so the PIN is untouched and not needed here
-        proceed, serial_num = _prepare_non_reset_setup(
+        # not resetting, so the PIN itself is untouched - it's only needed
+        # here to unlock the card's stored management key
+        proceed, serial_num, _ = _prepare_non_reset_setup(
+            pin_manager,
             piv_slot,
             force,
             insert_prompt="Insert the YubiKey you want to set up and press ENTER",
@@ -382,7 +404,9 @@ def setup_test_yubikey(
         if not click.confirm("WARNING - this will reset the inserted key. Proceed?"):
             return
     else:
-        proceed, serial = _prepare_non_reset_setup(piv_slot, force, serial=serial)
+        proceed, serial, pin = _prepare_non_reset_setup(
+            pin_manager, piv_slot, force, serial=serial
+        )
         if not proceed:
             return
         force = True
@@ -395,8 +419,6 @@ def setup_test_yubikey(
         # resetting wipes the PIN too, so it's reset to the default here
         pin = yk.DEFAULT_PIN
         pin_manager.add_pin(serial, pin)
-    else:
-        pin = None
 
     pub_key = yk.setup(
         pin,

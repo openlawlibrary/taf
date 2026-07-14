@@ -1,12 +1,20 @@
 import pytest
 from yubikit.core import NotSupportedError
-from yubikit.piv import SLOT
+from yubikit.piv import DEFAULT_MANAGEMENT_KEY, SLOT
 
 import taf.api.yubikey as yk_api
 import taf.yubikey.yubikey as yk
 from taf.exceptions import YubikeyError
 from taf.tools.yubikey.yubikey_utils import FakePivController
 from taf.yubikey.yubikey_manager import PinManager
+
+
+def _pin_manager(fake_yubikey) -> PinManager:
+    """A PinManager pre-populated with the fake device's PIN, matching a
+    real caller that already knows it from an earlier interactive prompt."""
+    pin_manager = PinManager()
+    pin_manager.add_pin(fake_yubikey.serial, fake_yubikey.pin)
+    return pin_manager
 
 
 def test_resolve_slot_rejects_retired_slots():
@@ -51,6 +59,49 @@ def test_is_slot_occupied_falls_back_to_certificate_on_older_firmware(
     # SIGNATURE has both a key and a certificate (the fixture's default), so
     # the certificate-based fallback must still detect it as occupied
     assert yk.is_slot_occupied(fake_yubikey.serial, SLOT.SIGNATURE)
+
+
+def test_setup_reset_randomizes_and_stores_protected_management_key(fake_yubikey):
+    yk.setup(
+        pin="654321",
+        serial=fake_yubikey.serial,
+        cert_cn="Reset key",
+        reset=True,
+    )
+
+    # the management key must no longer be the well-known PIV default...
+    assert fake_yubikey.management_key != DEFAULT_MANAGEMENT_KEY
+    # ...and it must be recoverable with the PIN that was just set
+    with yk._yk_piv_ctrl(serial=fake_yubikey.serial) as [(ctrl, _)]:
+        ctrl.verify_pin("654321")
+        assert yk._get_protected_management_key(ctrl) == fake_yubikey.management_key
+
+
+def test_setup_non_reset_recovers_stored_management_key(fake_yubikey, keystore):
+    # reset first, choosing a new PIN - this randomizes the management key
+    # and stores it protected by that PIN
+    yk.setup(
+        pin="654321",
+        serial=fake_yubikey.serial,
+        cert_cn="Reset key",
+        reset=True,
+    )
+
+    # a later non-reset call, using the same PIN, must recover the stored
+    # (randomized, no longer default) management key on its own and
+    # authenticate successfully with it - not the PIV default
+    new_key_pem = (keystore / "root2").read_bytes()
+    yk.setup(
+        pin="654321",
+        serial=fake_yubikey.serial,
+        cert_cn="Second key",
+        private_key_pem=new_key_pem,
+        slot=SLOT.AUTHENTICATION,
+        reset=False,
+    )
+
+    status = yk.get_slot_status(serial=fake_yubikey.serial)[fake_yubikey.serial]
+    assert status[SLOT.AUTHENTICATION] is not None
 
 
 def test_get_piv_public_keys_tuf_covers_every_occupied_slot(fake_yubikey, keystore):
@@ -133,7 +184,11 @@ def test_setup_signing_yubikey_can_write_signature_slot_without_resetting(
     # SIGNATURE is already occupied by the fixture's default key, so
     # force=True is required, exactly like any other non-reset overwrite.
     yk_api.setup_signing_yubikey(
-        PinManager(), key_size=2048, slot="SIGNATURE", reset=False, force=True
+        _pin_manager(fake_yubikey),
+        key_size=2048,
+        slot="SIGNATURE",
+        reset=False,
+        force=True,
     )
 
     status = yk.get_slot_status(serial=fake_yubikey.serial)[fake_yubikey.serial]
@@ -150,7 +205,7 @@ def test_setup_test_yubikey_declining_occupied_slot_confirmation_leaves_key_unto
 
     new_key_path = keystore / "root2"
 
-    yk_api.setup_test_yubikey(PinManager(), str(new_key_path))
+    yk_api.setup_test_yubikey(_pin_manager(fake_yubikey), str(new_key_path))
 
     status = yk.get_slot_status(serial=fake_yubikey.serial)[fake_yubikey.serial]
     original_cert = status[SLOT.SIGNATURE]
@@ -168,7 +223,7 @@ def test_setup_test_yubikey_force_skips_occupied_slot_confirmation(
     # unmocked here.
     new_key_path = keystore / "root2"
 
-    yk_api.setup_test_yubikey(PinManager(), str(new_key_path), force=True)
+    yk_api.setup_test_yubikey(_pin_manager(fake_yubikey), str(new_key_path), force=True)
 
     status = yk.get_slot_status(serial=fake_yubikey.serial)[fake_yubikey.serial]
     new_cert = status[SLOT.SIGNATURE]

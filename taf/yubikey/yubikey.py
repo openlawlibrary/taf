@@ -26,6 +26,9 @@ from ykman.piv import (
     MANAGEMENT_KEY_TYPE,
     SLOT,
     PivSession,
+    generate_random_management_key,
+    get_pivman_protected_data,
+    pivman_set_mgm_key,
 )
 from yubikit.piv import (
     DEFAULT_MANAGEMENT_KEY,
@@ -690,6 +693,33 @@ def is_slot_occupied(serial, slot) -> bool:
         return _slot_occupied(ctrl, slot)
 
 
+def _store_protected_management_key(ctrl, mgm_key):
+    """Set a new management key and store it in the card's PIN-protected
+    data object, so it can be recovered later with the PIN alone instead of
+    needing to be remembered separately. Requires the PIN to already be
+    verified on this session.
+    """
+    pivman_set_mgm_key(
+        ctrl, mgm_key, MANAGEMENT_KEY_TYPE.TDES, store_on_device=True
+    )
+    taf_logger.debug("Stored new management key in protected data object.")
+
+
+def _get_protected_management_key(ctrl):
+    """Return the management key stored in the card's PIN-protected data
+    object, or None if it was never stored there (e.g. a card set up by an
+    older version of taf). Requires the PIN to already be verified on this
+    session.
+    """
+    try:
+        key = get_pivman_protected_data(ctrl).key
+        taf_logger.debug(f"Protected management key lookup found={key is not None}")
+        return key
+    except Exception as e:
+        taf_logger.debug(f"Protected management key lookup failed: {e}")
+        return None
+
+
 def get_slot_status(serial=None) -> dict:
     """Return the certificate (or None if empty) currently in every usable
     PIV slot of the inserted YubiKey(s).
@@ -735,21 +765,23 @@ def setup(
 
     When resetting, the following steps are performed, in order:
       - reset to factory settings
-      - authenticate with the management key
+      - authenticate with the default management key
+      - generate a random management key (unless mgm_key is given) and store
+        it in the card's PIN-protected data object, so it can be recovered
+        with the PIN alone on a later non-reset call
       - generate key(RSA) or import given one
       - generate and import self-signed certificate(X509)
       - set pin retries
       - set pin
       - set puk(same as pin)
 
-    The management key is left at the PIV default unless mgm_key is
-    explicitly passed.
-
     When not resetting, only the given slot is touched: authenticate with
-    the card's existing management key, generate/import the key and its
-    certificate into the chosen slot, and leave every other slot, the PIN,
-    and the PUK untouched. Refuses to overwrite an already-occupied slot
-    unless force=True.
+    the card's management key (the stored, PIN-protected one if available,
+    otherwise the PIV default - covering cards reset before this scheme
+    existed - unless management_key is explicitly given), generate/import
+    the key and its certificate into the chosen slot, and leave every other
+    slot and the PUK untouched. Refuses to overwrite an already-occupied
+    slot unless force=True.
 
     Args:
         - cert_cn(str): x509 common name
@@ -757,15 +789,15 @@ def setup(
         - pin_retries(int): Number of retries for PIN. Only used when resetting.
         - private_key_pem(str): Private key in PEM format. If given, it will be
                                 imported to Yubikey.
-        - mgm_key(bytes): Management key to set instead of leaving it at the
-                          PIV default. Only used when resetting.
+        - mgm_key(bytes): Management key to set instead of generating a random
+                          one. Only used when resetting.
         - slot(SLOT): The PIV slot to write the key and certificate to.
                       Defaults to SLOT.SIGNATURE.
         - reset(bool): Whether to factory-reset the card first. Defaults to
                        False.
         - management_key(bytes): The card's current management key, used to
-                                 authenticate when reset=False. Defaults to
-                                 the PIV factory default management key.
+                                 authenticate when reset=False instead of
+                                 looking up the stored, PIN-protected one.
         - force(bool): When reset=False, whether to overwrite the target
                        slot if it's already occupied.
 
@@ -791,15 +823,21 @@ def setup(
 
             taf_logger.debug("Authenticating with the default management key...")
             ctrl.authenticate(MANAGEMENT_KEY_TYPE.TDES, DEFAULT_MANAGEMENT_KEY)
-            if mgm_key is not None:
-                ctrl.set_management_key(MANAGEMENT_KEY_TYPE.TDES, mgm_key)
-            else:
-                # left at the PIV default - a randomized key would block future non-reset setups
-                mgm_key = DEFAULT_MANAGEMENT_KEY
+            # PIN is still the factory default at this point (changed further
+            # below), and is required to store the management key protected
+            ctrl.verify_pin(DEFAULT_PIN)
+            if mgm_key is None:
+                mgm_key = generate_random_management_key(MANAGEMENT_KEY_TYPE.TDES)
+            _store_protected_management_key(ctrl, mgm_key)
         else:
-            if management_key is None:
-                management_key = DEFAULT_MANAGEMENT_KEY
-            ctrl.authenticate(MANAGEMENT_KEY_TYPE.TDES, management_key)
+            if management_key is not None:
+                ctrl.authenticate(MANAGEMENT_KEY_TYPE.TDES, management_key)
+            else:
+                ctrl.verify_pin(pin)
+                stored_key = _get_protected_management_key(ctrl)
+                ctrl.authenticate(
+                    MANAGEMENT_KEY_TYPE.TDES, stored_key or DEFAULT_MANAGEMENT_KEY
+                )
             if not force and _slot_occupied(ctrl, slot):
                 raise YubikeyError(
                     f"Slot {slot.name} already has a key. Pass force=True to overwrite it."

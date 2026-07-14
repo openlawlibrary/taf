@@ -6,8 +6,9 @@ from cryptography import x509
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, serialization
 from taf.tuf.keys import load_signer_from_file
+from ykman.piv import OBJECT_ID_PIVMAN_PROTECTED_DATA
 from yubikit.core.smartcard import ApduError, SW
-from yubikit.piv import SLOT, InvalidPinError
+from yubikit.piv import DEFAULT_MANAGEMENT_KEY, SLOT, InvalidPinError
 
 VALID_PIN = "123456"
 WRONG_PIN = "111111"
@@ -38,6 +39,11 @@ class FakeYubiKey:
         # every `with _yk_piv_ctrl(...)` block - this is what needs to
         # survive across separate calls (e.g. setup() then get_slot_status())
         self.slots: dict = {}
+        # PIV general data objects (object ID -> raw bytes), used to model
+        # the PIN-protected management key storage (see get_object/put_object)
+        self.data_objects: dict = {}
+        self.pin_verified = False
+        self.management_key = DEFAULT_MANAGEMENT_KEY
 
     @property
     def driver(self):
@@ -46,6 +52,10 @@ class FakeYubiKey:
     @property
     def pin(self):
         return self._pin
+
+    @pin.setter
+    def pin(self, value):
+        self._pin = value
 
     @property
     def serial(self):
@@ -114,14 +124,17 @@ class FakePivController:
             .sign(priv_key, hashes.SHA256(), default_backend())
         )
 
-    def authenticate(self, *args, **kwargs):
-        pass
+    def authenticate(self, key_type, management_key):
+        if management_key != self._driver.management_key:
+            raise ApduError(b"", SW.SECURITY_CONDITION_NOT_SATISFIED)
 
-    def set_management_key(self, *args, **kwargs):
-        pass
+    def set_management_key(self, key_type, management_key, touch=False):
+        self._driver.management_key = management_key
 
-    def change_pin(self, *args, **kwargs):
-        pass
+    def change_pin(self, old_pin, new_pin):
+        if old_pin != self._driver.pin:
+            raise InvalidPinError(0)
+        self._driver.pin = new_pin
 
     def change_puk(self, *args, **kwargs):
         pass
@@ -158,6 +171,29 @@ class FakePivController:
 
     def reset(self):
         self._driver.slots.clear()
+        self._driver.data_objects.clear()
+        self._driver.pin_verified = False
+        self._driver.management_key = DEFAULT_MANAGEMENT_KEY
+        self._driver.pin = VALID_PIN
+
+    def get_object(self, object_id):
+        if (
+            object_id == OBJECT_ID_PIVMAN_PROTECTED_DATA
+            and not self._driver.pin_verified
+        ):
+            raise ApduError(b"", SW.SECURITY_CONDITION_NOT_SATISFIED)
+        data = self._driver.data_objects.get(object_id)
+        if data is None:
+            raise ApduError(b"", SW.FILE_NOT_FOUND)
+        return data
+
+    def put_object(self, object_id, data):
+        if (
+            object_id == OBJECT_ID_PIVMAN_PROTECTED_DATA
+            and not self._driver.pin_verified
+        ):
+            raise ApduError(b"", SW.SECURITY_CONDITION_NOT_SATISFIED)
+        self._driver.data_objects[object_id] = data
 
     def set_pin_retries(self, *args, **kwargs):
         pass
@@ -177,6 +213,7 @@ class FakePivController:
     def verify_pin(self, pin):
         if self._driver.pin != pin:
             raise InvalidPinError(0)
+        self._driver.pin_verified = True
 
 
 class TargetYubiKey(FakeYubiKey):
