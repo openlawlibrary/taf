@@ -79,14 +79,11 @@ class FakeYubiKey:
 
 
 class FakePivController:
-    """Fake yubikit.piv.PivSession.
-
-    Tracks key/certificate state per PIV slot, so tests can exercise
-    slot-targeted setup (put_key/put_certificate/get_certificate) instead of
-    always seeing/writing a single fixed key regardless of which slot was
-    requested. SLOT.SIGNATURE starts out "occupied" with the driver's own
-    key/cert, matching a YubiKey that's already been set up the traditional
-    way; every other slot starts free.
+    """Fake yubikit.piv.PivSession, standing in for a real PIV connection in
+    tests: PIN/management-key authentication, signing, and per-slot
+    key/certificate storage. SLOT.SIGNATURE starts out "occupied" with the
+    driver's own key/cert, matching a YubiKey that's already been set up
+    the traditional way; every other slot starts free.
     """
 
     def __init__(self, driver):

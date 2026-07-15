@@ -659,9 +659,10 @@ def sign_piv_rsa_pkcs1v15(data, pin, serial=None):
 
 def _get_protected_management_key(ctrl):
     """Return the management key stored in the card's PIN-protected data
-    object, or None if it was never stored there (e.g. a card set up by an
-    older version of taf). Requires the PIN to already be verified on this
-    session.
+    object - a general-purpose PIV data object, unrelated to the 4 signing
+    slots taf uses - or None if it was never stored there (e.g. a card set
+    up by an older version of taf). Requires the PIN to already be verified
+    on this session.
     """
     try:
         key = get_pivman_protected_data(ctrl).key
