@@ -1,6 +1,8 @@
 import pytest
 import shutil
 
+import taf.yubikey.yubikey as yk
+from taf.tools.yubikey.yubikey_utils import FakeYubiKey, _yk_piv_ctrl_mock
 from taf.utils import on_rm_error
 from taf.models.converter import from_dict
 from taf.models.types import RolesKeysData
@@ -10,12 +12,20 @@ from taf.tuf.repository import MetadataRepository
 @pytest.fixture
 def fake_single_yubikey(monkeypatch):
     """Pretend exactly one YubiKey (serial ``1234``) is inserted."""
-    # Imported lazily: taf.yubikey.yubikey pulls in the optional `ykman`
-    # dependency, which need not be installed to collect the rest of this
-    # directory's tests.
-    import taf.yubikey.yubikey as yk
-
     monkeypatch.setattr(yk, "get_serial_nums", lambda: ["1234"])
+
+
+@pytest.fixture
+def fake_yubikey(monkeypatch, keystore):
+    """A fake inserted YubiKey backed by a real keystore key in SIGNATURE,
+    with put_key/put_certificate/reset emulated per-slot so slot-management
+    behavior (setup, get_slot_status, get_piv_public_keys_tuf) can be tested
+    without real hardware."""
+    monkeypatch.setattr(yk, "_yk_piv_ctrl", _yk_piv_ctrl_mock)
+    key = FakeYubiKey(keystore / "root1", keystore / "root1.pub", scheme=None)
+    key.insert()
+    yield key
+    key.remove()
 
 
 @pytest.fixture(autouse=False)

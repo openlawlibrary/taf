@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Support choosing a YubiKey PIV slot when setting up signing keys ([759])
+
 ### Changed
 
 - Remove unused `scheme` parameters ([757])
@@ -18,6 +20,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Detect signing scheme from key material instead of assuming RSA ([757])
 
 
+[759]: https://github.com/openlawlibrary/taf/pull/759
 [757]: https://github.com/openlawlibrary/taf/pull/757
 
 ## [0.39.0]

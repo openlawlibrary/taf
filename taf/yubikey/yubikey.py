@@ -19,6 +19,7 @@ from taf.tuf.keys import _get_legacy_keyid, get_sslib_key_from_value
 from taf.yubikey.yubikey_manager import PinManager
 from taf.models.types import KeysMapping
 from ykman.device import list_all_devices
+from yubikit.core import NotSupportedError
 from yubikit.core.smartcard import SmartCardConnection
 from ykman.piv import (
     KEY_TYPE,
@@ -26,6 +27,8 @@ from ykman.piv import (
     SLOT,
     PivSession,
     generate_random_management_key,
+    get_pivman_protected_data,
+    pivman_set_mgm_key,
 )
 from yubikit.piv import (
     DEFAULT_MANAGEMENT_KEY,
@@ -380,6 +383,39 @@ def get_piv_public_key_tuf(
     return get_sslib_key_from_value(pub_key_pem, scheme)
 
 
+@raise_yubikey_err("Cannot get public keys in TUF format.")
+def get_piv_public_keys_tuf(scheme=DEFAULT_RSA_SIGNATURE_SCHEME, serial=None) -> dict:
+    """Return the public key of every occupied PIV slot on a YubiKey, in
+    TUF's key format.
+
+    Returns:
+        Dict mapping serial number to a dict of {SLOT: SSlibKey} for every
+        slot that currently holds a certificate.
+
+    Raises:
+        - YubikeyError
+    """
+    taf_logger.debug(f"Extracting TUF-format public keys from serial={serial}")
+    status = get_slot_status(serial=serial)
+    keys: dict = {}
+    for dev_serial, slot_status in status.items():
+        dev_keys = {}
+        for slot, cert in slot_status.items():
+            if cert is None:
+                continue
+            pub_key_pem = (
+                cert.public_key()
+                .public_bytes(
+                    encoding=serialization.Encoding.PEM,
+                    format=serialization.PublicFormat.SubjectPublicKeyInfo,
+                )
+                .decode("utf-8")
+            )
+            dev_keys[slot] = get_sslib_key_from_value(pub_key_pem, scheme)
+        keys[dev_serial] = dev_keys
+    return keys
+
+
 def list_connected_yubikeys():
     """Lists all connected YubiKeys with their serial numbers and details."""
     yubikeys = list_all_devices()
@@ -621,6 +657,94 @@ def sign_piv_rsa_pkcs1v15(data, pin, serial=None):
         return sig
 
 
+def _get_protected_management_key(ctrl):
+    """Return the management key stored in the card's PIN-protected data
+    object - a general-purpose PIV data object, unrelated to the 4 signing
+    slots taf uses - or None if it was never stored there (e.g. a card set
+    up by an older version of taf). Requires the PIN to already be verified
+    on this session.
+    """
+    try:
+        key = get_pivman_protected_data(ctrl).key
+        taf_logger.debug(f"Protected management key lookup found={key is not None}")
+        return key
+    except Exception as e:
+        taf_logger.debug(f"Protected management key lookup failed: {e}")
+        return None
+
+
+def _slot_occupied(ctrl, slot) -> bool:
+    """Check whether a PIV slot already has a key in it.
+
+    A slot's key and certificate are separate objects, so checking only for
+    a certificate would miss a key left behind without one (e.g. an
+    interrupted setup(), or a slot provisioned by another tool). Prefer
+    get_slot_metadata, which reflects the key directly, and fall back to
+    checking for a certificate on firmware that doesn't support it (requires
+    5.3+; older devices like the YubiKey 4 can't detect a key without a
+    certificate this way).
+    """
+    try:
+        ctrl.get_slot_metadata(slot)
+        return True
+    except NotSupportedError:
+        pass
+    except Exception:
+        return False
+    try:
+        ctrl.get_certificate(slot)
+        return True
+    except Exception:
+        return False
+
+
+def _store_protected_management_key(ctrl, mgm_key):
+    """Set a new management key and store it in the card's PIN-protected
+    data object, so it can be recovered later with the PIN alone instead of
+    needing to be remembered separately. Requires the PIN to already be
+    verified on this session.
+    """
+    pivman_set_mgm_key(ctrl, mgm_key, MANAGEMENT_KEY_TYPE.TDES, store_on_device=True)
+    taf_logger.debug("Stored new management key in protected data object.")
+
+
+def get_slot_status(serial=None) -> dict:
+    """Return the certificate (or None if empty) currently in every usable
+    PIV slot of the inserted YubiKey(s).
+
+    Returns:
+        Dict mapping serial number to a dict of {SLOT: x509.Certificate | None}
+        for every standard and retired slot (the attestation slot is excluded,
+        since it's Yubico-reserved and not usable for taf's purposes).
+
+    Raises:
+        - YubikeyError
+    """
+    usable_slots = [s for s in SLOT if s != SLOT.ATTESTATION]
+    with _yk_piv_ctrl(serial=serial) as sessions:
+        status = {}
+        for ctrl, dev_serial in sessions:
+            slot_status = {}
+            for slot in usable_slots:
+                try:
+                    slot_status[slot] = ctrl.get_certificate(slot)
+                except Exception:
+                    slot_status[slot] = None
+            status[dev_serial] = slot_status
+        return status
+
+
+def is_slot_occupied(serial, slot) -> bool:
+    """Check whether a PIV slot on the inserted YubiKey already has a key in
+    it. See _slot_occupied for how occupancy is determined.
+
+    Raises:
+        - YubikeyError
+    """
+    with _yk_piv_ctrl(serial=serial) as [(ctrl, _)]:
+        return _slot_occupied(ctrl, slot)
+
+
 @raise_yubikey_err("Cannot setup Yubikey.")
 def setup(
     pin,
@@ -629,25 +753,52 @@ def setup(
     cert_exp_days=365,
     pin_retries=10,
     private_key_pem=None,
-    mgm_key=generate_random_management_key(MANAGEMENT_KEY_TYPE.TDES),
+    mgm_key=None,
     key_size=2048,
+    slot=SLOT.SIGNATURE,
+    reset=None,
+    management_key=None,
+    force=False,
 ):
-    """Use to setup inserted Yubikey, with following steps (order is important):
+    """Set up a key in a PIV slot of the inserted YubiKey.
+
+    When resetting, the following steps are performed, in order:
       - reset to factory settings
-      - set management key
-      - generate key(RSA2048) or import given one
+      - authenticate with the default management key
+      - generate a random management key (unless mgm_key is given) and store
+        it in the card's PIN-protected data object, so it can be recovered
+        with the PIN alone on a later non-reset call
+      - generate key(RSA) or import given one
       - generate and import self-signed certificate(X509)
       - set pin retries
       - set pin
       - set puk(same as pin)
 
+    When not resetting, only the given slot is touched: authenticate with
+    the card's management key (the stored, PIN-protected one if available,
+    otherwise the PIV default - covering cards reset before this scheme
+    existed - unless management_key is explicitly given), generate/import
+    the key and its certificate into the chosen slot, and leave every other
+    slot and the PUK untouched. Refuses to overwrite an already-occupied
+    slot unless force=True.
+
     Args:
         - cert_cn(str): x509 common name
         - cert_exp_days(int): x509 expiration (in days from now)
-        - pin_retries(int): Number of retries for PIN
+        - pin_retries(int): Number of retries for PIN. Only used when resetting.
         - private_key_pem(str): Private key in PEM format. If given, it will be
                                 imported to Yubikey.
-        - mgm_key(bytes): New management key
+        - mgm_key(bytes): Management key to set instead of generating a random
+                          one. Only used when resetting.
+        - slot(SLOT): The PIV slot to write the key and certificate to.
+                      Defaults to SLOT.SIGNATURE.
+        - reset(bool): Whether to factory-reset the card first. Defaults to
+                       False.
+        - management_key(bytes): The card's current management key, used to
+                                 authenticate when reset=False instead of
+                                 looking up the stored, PIN-protected one.
+        - force(bool): When reset=False, whether to overwrite the target
+                       slot if it's already occupied.
 
     Returns:
         PIV public key in PEM format (bytes)
@@ -655,16 +806,41 @@ def setup(
     Raises:
         - YubikeyError
     """
+    if reset is None:
+        reset = False
+
     taf_logger.debug(
-        f"Initializing YubiKey setup for serial={serial}, key_size={key_size}, cert_cn='{cert_cn}'"
+        f"Initializing YubiKey setup for serial={serial}, key_size={key_size}, "
+        f"cert_cn='{cert_cn}', slot={slot}, reset={reset}"
     )
     with _yk_piv_ctrl(serial=serial) as [(ctrl, _)]:
-        taf_logger.debug(f"Resetting YubiKey to factory settings for serial={serial}")
-        ctrl.reset()
+        if reset:
+            taf_logger.debug(
+                f"Resetting YubiKey to factory settings for serial={serial}"
+            )
+            ctrl.reset()
 
-        taf_logger.debug("Setting new management key and authenticating...")
-        ctrl.authenticate(MANAGEMENT_KEY_TYPE.TDES, DEFAULT_MANAGEMENT_KEY)
-        ctrl.set_management_key(MANAGEMENT_KEY_TYPE.TDES, mgm_key)
+            taf_logger.debug("Authenticating with the default management key...")
+            ctrl.authenticate(MANAGEMENT_KEY_TYPE.TDES, DEFAULT_MANAGEMENT_KEY)
+            # PIN is still the factory default at this point (changed further
+            # below), and is required to store the management key protected
+            ctrl.verify_pin(DEFAULT_PIN)
+            if mgm_key is None:
+                mgm_key = generate_random_management_key(MANAGEMENT_KEY_TYPE.TDES)
+            _store_protected_management_key(ctrl, mgm_key)
+        else:
+            if management_key is not None:
+                ctrl.authenticate(MANAGEMENT_KEY_TYPE.TDES, management_key)
+            else:
+                ctrl.verify_pin(pin)
+                stored_key = _get_protected_management_key(ctrl)
+                ctrl.authenticate(
+                    MANAGEMENT_KEY_TYPE.TDES, stored_key or DEFAULT_MANAGEMENT_KEY
+                )
+            if not force and _slot_occupied(ctrl, slot):
+                raise YubikeyError(
+                    f"Slot {slot.name} already has a key. Pass force=True to overwrite it."
+                )
 
         if private_key_pem is None:
             taf_logger.debug("Generating RSA private key on the fly...")
@@ -684,11 +860,13 @@ def setup(
                     private_key_pem, pem_pwd, default_backend()
                 )
 
-        taf_logger.debug("Placing key in SIGNATURE slot with PIN_POLICY.ALWAYS...")
-        ctrl.put_key(SLOT.SIGNATURE, private_key, PIN_POLICY.ALWAYS)
+        taf_logger.debug(f"Placing key in {slot.name} slot with PIN_POLICY.ALWAYS...")
+        ctrl.put_key(slot, private_key, PIN_POLICY.ALWAYS)
         pub_key = private_key.public_key()
-        ctrl.authenticate(MANAGEMENT_KEY_TYPE.TDES, mgm_key)
-        ctrl.verify_pin(DEFAULT_PIN)
+
+        if reset:
+            ctrl.authenticate(MANAGEMENT_KEY_TYPE.TDES, mgm_key)
+            ctrl.verify_pin(DEFAULT_PIN)
 
         now = datetime.datetime.now()
         valid_to = now + datetime.timedelta(days=cert_exp_days)
@@ -706,11 +884,13 @@ def setup(
             .sign(private_key, hashes.SHA256(), default_backend())
         )
 
-        ctrl.put_certificate(SLOT.SIGNATURE, cert)
-        taf_logger.debug("Setting PIN attempts and changing default PIN/PUK...")
-        ctrl.set_pin_attempts(pin_attempts=pin_retries, puk_attempts=pin_retries)
-        ctrl.change_pin(DEFAULT_PIN, pin)
-        ctrl.change_puk(DEFAULT_PUK, pin)
+        ctrl.put_certificate(slot, cert)
+
+        if reset:
+            taf_logger.debug("Setting PIN attempts and changing default PIN/PUK...")
+            ctrl.set_pin_attempts(pin_attempts=pin_retries, puk_attempts=pin_retries)
+            ctrl.change_pin(DEFAULT_PIN, pin)
+            ctrl.change_puk(DEFAULT_PUK, pin)
 
     taf_logger.debug("YubiKey setup complete.")
     return pub_key.public_bytes(
@@ -723,15 +903,26 @@ def setup_new_yubikey(
     serial: str,
     scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
     key_size: Optional[int] = 2048,
+    slot=SLOT.SIGNATURE,
+    force: bool = False,
+    reset: Optional[bool] = None,
 ) -> SSlibKey:
     taf_logger.debug(
-        f"Starting new YubiKey setup for serial={serial}, scheme={scheme}, key_size={key_size}"
+        f"Starting new YubiKey setup for serial={serial}, scheme={scheme}, "
+        f"key_size={key_size}, slot={slot}, reset={reset}"
     )
     pin = pin_manager.get_pin(serial)
     cert_cn = input("Enter key holder's name: ")
     print("Generating key, please wait...")
     pub_key_pem = setup(
-        pin, serial, cert_cn, cert_exp_days=EXPIRATION_INTERVAL, key_size=key_size
+        pin,
+        serial,
+        cert_cn,
+        cert_exp_days=EXPIRATION_INTERVAL,
+        key_size=key_size,
+        slot=slot,
+        force=force,
+        reset=reset,
     ).decode("utf-8")
     scheme = DEFAULT_RSA_SIGNATURE_SCHEME
     key = get_sslib_key_from_value(pub_key_pem, scheme)

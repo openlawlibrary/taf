@@ -37,12 +37,20 @@ def is_yubikey_manager_installed():
     not is_yubikey_manager_installed(),
     reason="Yubikey Manager not installed)",
 )
-def test_fake_yk(mocker):
+def test_fake_yk(monkeypatch):
     """Test public key export and signing with fake Yubikey."""
-    mocker.patch("taf.yubikey.yubikey.export_piv_pub_key", return_value=_PUB)
-    mocker.patch("taf.yubikey.yubikey.sign_piv_rsa_pkcs1v15", return_value=_SIG)
-    mocker.patch("taf.yubikey.yubikey.verify_yk_inserted", return_value=True)
-    mocker.patch("taf.yubikey.yubikey.get_serial_nums", return_value=["1234"])
+    monkeypatch.setattr(
+        "taf.yubikey.yubikey.export_piv_pub_key", lambda *args, **kwargs: _PUB
+    )
+    monkeypatch.setattr(
+        "taf.yubikey.yubikey.sign_piv_rsa_pkcs1v15", lambda *args, **kwargs: _SIG
+    )
+    monkeypatch.setattr(
+        "taf.yubikey.yubikey.verify_yk_inserted", lambda *args, **kwargs: True
+    )
+    monkeypatch.setattr(
+        "taf.yubikey.yubikey.get_serial_nums", lambda *args, **kwargs: ["1234"]
+    )
 
     from taf.tuf.keys import YkSigner
 

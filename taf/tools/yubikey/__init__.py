@@ -1,8 +1,10 @@
 import click
 from taf.api.yubikey import (
+    SETUP_SLOTS,
     export_yk_certificate,
     export_yk_public_pem,
     get_yk_roles,
+    list_yk_slots,
     setup_signing_yubikey,
     setup_test_yubikey,
 )
@@ -11,6 +13,8 @@ from taf.repository_utils import find_valid_repository
 from taf.tools.cli import catch_cli_exception
 from taf.tools.repo import pin_managed
 from taf.yubikey.yubikey import list_connected_yubikeys, list_all_devices
+
+SETUP_SLOT_NAMES = [s.name for s in SETUP_SLOTS]
 
 
 def check_pin_command():
@@ -103,32 +107,88 @@ def list_key_command():
     return list_keys
 
 
+def list_slots_command():
+    @click.command(
+        help="Show which PIV slots on the inserted YubiKey(s) are free and which are occupied."
+    )
+    @click.option(
+        "--serial",
+        default=None,
+        help="Serial number of a specific YubiKey. Lists slots for every inserted YubiKey if not specified",
+    )
+    @catch_cli_exception(handle=YubikeyError)
+    def list_slots(serial):
+        list_yk_slots(serial)
+
+    return list_slots
+
+
 def setup_signing_key_command():
     @click.command(
-        help="""Generate a new key on the yubikey and set the pin. Export the generated certificate
-        to the specified directory.
-        WARNING - this will delete everything from the inserted key."""
+        help="""Generate a new key on the yubikey and copy it to the given PIV slot.
+        Export the generated certificate to the specified directory.
+        WARNING - --reset will factory-reset the card, deleting everything on it first."""
     )
     @click.option(
         "--certs-dir",
         help="Path of the directory where the exported certificate will be saved. Set to the user home directory by default",
     )
+    @click.option(
+        "--slot",
+        type=click.Choice(SETUP_SLOT_NAMES),
+        default="SIGNATURE",
+        help="PIV slot to set the key up in. Defaults to SIGNATURE.",
+    )
+    @click.option(
+        "--force",
+        is_flag=True,
+        default=False,
+        help="Overwrite the target slot if it's already occupied. Has no effect if "
+        "resetting, since that always leaves every slot empty regardless",
+    )
+    @click.option(
+        "--reset/--no-reset",
+        default=False,
+        help="Whether to factory-reset the card first. Defaults to False.",
+    )
     @catch_cli_exception(handle=YubikeyError)
     @pin_managed
-    def setup_signing_key(certs_dir, pin_manager):
-        setup_signing_yubikey(pin_manager, certs_dir, key_size=2048)
+    def setup_signing_key(certs_dir, slot, force, reset, pin_manager):
+        setup_signing_yubikey(
+            pin_manager, certs_dir, key_size=2048, slot=slot, force=force, reset=reset
+        )
 
     return setup_signing_key
 
 
 def setup_test_key_command():
-    @click.command(help="""Copies the specified key onto the inserted YubiKey
-        WARNING - this will reset the inserted key.""")
+    @click.command(
+        help="""Copies the specified key onto the given PIV slot of the inserted YubiKey.
+        WARNING - --reset will factory-reset the card, deleting everything on it first."""
+    )
     @click.argument("key-path")
+    @click.option(
+        "--slot",
+        type=click.Choice(SETUP_SLOT_NAMES),
+        default="SIGNATURE",
+        help="PIV slot to copy the key into. Defaults to SIGNATURE.",
+    )
+    @click.option(
+        "--force",
+        is_flag=True,
+        default=False,
+        help="Overwrite the target slot if it's already occupied. Has no effect if "
+        "resetting, since that always leaves every slot empty regardless",
+    )
+    @click.option(
+        "--reset/--no-reset",
+        default=False,
+        help="Whether to factory-reset the card first. Defaults to False.",
+    )
     @catch_cli_exception(handle=YubikeyError)
     @pin_managed
-    def setup_test_key(key_path, pin_manager):
-        setup_test_yubikey(pin_manager, key_path)
+    def setup_test_key(key_path, slot, force, reset, pin_manager):
+        setup_test_yubikey(pin_manager, key_path, slot=slot, force=force, reset=reset)
 
     return setup_test_key
 
@@ -141,3 +201,4 @@ def attach_to_group(group):
     group.add_command(list_key_command(), name="list-key")
     group.add_command(setup_signing_key_command(), name="setup-signing-key")
     group.add_command(setup_test_key_command(), name="setup-test-key")
+    group.add_command(list_slots_command(), name="list-slots")
