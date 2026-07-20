@@ -655,8 +655,17 @@ def _setup_yubikey(
         if yubikeys is not None:
             key, serial_num, key_name = yubikeys[0]
             if not use_existing:
+                # TODO: always resetting is temporary - once signing supports
+                # slots other than SIGNATURE, let the user pick which slot to
+                # use here (default SIGNATURE), and only overwrite it (force,
+                # non-destructive to the rest of the card) instead of ever
+                # doing a full reset
                 key = yk.setup_new_yubikey(
-                    auth_repo.pin_manager, serial_num, scheme, key_size=key_size
+                    auth_repo.pin_manager,
+                    serial_num,
+                    scheme,
+                    key_size=key_size,
+                    reset=True,
                 )
 
             if certs_dir is not None:
