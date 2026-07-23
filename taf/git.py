@@ -290,18 +290,28 @@ class GitRepository:
         log_success_msg = kwargs.pop("log_success_msg", "")
         error_if_not_exists = kwargs.pop("error_if_not_exists", True)
 
-        if len(args):
-            cmd = cmd.format(*args)
         # Build an argv list rather than one string: run() whitespace-splits a
-        # single-string command, which shatters `git -C <path>` when the
-        # repository path contains a space (e.g. a Windows home dir with a space
-        # in the user name). Passing the path as its own token keeps it intact,
-        # while cmd.split() preserves the previous tokenization of the command
-        # itself, so no other git invocation changes.
+        # single-string command, which shatters any argument containing a space
+        # (e.g. a Windows path under a home dir with a space in the user name) -
+        # both `git -C <path>` and any `{}` argument such as a local clone
+        # source. The template is tokenized first and each `{}` placeholder is
+        # filled positionally in place, so a substituted value stays a single
+        # argv token no matter what it contains, while the command's own
+        # tokenization is unchanged. Callers must therefore pass paths/URLs as
+        # `{}` arguments, not interpolate them into the command string.
         command = ["git", "-C", str(self.path)]
         if self.allow_unsafe:
             command += ["-c", f"safe.directory={self.path}"]
-        command += cmd.split()
+        args_iter = iter(args)
+        for token in cmd.split():
+            placeholders = token.count("{}")
+            if placeholders:
+                token = token.format(*[next(args_iter) for _ in range(placeholders)])
+            # an empty token means an optional flag arg was "" (e.g. push's
+            # force/no-verify flags); drop it, matching the old .split() which
+            # collapsed empties, so it does not reach git as an empty argument
+            if token != "":
+                command.append(token)
         command_str = " ".join(command)
         result = None
         if log_error or log_error_msg:
@@ -845,10 +855,12 @@ class GitRepository:
         for url in self.urls:
             self._log_info(f"trying to clone from {url}")
             try:
+                # url is a `{}` arg (kept as a single token); joined_params holds
+                # controlled flags meant to expand into multiple tokens, so it
+                # stays in the template string
                 self._git(
-                    "clone {} . {}",
+                    f"clone {{}} . {joined_params}",
                     url,
-                    joined_params,
                     log_success_msg=f"successfully cloned from {url}",
                     reraise_error=True,
                     timeout=60,
@@ -900,8 +912,11 @@ class GitRepository:
         # file-by-file object copy pygit2 performs. git silently falls back to
         # copying when hardlinks are not possible, so this is never slower.
         bare_flag = "--bare " if is_bare else ""
+        # pass the source path as a `{}` arg (the `{{}}` survives the f-string)
+        # so a path containing a space is not split into separate tokens
         self._git(
-            f"clone --local {bare_flag}{local_path} .",
+            f"clone --local {bare_flag}{{}} .",
+            str(local_path),
             error_if_not_exists=False,
             reraise_error=True,
         )
@@ -1513,7 +1528,9 @@ class GitRepository:
             raise FetchException(
                 "Could not fetch the last remote commit. URL not found"
             )
-        last_commit = self._git(f"--no-pager ls-remote {url} {branch}", log_error=True)
+        last_commit = self._git(
+            "--no-pager ls-remote {} {}", url, branch, log_error=True
+        )
         if last_commit:
             last_commit = last_commit.split("\t", 1)[0]
             # in some cases (e.g. upstream is defined the result might contain a warning line)
@@ -1961,7 +1978,9 @@ class GitRepository:
         return None
 
     def set_remote_url(self, new_url: str, remote: Optional[str] = "origin") -> None:
-        self._git(f"remote set-url {remote} {new_url}")
+        # new_url may be a local filesystem path containing spaces - pass it as
+        # a `{}` arg so it is not split into separate tokens
+        self._git("remote set-url {} {}", remote, new_url)
 
     def set_head_to_branch(self, branch_name: str) -> None:
         """Point HEAD at the given local branch without checking it out."""

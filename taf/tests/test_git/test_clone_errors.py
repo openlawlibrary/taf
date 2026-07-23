@@ -91,6 +91,24 @@ def test_clone_into_path_with_spaces(origin_repo: GitRepository, tmp_path):
     assert repo.is_git_repository
 
 
+def test_clone_from_disk_with_spaced_source_path(repository: GitRepository, tmp_path):
+    # Regression: the users-auth clone step does `git clone --local <source> .`
+    # where <source> is a temp dir that, under a spaced Windows home, contains a
+    # space. clone_from_disk now passes the source as a `{}` arg so it stays one
+    # token; previously it was split and git reported "fatal: Too many arguments".
+    spaced_source = Path(tmp_path) / "Given Surname" / "source"
+    spaced_source.mkdir(parents=True)
+    # populate the spaced source (spaced *destination* path -> exercises `git -C`)
+    GitRepository(path=spaced_source).clone_from_disk(repository.path)
+    assert GitRepository(path=spaced_source).is_git_repository
+
+    # clone *from* the spaced source (spaced value -> exercises the `{}` arg)
+    dest = Path(tmp_path) / "dest"
+    repo = GitRepository(path=dest)
+    repo.clone_from_disk(spaced_source)
+    assert repo.is_git_repository
+
+
 def test_git_subprocess_handles_spaced_repo_path(tmp_path):
     # A local git operation that actually shells out (via _git -> run) must
     # tolerate a repository path with spaces. The repo is initialised through
