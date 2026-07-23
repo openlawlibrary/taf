@@ -1,16 +1,15 @@
 """Tests around the clone/access error path in ``taf.git``.
 
-Two things are covered here:
+Regression coverage for the clone-failure investigation:
 
-* the committed fix that stopped the access error from rendering as
-  ``"Cannot None <repo> ..."`` and gave the "repository could not be found"
-  fallback an actionable message (these pass); and
-* the two defects the clone investigation surfaced but did not yet fix - a
-  command line containing a path with spaces is mangled by ``run()``'s
-  whitespace split, and the real underlying git error is swallowed (logged at
-  debug) instead of being surfaced on the raised exception. Those are encoded
-  as ``xfail(strict=True)`` regression tests so they stay red until fixed and
-  flip to a hard failure (prompting removal of the marker) once they are.
+* the access error names the git operation ("Cannot clone", never
+  "Cannot None") and its fallback carries actionable guidance;
+* a repository path containing a space (e.g. a Windows home dir
+  "C:\\Users\\Given Surname\\...") no longer breaks the ``git -C <path>``
+  argument - ``_git`` passes argv as a list instead of a whitespace-split
+  string; and
+* the real underlying git error is surfaced on the raised
+  ``CloneRepoException`` instead of being swallowed at debug level.
 """
 
 from pathlib import Path
@@ -58,7 +57,7 @@ def test_raise_git_access_error_for_clone_names_clone_not_none(tmp_path, monkeyp
     assert "Cannot clone" in first_line
     assert "None" not in first_line
     # the fallback is no longer a bare error - it carries actionable guidance
-    assert "could not be found" in message
+    assert "could not be reached or found" in message
 
 
 def test_raise_git_access_error_default_operation_is_not_none(tmp_path, monkeypatch):
@@ -75,19 +74,12 @@ def test_raise_git_access_error_default_operation_is_not_none(tmp_path, monkeypa
 
 
 # --------------------------------------------------------------------------- #
-# Open defect 1: `run()` splits the command on whitespace, so a repository path
+# Spaced repository paths: `_git` passes argv as a list, so a repository path
 # containing a space (e.g. a Windows home dir "C:\\Users\\Given Surname\\...")
-# breaks the `git -C <path>` argument and every clone attempt fails.
+# no longer shatters the `git -C <path>` argument.
 # --------------------------------------------------------------------------- #
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "run() does command[0].split(), shattering `git -C <path with spaces>`; "
-        "clone into a spaced path fails. Fix by passing argv as a list / quoting."
-    ),
-)
 def test_clone_into_path_with_spaces(origin_repo: GitRepository, tmp_path):
     dest = Path(tmp_path) / "Given Surname" / "clone"
     dest.mkdir(parents=True)
@@ -99,10 +91,6 @@ def test_clone_into_path_with_spaces(origin_repo: GitRepository, tmp_path):
     assert repo.is_git_repository
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="run() splits `git -C <path with spaces> ...` on whitespace",
-)
 def test_git_subprocess_handles_spaced_repo_path(tmp_path):
     # A local git operation that actually shells out (via _git -> run) must
     # tolerate a repository path with spaces. The repo is initialised through
@@ -119,20 +107,14 @@ def test_git_subprocess_handles_spaced_repo_path(tmp_path):
 
 
 # --------------------------------------------------------------------------- #
-# Open defect 2: the real per-URL git error (which explains *why* the clone
-# failed) is only logged at debug and dropped; the surfaced CloneRepoException
-# replaces it with a generic guess.
+# The real per-URL git error (which explains *why* the clone failed) is
+# surfaced on the raised CloneRepoException, not swallowed at debug level.
 # --------------------------------------------------------------------------- #
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "clone() catches the per-URL GitError and logs it at debug only; the "
-        "underlying git message never reaches the raised CloneRepoException."
-    ),
-)
-def test_clone_surfaces_underlying_git_error(clone_repository: GitRepository, monkeypatch):
+def test_clone_surfaces_underlying_git_error(
+    clone_repository: GitRepository, monkeypatch
+):
     clone_repository.urls = ["https://example.com/x.git"]
     sentinel = r"fatal: cannot change to 'C:\Users\Given': No such file or directory"
 
@@ -147,4 +129,8 @@ def test_clone_surfaces_underlying_git_error(clone_repository: GitRepository, mo
     with pytest.raises(CloneRepoException) as exc_info:
         clone_repository.clone()
 
-    assert sentinel in str(exc_info.value)
+    message = str(exc_info.value)
+    # the concrete git failure is surfaced ...
+    assert sentinel in message
+    # ... alongside (not instead of) the guidance
+    assert "could not be reached or found" in message
