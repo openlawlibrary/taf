@@ -1819,6 +1819,14 @@ class GitRepository:
         error_msg="",
         underlying_errors=None,
     ):
+        """Raise ``error_cls`` explaining why a git network operation failed.
+
+        ``operation`` names the attempted action (e.g. ``"clone"``) in the
+        message. ``error_msg``, when given, replaces the auto-selected guidance.
+        ``underlying_errors`` is the list of concrete per-attempt git failures
+        (typically one per URL); they are surfaced on the exception so the real
+        cause is never hidden behind the guidance.
+        """
         # Pick the guidance that best fits what we can observe about the remote,
         # then surface the concrete git failure(s) alongside it. The guidance is
         # a best guess (an unauthenticated probe cannot tell "private" from
