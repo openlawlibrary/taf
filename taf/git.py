@@ -854,7 +854,7 @@ class GitRepository:
                 break
 
         if not cloned:
-            self.raise_git_access_error(CloneRepoException)
+            self.raise_git_access_error(CloneRepoException, operation="clone")
 
         # the path is now a repository; drop any cached negative result from
         # before the clone
@@ -1802,7 +1802,7 @@ class GitRepository:
             raise PushFailedError(self, message=f"Push operation failed: {e}")
 
     def raise_git_access_error(
-        self, error_cls=GitAccessDeniedException, operation=None, error_msg=""
+        self, error_cls=GitAccessDeniedException, operation="access", error_msg=""
     ):
         hosts = {
             h for h in (extract_hostname(url) for url in self.urls) if h is not None
@@ -1832,7 +1832,11 @@ class GitRepository:
                         else error_msg
                     ),
                 )
-        raise error_cls(self, operation=operation)
+        raise error_cls(
+            self,
+            operation=operation,
+            message=(_repo_not_found_error_message if error_msg == "" else error_msg),
+        )
 
     def remove_remote(self, remote_name: str) -> None:
         try:
@@ -2223,6 +2227,19 @@ _clone_or_pull_error_message_no_ssh = (
     "The remote repository exists, so this issue is probably due to lack of privileges.\n"
     "Verify that you have access to the repository if it is private, and verify your HTTPS configuration.\n"
     "Consider switching to SSH for potentially enhanced security and easier handling of credentials."
+)
+
+
+_repo_not_found_error_message = (
+    "The remote repository could not be found. Note that a private repository is "
+    "indistinguishable from a missing one when you are not authenticated, so this is "
+    "most likely an access/authentication problem rather than a wrong URL. Please:\n\n"
+    "1. Double-check the repository URL for typos.\n"
+    "2. If the repository is private, verify that your account has been granted access.\n"
+    "3. Verify your credentials are configured for this host:\n"
+    "   - For SSH URLs, ensure your SSH key is added to your Git hosting account and "
+    "loaded (e.g. `ssh -T git@github.com`).\n"
+    "   - For HTTPS URLs, ensure a valid token/credential helper is configured.\n"
 )
 
 
