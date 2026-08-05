@@ -1,7 +1,10 @@
 import os
 import sys
+import time
 import logging
-from typing import Dict
+import zipfile
+import datetime
+from typing import Dict, Optional, TextIO, Union
 from pathlib import Path
 
 from loguru import logger as taf_logger
@@ -14,6 +17,121 @@ console_loggers: Dict = {}
 file_loggers: Dict = {}
 
 NOTICE = 25
+
+# How long to stop retrying a failed rotation before trying again, in seconds.
+# Without this, a single blocked rotation (see _RotatingFileSink) would otherwise
+# be retried, and would fail again, on every subsequent log message.
+_ROTATION_RETRY_COOLDOWN = 60
+
+
+class _RotatingFileSink:
+    """
+    A loguru sink that rotates a log file by size, but tolerates the file being
+    held open by another OS process.
+
+    taf can be imported both by short-lived CLI subprocesses and by a long-running
+    host process (e.g. an IDE extension's language server) that share the same
+    log files on disk. On Windows, if one of those processes has the log file
+    open, another process cannot rename it during rotation (WinError 32:
+    "The process cannot access the file because it is being used by another
+    process"). loguru's built-in rotation isn't resilient to that: the failed
+    rename leaves its file handle closed, so the next write immediately retries
+    the same rotation and fails the same way, flooding stderr with "Logging
+    error" tracebacks for the remainder of the process's life.
+
+    This sink instead treats a failed rotation as non-fatal: it keeps appending
+    to the existing (temporarily oversized) file and only retries rotation after
+    a short cooldown, instead of on every subsequent message.
+    """
+
+    def __init__(self, path, size_limit: int, retention: int, compression: bool):
+        self._path = Path(path)
+        self._size_limit = size_limit
+        self._retention = retention
+        self._compression = compression
+        self._file: Optional[TextIO] = None
+        self._rotation_retry_at: float = 0.0
+
+    def _open(self):
+        self._path.parent.mkdir(parents=True, exist_ok=True)
+        self._file = open(self._path, "a", encoding="utf-8")
+
+    def write(self, message):
+        if self._file is None:
+            self._open()
+
+        if time.monotonic() >= self._rotation_retry_at:
+            self._file.seek(0, os.SEEK_END)
+            if self._file.tell() + len(message) > self._size_limit:
+                if not self._rotate():
+                    self._rotation_retry_at = (
+                        time.monotonic() + _ROTATION_RETRY_COOLDOWN
+                    )
+
+        self._file.write(message)
+        self._file.flush()
+
+    def _rotate(self) -> bool:
+        if self._file is not None:
+            self._file.close()
+            self._file = None
+
+        renamed_path = self._generate_rename_path()
+        try:
+            os.rename(self._path, renamed_path)
+        except OSError:
+            # Most likely another process still has this file open. Give up on
+            # rotating for now; keep appending to the existing file instead.
+            self._open()
+            return False
+
+        if self._compression:
+            self._compress(renamed_path)
+        self._enforce_retention()
+
+        self._open()
+        return True
+
+    def _generate_rename_path(self) -> Path:
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S_%f")
+        stem, suffix = self._path.stem, self._path.suffix
+        renamed_path = self._path.with_name(f"{stem}.{timestamp}{suffix}")
+        counter = 1
+        while renamed_path.exists():
+            counter += 1
+            renamed_path = self._path.with_name(f"{stem}.{timestamp}.{counter}{suffix}")
+        return renamed_path
+
+    def _compress(self, path: Path) -> None:
+        zip_path = path.with_name(path.name + ".zip")
+        try:
+            with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+                zf.write(path, path.name)
+            os.remove(path)
+        except OSError:
+            # Compression is best-effort; the rotated log is still preserved
+            # uncompressed if this fails.
+            pass
+
+    def _enforce_retention(self) -> None:
+        stem, suffix = self._path.stem, self._path.suffix
+        try:
+            logs = [
+                log_path
+                for log_path in self._path.parent.glob(f"{stem}.*{suffix}*")
+                if log_path.is_file()
+            ]
+            logs.sort(key=lambda log_path: log_path.stat().st_mtime, reverse=True)
+            for old_log in logs[self._retention :]:
+                os.remove(old_log)
+        except OSError:
+            pass
+
+    def stop(self) -> None:
+        if self._file is not None:
+            self._file.close()
+            self._file = None
+
 
 try:
     taf_logger.level("NOTICE", no=NOTICE, color="<yellow>", icon="!")
@@ -70,6 +188,24 @@ def _get_log_location():
     return location
 
 
+_ROTATION_SIZE_BYTES = 150 * 1024 * 1024
+_RETENTION_COUNT = 5
+
+
+def _add_file_logger(key: str, path: str, level) -> None:
+    sink: Union[str, _RotatingFileSink]
+    if settings.AUTO_ROTATE_LOGS:
+        sink = _RotatingFileSink(
+            path,
+            size_limit=_ROTATION_SIZE_BYTES,
+            retention=_RETENTION_COUNT,
+            compression=True,
+        )
+    else:
+        sink = path
+    file_loggers[key] = taf_logger.add(sink, format=_FILE_FORMAT_STRING, level=level)
+
+
 def initialize_logger_handlers():
     taf_logger.remove()
     if settings.ENABLE_CONSOLE_LOGGING:
@@ -79,56 +215,24 @@ def initialize_logger_handlers():
 
     if settings.ENABLE_FILE_LOGGING:
         log_location = _get_log_location()
-        log_path = str(log_location / settings.LOG_FILENAME)
-        if settings.AUTO_ROTATE_LOGS:
-            file_loggers["log"] = taf_logger.add(
-                log_path,
-                format=_FILE_FORMAT_STRING,
-                level=settings.FILE_LOGGING_LEVEL,
-                rotation="150 MB",
-                retention=5,
-                compression="zip",
-            )
-        else:
-            file_loggers["log"] = taf_logger.add(
-                log_path,
-                format=_FILE_FORMAT_STRING,
-                level=settings.FILE_LOGGING_LEVEL,
-            )
+        _add_file_logger(
+            "log",
+            str(log_location / settings.LOG_FILENAME),
+            settings.FILE_LOGGING_LEVEL,
+        )
 
         if settings.SEPARATE_ERRORS:
-            error_log_path = str(log_location / settings.ERROR_LOG_FILENAME)
-            if settings.AUTO_ROTATE_LOGS:
-                file_loggers["error"] = taf_logger.add(
-                    error_log_path,
-                    format=_FILE_FORMAT_STRING,
-                    level=settings.ERROR_LOGGING_LEVEL,
-                    rotation="150 MB",
-                    retention=5,
-                    compression="zip",
-                )
-            else:
-                file_loggers["error"] = taf_logger.add(
-                    error_log_path,
-                    format=_FILE_FORMAT_STRING,
-                    level=settings.ERROR_LOGGING_LEVEL,
-                )
-        debug_log_path = str(log_location / settings.DEBUG_LOG_FILENAME)
-        if settings.AUTO_ROTATE_LOGS:
-            file_loggers["debug"] = taf_logger.add(
-                debug_log_path,
-                format=_FILE_FORMAT_STRING,
-                level=settings.DEBUG_LOGGING_LEVEL,
-                rotation="150 MB",
-                retention=5,
-                compression="zip",
+            _add_file_logger(
+                "error",
+                str(log_location / settings.ERROR_LOG_FILENAME),
+                settings.ERROR_LOGGING_LEVEL,
             )
-        else:
-            file_loggers["debug"] = taf_logger.add(
-                debug_log_path,
-                format=_FILE_FORMAT_STRING,
-                level=settings.DEBUG_LOGGING_LEVEL,
-            )
+
+        _add_file_logger(
+            "debug",
+            str(log_location / settings.DEBUG_LOG_FILENAME),
+            settings.DEBUG_LOGGING_LEVEL,
+        )
 
 
 initialize_logger_handlers()
