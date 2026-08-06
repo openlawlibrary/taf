@@ -14,6 +14,16 @@ and this project adheres to [Semantic Versioning][semver].
 ### Fixed
 
 
+## [0.39.1]
+
+### Added
+
+### Changed
+
+### Fixed
+
+- Prevent rotating log files from flooding output with "Logging error" messages when the log file is held open by another process
+
 ## [0.39.0]
 
 ### Added
@@ -1863,7 +1873,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
-[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.39.0...HEAD
+[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.39.1...HEAD
+[0.39.1]: https://github.com/openlawlibrary/taf/compare/v0.39.0...v0.39.1
 [0.39.0]: https://github.com/openlawlibrary/taf/compare/v0.38.4...v0.39.0
 [0.38.4]: https://github.com/openlawlibrary/taf/compare/v0.38.3...v0.38.4
 [0.38.3]: https://github.com/openlawlibrary/taf/compare/v0.38.2...v0.38.3
