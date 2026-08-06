@@ -30,7 +30,7 @@ from taf.exceptions import (
     PygitError,
 )
 from taf.log import NOTICE, taf_logger
-from taf.utils import run
+from taf.utils import format_command_args, run
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 _PyGitRepositoryClass: Any = None
@@ -280,9 +280,12 @@ class GitRepository:
         return self._is_bare_repo
 
     def _git(self, cmd, *args, **kwargs):
-        """Call git commands in subprocess
-        e.g.:
-          self._git('checkout {}', branch_name)
+        """Call git commands in subprocess.
+
+        e.g.: self._git('checkout {}', branch_name)
+
+        Pass paths/URLs as `{}` args rather than interpolating them into `cmd`,
+        so a value containing a space stays a single argv token.
         """
         log_error = kwargs.pop("log_error", False)
         log_error_msg = kwargs.pop("log_error_msg", "")
@@ -290,16 +293,14 @@ class GitRepository:
         log_success_msg = kwargs.pop("log_success_msg", "")
         error_if_not_exists = kwargs.pop("error_if_not_exists", True)
 
-        if len(args):
-            cmd = cmd.format(*args)
+        command = ["git", "-C", str(self.path)]
         if self.allow_unsafe:
-            command = f"git -C {self.path} -c safe.directory={self.path} {cmd}"
-        else:
-            command = f"git -C {self.path} {cmd}"
+            command += ["-c", f"safe.directory={self.path}"]
+        command += format_command_args(cmd, *args)
         result = None
         if log_error or log_error_msg:
             try:
-                result = run(command, **kwargs)
+                result = run(*command, **kwargs)
                 if log_success_msg:
                     self._log_debug(log_success_msg)
             except subprocess.CalledProcessError as e:
@@ -314,7 +315,7 @@ class GitRepository:
                     error = GitError(self, message=log_error_msg, error=e)
                     self._log_error(error.message)
                 else:
-                    error = GitError(self, command=command, error=e)
+                    error = GitError(self, command=" ".join(command), error=e)
                     # not every git error indicates a problem
                     # if it does, we expect that either custom error message will be provided
                     # or that the error will be reraised
@@ -323,9 +324,9 @@ class GitRepository:
                     raise error
         else:
             try:
-                result = run(command, **kwargs)
+                result = run(*command, **kwargs)
             except subprocess.CalledProcessError as e:
-                raise GitError(self, command=command, error=e)
+                raise GitError(self, command=" ".join(command), error=e)
             if log_success_msg:
                 self._log_debug(log_success_msg)
         return result
@@ -834,13 +835,15 @@ class GitRepository:
         joined_params = " ".join(params)
 
         cloned = False
+        clone_errors = []
         for url in self.urls:
             self._log_info(f"trying to clone from {url}")
             try:
+                # joined_params stays in the template (controlled flags); url
+                # is the only `{}` arg, so it stays one token
                 self._git(
-                    "clone {} . {}",
+                    f"clone {{}} . {joined_params}",
                     url,
-                    joined_params,
                     log_success_msg=f"successfully cloned from {url}",
                     reraise_error=True,
                     timeout=60,
@@ -848,13 +851,16 @@ class GitRepository:
                 )
             except GitError as e:
                 self._log_debug(f"could not clone from {url} due to {e}")
+                clone_errors.append(e)
             else:
                 self._log_info(f"successfully cloned from {url}")
                 cloned = True
                 break
 
         if not cloned:
-            self.raise_git_access_error(CloneRepoException)
+            self.raise_git_access_error(
+                CloneRepoException, operation="clone", underlying_errors=clone_errors
+            )
 
         # the path is now a repository; drop any cached negative result from
         # before the clone
@@ -889,8 +895,10 @@ class GitRepository:
         # file-by-file object copy pygit2 performs. git silently falls back to
         # copying when hardlinks are not possible, so this is never slower.
         bare_flag = "--bare " if is_bare else ""
+        # local_path as a `{}` arg keeps it one token even with spaces
         self._git(
-            f"clone --local {bare_flag}{local_path} .",
+            f"clone --local {bare_flag}{{}} .",
+            str(local_path),
             error_if_not_exists=False,
             reraise_error=True,
         )
@@ -1502,7 +1510,9 @@ class GitRepository:
             raise FetchException(
                 "Could not fetch the last remote commit. URL not found"
             )
-        last_commit = self._git(f"--no-pager ls-remote {url} {branch}", log_error=True)
+        last_commit = self._git(
+            "--no-pager ls-remote {} {}", url, branch, log_error=True
+        )
         if last_commit:
             last_commit = last_commit.split("\t", 1)[0]
             # in some cases (e.g. upstream is defined the result might contain a warning line)
@@ -1802,37 +1812,58 @@ class GitRepository:
             raise PushFailedError(self, message=f"Push operation failed: {e}")
 
     def raise_git_access_error(
-        self, error_cls=GitAccessDeniedException, operation=None, error_msg=""
+        self,
+        error_cls=GitAccessDeniedException,
+        operation="access",
+        error_msg="",
+        underlying_errors: Optional[List[Exception]] = None,
     ):
+        """Raise ``error_cls`` explaining why a git network operation failed.
+
+        ``operation`` names the attempted action (e.g. ``"clone"``) in the
+        message. ``error_msg``, when given, replaces the auto-selected guidance.
+        ``underlying_errors`` are the concrete per-attempt failures (typically
+        one per URL, as caught - not pre-formatted); they're listed in the
+        message and the most recent one becomes the raised exception's
+        ``__cause__``, so the real cause is never hidden behind the guidance.
+        """
+        # guidance is a best guess (an unauthenticated probe can't tell "private"
+        # from "missing"); underlying_errors are the ground truth and are always
+        # shown alongside it
         hosts = {
             h for h in (extract_hostname(url) for url in self.urls) if h is not None
         }
         unknown_hosts = [host for host in hosts if not is_host_known(host)]
-        if len(unknown_hosts):
-            message = _no_hosts_error_format.format(hostname=",".join(unknown_hosts))
-            raise error_cls(self, operation=operation, message=message)
-        repo_exists = any(repository_exists(url) for url in self.urls)
-        if repo_exists:
+        if error_msg:
+            guidance = error_msg
+        elif len(unknown_hosts):
+            guidance = _no_hosts_error_format.format(hostname=",".join(unknown_hosts))
+        elif any(repository_exists(url) for url in self.urls):
             uses_ssh = any(url.startswith("git@") for url in self.urls)
-            if uses_ssh:
-                raise error_cls(
-                    self,
-                    operation=operation,
-                    message=(
-                        _clone_or_pull_error_message if error_msg == "" else error_msg
-                    ),
-                )
-            else:
-                raise error_cls(
-                    self,
-                    operation=operation,
-                    message=(
-                        _clone_or_pull_error_message_no_ssh
-                        if error_msg == ""
-                        else error_msg
-                    ),
-                )
-        raise error_cls(self, operation=operation)
+            guidance = (
+                _clone_or_pull_error_message
+                if uses_ssh
+                else _clone_or_pull_error_message_no_ssh
+            )
+        else:
+            guidance = _repo_not_found_error_message
+
+        parts = []
+        if underlying_errors:
+            parts.append(
+                "The git command failed with:\n"
+                + "\n".join(str(err) for err in underlying_errors)
+            )
+        if guidance:
+            parts.append(guidance)
+        # chain to the most recent underlying failure so it's available via
+        # the standard __cause__/traceback instead of a bespoke attribute
+        cause = underlying_errors[-1] if underlying_errors else None
+        raise error_cls(
+            self,
+            operation=operation,
+            message="\n\n".join(parts) if parts else None,
+        ) from cause
 
     def remove_remote(self, remote_name: str) -> None:
         try:
@@ -1931,7 +1962,8 @@ class GitRepository:
         return None
 
     def set_remote_url(self, new_url: str, remote: Optional[str] = "origin") -> None:
-        self._git(f"remote set-url {remote} {new_url}")
+        # new_url may contain spaces (a local path) - pass as a `{}` arg
+        self._git("remote set-url {} {}", remote, new_url)
 
     def set_head_to_branch(self, branch_name: str) -> None:
         """Point HEAD at the given local branch without checking it out."""
@@ -2223,6 +2255,20 @@ _clone_or_pull_error_message_no_ssh = (
     "The remote repository exists, so this issue is probably due to lack of privileges.\n"
     "Verify that you have access to the repository if it is private, and verify your HTTPS configuration.\n"
     "Consider switching to SSH for potentially enhanced security and easier handling of credentials."
+)
+
+
+_repo_not_found_error_message = (
+    "The remote repository could not be reached or found. If a git error is shown "
+    "above, start there - it is the actual failure. Otherwise, note that an "
+    "unauthenticated check cannot tell a private repository apart from a missing "
+    "one, so common causes are:\n\n"
+    "1. A wrong or mistyped repository URL.\n"
+    "2. A private repository your account has not been granted access to.\n"
+    "3. Missing or misconfigured credentials for this host:\n"
+    "   - For SSH URLs, ensure your SSH key is added to your Git hosting account and "
+    "loaded (e.g. `ssh -T git@github.com`).\n"
+    "   - For HTTPS URLs, ensure a valid token/credential helper is configured.\n"
 )
 
 

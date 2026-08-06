@@ -18,8 +18,12 @@ and this project adheres to [Semantic Versioning][semver].
 ### Fixed
 
 - Detect signing scheme from key material instead of assuming RSA ([757])
+- Clone no longer fails when the repository path contains a space (e.g. a Windows home directory with a space in the user name) ([762])
+- Surface the underlying git error when a clone fails, instead of hiding it behind a generic access message ([762])
+- Correct the clone access error that rendered as "Cannot None ..." and stop misattributing a local failure to an access/authentication problem ([762])
 
 
+[762]: https://github.com/openlawlibrary/taf/pull/762
 [759]: https://github.com/openlawlibrary/taf/pull/759
 [757]: https://github.com/openlawlibrary/taf/pull/757
 
