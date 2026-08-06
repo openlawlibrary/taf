@@ -30,7 +30,7 @@ from taf.exceptions import (
     PygitError,
 )
 from taf.log import NOTICE, taf_logger
-from taf.utils import run
+from taf.utils import format_command_args, run
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 _PyGitRepositoryClass: Any = None
@@ -280,9 +280,12 @@ class GitRepository:
         return self._is_bare_repo
 
     def _git(self, cmd, *args, **kwargs):
-        """Call git commands in subprocess
-        e.g.:
-          self._git('checkout {}', branch_name)
+        """Call git commands in subprocess.
+
+        e.g.: self._git('checkout {}', branch_name)
+
+        Pass paths/URLs as `{}` args rather than interpolating them into `cmd`,
+        so a value containing a space stays a single argv token.
         """
         log_error = kwargs.pop("log_error", False)
         log_error_msg = kwargs.pop("log_error_msg", "")
@@ -290,29 +293,10 @@ class GitRepository:
         log_success_msg = kwargs.pop("log_success_msg", "")
         error_if_not_exists = kwargs.pop("error_if_not_exists", True)
 
-        # Build an argv list rather than one string: run() whitespace-splits a
-        # single-string command, which shatters any argument containing a space
-        # (e.g. a Windows path under a home dir with a space in the user name) -
-        # both `git -C <path>` and any `{}` argument such as a local clone
-        # source. The template is tokenized first and each `{}` placeholder is
-        # filled positionally in place, so a substituted value stays a single
-        # argv token no matter what it contains, while the command's own
-        # tokenization is unchanged. Callers must therefore pass paths/URLs as
-        # `{}` arguments, not interpolate them into the command string.
         command = ["git", "-C", str(self.path)]
         if self.allow_unsafe:
             command += ["-c", f"safe.directory={self.path}"]
-        args_iter = iter(args)
-        for token in cmd.split():
-            placeholders = token.count("{}")
-            if placeholders:
-                token = token.format(*[next(args_iter) for _ in range(placeholders)])
-            # an empty token means an optional flag arg was "" (e.g. push's
-            # force/no-verify flags); drop it, matching the old .split() which
-            # collapsed empties, so it does not reach git as an empty argument
-            if token != "":
-                command.append(token)
-        command_str = " ".join(command)
+        command += format_command_args(cmd, *args)
         result = None
         if log_error or log_error_msg:
             try:
@@ -331,7 +315,7 @@ class GitRepository:
                     error = GitError(self, message=log_error_msg, error=e)
                     self._log_error(error.message)
                 else:
-                    error = GitError(self, command=command_str, error=e)
+                    error = GitError(self, command=" ".join(command), error=e)
                     # not every git error indicates a problem
                     # if it does, we expect that either custom error message will be provided
                     # or that the error will be reraised
@@ -342,7 +326,7 @@ class GitRepository:
             try:
                 result = run(*command, **kwargs)
             except subprocess.CalledProcessError as e:
-                raise GitError(self, command=command_str, error=e)
+                raise GitError(self, command=" ".join(command), error=e)
             if log_success_msg:
                 self._log_debug(log_success_msg)
         return result
@@ -855,9 +839,8 @@ class GitRepository:
         for url in self.urls:
             self._log_info(f"trying to clone from {url}")
             try:
-                # url is a `{}` arg (kept as a single token); joined_params holds
-                # controlled flags meant to expand into multiple tokens, so it
-                # stays in the template string
+                # joined_params stays in the template (controlled flags); url
+                # is the only `{}` arg, so it stays one token
                 self._git(
                     f"clone {{}} . {joined_params}",
                     url,
@@ -868,7 +851,7 @@ class GitRepository:
                 )
             except GitError as e:
                 self._log_debug(f"could not clone from {url} due to {e}")
-                clone_errors.append(f"{url}: {e}")
+                clone_errors.append(e)
             else:
                 self._log_info(f"successfully cloned from {url}")
                 cloned = True
@@ -912,8 +895,7 @@ class GitRepository:
         # file-by-file object copy pygit2 performs. git silently falls back to
         # copying when hardlinks are not possible, so this is never slower.
         bare_flag = "--bare " if is_bare else ""
-        # pass the source path as a `{}` arg (the `{{}}` survives the f-string)
-        # so a path containing a space is not split into separate tokens
+        # local_path as a `{}` arg keeps it one token even with spaces
         self._git(
             f"clone --local {bare_flag}{{}} .",
             str(local_path),
@@ -1834,22 +1816,20 @@ class GitRepository:
         error_cls=GitAccessDeniedException,
         operation="access",
         error_msg="",
-        underlying_errors=None,
+        underlying_errors: Optional[List[Exception]] = None,
     ):
         """Raise ``error_cls`` explaining why a git network operation failed.
 
         ``operation`` names the attempted action (e.g. ``"clone"``) in the
         message. ``error_msg``, when given, replaces the auto-selected guidance.
-        ``underlying_errors`` is the list of concrete per-attempt git failures
-        (typically one per URL); they are surfaced on the exception so the real
-        cause is never hidden behind the guidance.
+        ``underlying_errors`` are the concrete per-attempt failures (typically
+        one per URL, as caught - not pre-formatted); they're listed in the
+        message and the most recent one becomes the raised exception's
+        ``__cause__``, so the real cause is never hidden behind the guidance.
         """
-        # Pick the guidance that best fits what we can observe about the remote,
-        # then surface the concrete git failure(s) alongside it. The guidance is
-        # a best guess (an unauthenticated probe cannot tell "private" from
-        # "missing"); the underlying errors are the ground truth and must not be
-        # swallowed - historically only the guidance was shown, hiding the real
-        # cause (e.g. a command-construction failure, not an access problem).
+        # guidance is a best guess (an unauthenticated probe can't tell "private"
+        # from "missing"); underlying_errors are the ground truth and are always
+        # shown alongside it
         hosts = {
             h for h in (extract_hostname(url) for url in self.urls) if h is not None
         }
@@ -1871,15 +1851,19 @@ class GitRepository:
         parts = []
         if underlying_errors:
             parts.append(
-                "The git command failed with:\n" + "\n".join(underlying_errors)
+                "The git command failed with:\n"
+                + "\n".join(str(err) for err in underlying_errors)
             )
         if guidance:
             parts.append(guidance)
+        # chain to the most recent underlying failure so it's available via
+        # the standard __cause__/traceback instead of a bespoke attribute
+        cause = underlying_errors[-1] if underlying_errors else None
         raise error_cls(
             self,
             operation=operation,
             message="\n\n".join(parts) if parts else None,
-        )
+        ) from cause
 
     def remove_remote(self, remote_name: str) -> None:
         try:
@@ -1978,8 +1962,7 @@ class GitRepository:
         return None
 
     def set_remote_url(self, new_url: str, remote: Optional[str] = "origin") -> None:
-        # new_url may be a local filesystem path containing spaces - pass it as
-        # a `{}` arg so it is not split into separate tokens
+        # new_url may contain spaces (a local path) - pass as a `{}` arg
         self._git("remote set-url {} {}", remote, new_url)
 
     def set_head_to_branch(self, branch_name: str) -> None:

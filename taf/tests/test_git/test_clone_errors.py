@@ -1,13 +1,10 @@
-"""Tests around the clone/access error path in ``taf.git``.
-
-Regression coverage for the clone-failure investigation:
+"""Tests for the clone/access error path in ``taf.git``:
 
 * the access error names the git operation ("Cannot clone", never
   "Cannot None") and its fallback carries actionable guidance;
 * a repository path containing a space (e.g. a Windows home dir
-  "C:\\Users\\Given Surname\\...") no longer breaks the ``git -C <path>``
-  argument - ``_git`` passes argv as a list instead of a whitespace-split
-  string; and
+  "C:\\Users\\Given Surname\\...") doesn't break the ``git -C <path>``
+  argument; and
 * the real underlying git error is surfaced on the raised
   ``CloneRepoException`` instead of being swallowed at debug level.
 """
@@ -42,9 +39,8 @@ def test_clone_repo_exception_defaults_to_clone_operation(tmp_path):
 
 
 def test_raise_git_access_error_for_clone_names_clone_not_none(tmp_path, monkeypatch):
-    # This is the exact regression from the field report: a private repo that an
-    # unauthenticated probe cannot see falls through to the final branch. Before
-    # the fix that branch raised with operation=None -> "Cannot None ...".
+    # a private repo an unauthenticated probe can't see falls through to the
+    # final branch, which must still name the operation
     monkeypatch.setattr(git_module, "is_host_known", lambda host: True)
     monkeypatch.setattr(git_module, "repository_exists", lambda url: False)
 
@@ -92,10 +88,8 @@ def test_clone_into_path_with_spaces(origin_repo: GitRepository, tmp_path):
 
 
 def test_clone_from_disk_with_spaced_source_path(repository: GitRepository, tmp_path):
-    # Regression: the users-auth clone step does `git clone --local <source> .`
-    # where <source> is a temp dir that, under a spaced Windows home, contains a
-    # space. clone_from_disk now passes the source as a `{}` arg so it stays one
-    # token; previously it was split and git reported "fatal: Too many arguments".
+    # clone_from_disk passes the source as a `{}` arg, so it stays one token
+    # even when the source path (e.g. a temp dir under a spaced home) has a space
     spaced_source = Path(tmp_path) / "Given Surname" / "source"
     spaced_source.mkdir(parents=True)
     # populate the spaced source (spaced *destination* path -> exercises `git -C`)

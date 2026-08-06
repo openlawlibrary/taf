@@ -171,6 +171,23 @@ def read_input_dict(value):
     return value
 
 
+def format_command_args(cmd: str, *args) -> List[str]:
+    """Split a whitespace-separated command template into argv tokens, filling
+    each `{}` placeholder with the next arg so a substituted value stays a
+    single token even if it contains spaces. Empty args (e.g. an optional
+    flag passed as "") are dropped.
+    """
+    args_iter = iter(args)
+    tokens = []
+    for token in cmd.split():
+        placeholders = token.count("{}")
+        if placeholders:
+            token = token.format(*[next(args_iter) for _ in range(placeholders)])
+        if token != "":
+            tokens.append(token)
+    return tokens
+
+
 def run(*command, **kwargs):
     """Run a command and return its output. Call with `debug=True` to print to
     stdout.
