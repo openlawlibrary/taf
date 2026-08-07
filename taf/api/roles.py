@@ -903,9 +903,7 @@ def _get_roles_key_size(role: str, keystore: str, keys_num: int) -> int:
 
 
 def _format_role_keys_block(role_label: str, key_ids: List[str], certs_dir: str) -> str:
-    key_lines = [
-        str(get_metadata_key_info(certs_dir, key_id)) for key_id in key_ids
-    ]
+    key_lines = [str(get_metadata_key_info(certs_dir, key_id)) for key_id in key_ids]
     return f"Role: {role_label}\n" + "\n".join(key_lines)
 
 
