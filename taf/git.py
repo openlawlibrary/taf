@@ -835,7 +835,7 @@ class GitRepository:
         joined_params = " ".join(params)
 
         cloned = False
-        clone_errors = []
+        clone_errors: List[Exception] = []
         for url in self.urls:
             self._log_info(f"trying to clone from {url}")
             try:
@@ -1830,16 +1830,15 @@ class GitRepository:
         # guidance is a best guess (an unauthenticated probe can't tell "private"
         # from "missing"); underlying_errors are the ground truth and are always
         # shown alongside it
-        hosts = {
-            h for h in (extract_hostname(url) for url in self.urls) if h is not None
-        }
+        urls = self.urls or []
+        hosts = {h for h in (extract_hostname(url) for url in urls) if h is not None}
         unknown_hosts = [host for host in hosts if not is_host_known(host)]
         if error_msg:
             guidance = error_msg
         elif len(unknown_hosts):
             guidance = _no_hosts_error_format.format(hostname=",".join(unknown_hosts))
-        elif any(repository_exists(url) for url in self.urls):
-            uses_ssh = any(url.startswith("git@") for url in self.urls)
+        elif any(repository_exists(url) for url in urls):
+            uses_ssh = any(url.startswith("git@") for url in urls)
             guidance = (
                 _clone_or_pull_error_message
                 if uses_ssh
