@@ -305,8 +305,10 @@ def test_add_signing_key(
 ):
     auth_repo = AuthenticationRepository(path=auth_repo.path)
     initial_commits_num = len(auth_repo.list_pygit_commits())
-    # for testing purposes, add targets signing key to timestamp and snapshot roles
-    pub_key_path = Path(roles_keystore, "targets1.pub")
+    # for testing purposes, add a signing key to timestamp and snapshot roles. Must be a key
+    # not already used by any role - targets1.pub is already shared by targets/snapshot/timestamp
+    # from the fixture's initial bootstrap, which would make it a no-op here.
+    pub_key_path = Path(roles_keystore, "inner_role.pub")
     COMMIT_MSG = "Add new timestamp and snapshot signing key"
     add_signing_key(
         path=str(auth_repo.path),
