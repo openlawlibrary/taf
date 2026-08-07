@@ -459,6 +459,7 @@ def rotate_signing_key_command():
 
     return rotate_key
 
+
 def list_keys_command():
     @click.command(help="""
         List all keys of the specified role. If certs directory exists and contains certificates exported from YubiKeys,

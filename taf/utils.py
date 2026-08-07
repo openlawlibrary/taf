@@ -183,7 +183,7 @@ def format_command_args(cmd: str, *args) -> List[str]:
         placeholders = token.count("{}")
         if placeholders:
             token = token.format(*[next(args_iter) for _ in range(placeholders)])
-        if token != "":
+        if token != "":  # nosec B105
             tokens.append(token)
     return tokens
 
