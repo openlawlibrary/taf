@@ -431,6 +431,42 @@ def list_connected_yubikeys():
             print(f"  Form Factor: {info.form_factor}")
 
 
+def _resolve_and_cache_pin(
+    pin_manager,
+    serial_num,
+    public_key,
+    taf_dir,
+    key_name,
+    pin_confirm,
+    pin_repeat,
+    key_id_pins,
+    creating_new_key=False,
+):
+    """Resolve a YubiKey's PIN (environment variable, then interactive
+    prompt/validation) and cache it in pin_manager, unless already cached."""
+    if pin_manager.get_pin(serial_num) is not None:
+        return
+    taf_logger.debug("Attempting to load key pin from environment variables")
+    pin = get_pin_from_env(public_key, serial_num, taf_dir)
+    if creating_new_key:
+        # A new key is being provisioned: the entered PIN becomes the new
+        # PIN written to the freshly reset YubiKey. It must not be validated
+        # against the card's current PIN, since doing so would fail on every
+        # attempt and eventually lock the key.
+        if pin is None:
+            pin = get_pin_for(key_name, pin_confirm, pin_repeat)
+    elif pin is None:
+        pin = get_and_validate_pin(
+            key_name,
+            pin_confirm,
+            pin_repeat,
+            serial_num,
+            key_id_pins=key_id_pins,
+            public_key=public_key,
+        )
+    pin_manager.add_pin(serial_num, pin)
+
+
 def _read_and_check_single_yubikey(
     role,
     key_name,
@@ -503,30 +539,19 @@ def _read_and_check_single_yubikey(
             taf_logger.debug(f"Public key not valid for role='{role}'.")
             return None
 
-    pin = None
-    if pin_manager.get_pin(serial_num) is None:
-        taf_logger.debug("Attempting to load key pin from environment variables")
-        lookup_path = taf_repo.path if taf_repo is not None else Path.cwd()
-        taf_dir = find_taf_directory(lookup_path)
-        pin = get_pin_from_env(public_key, serial_num, taf_dir)
-
-        if creating_new_key:
-            # A new key is being provisioned: the entered PIN becomes the new
-            # PIN written to the freshly reset YubiKey. It must not be validated
-            # against the card's current PIN, since doing so would fail on every
-            # attempt and eventually lock the key.
-            if pin is None:
-                pin = get_pin_for(key_name, pin_confirm, pin_repeat)
-        elif pin is None:
-            pin = get_and_validate_pin(
-                key_name,
-                pin_confirm,
-                pin_repeat,
-                serial_num,
-                key_id_pins=key_id_pins,
-                public_key=public_key,
-            )
-        pin_manager.add_pin(serial_num, pin)
+    lookup_path = taf_repo.path if taf_repo is not None else Path.cwd()
+    taf_dir = find_taf_directory(lookup_path)
+    _resolve_and_cache_pin(
+        pin_manager,
+        serial_num,
+        public_key,
+        taf_dir,
+        key_name,
+        pin_confirm,
+        pin_repeat,
+        key_id_pins,
+        creating_new_key=creating_new_key,
+    )
 
     if taf_repo is not None:
         # when reusing the same yubikey, public key will already be in the public keys dictionary
@@ -603,19 +628,16 @@ def _read_and_check_yubikeys(
             taf_logger.debug(
                 f"Potential YubiKey with serial={serial_num}, associated key_name='{key_name}'."
             )
-            pin = None
-            if pin_manager.get_pin(serial_num) is None:
-                pin = get_pin_from_env(public_key, serial_num, taf_dir)
-                if pin is None:
-                    pin = get_and_validate_pin(
-                        key_name,
-                        pin_confirm,
-                        pin_repeat,
-                        serial_num,
-                        key_id_pins=key_id_pins,
-                        public_key=public_key,
-                    )
-                pin_manager.add_pin(serial_num, pin)
+            _resolve_and_cache_pin(
+                pin_manager,
+                serial_num,
+                public_key,
+                taf_dir,
+                key_name,
+                pin_confirm,
+                pin_repeat,
+                key_id_pins,
+            )
 
             # when reusing the same yubikey, public key will already be in the public keys dictionary
             # but the key name still needs to be added to the key id mapping dictionary
