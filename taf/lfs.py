@@ -169,8 +169,16 @@ def register_lfs_filter() -> bool:
         return False
     try:
         pygit2.filter_register(FILTER_NAME, GitLFSFilter)
-    except (ValueError, KeyError) as error:
-        # already registered (e.g. module reloaded) - harmless
-        taf_logger.debug("Git LFS filter already registered: {}", error)
+    except Exception as error:
+        # Registration is a side effect of importing taf.git, so it must not be
+        # able to prevent TAF from starting. Losing the filter degrades to the
+        # old behavior (pointer text from pygit2 checkouts), which the filter
+        # itself reports per-file, so warn and carry on.
+        taf_logger.warning(
+            "Could not register the Git LFS filter ({}); pygit2 checkouts will "
+            "not materialize Git LFS content",
+            error,
+        )
+        return False
     _registered = True
     return True

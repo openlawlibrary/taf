@@ -29,6 +29,7 @@ from taf.exceptions import (
     UpdateFailedError,
     PygitError,
 )
+from taf.lfs import register_lfs_filter
 from taf.log import NOTICE, taf_logger
 from taf.utils import format_command_args, run
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
@@ -44,14 +45,13 @@ except ImportError:
     pygit2 = None
     PYGIT2_AVAILABLE = False
 
-if PYGIT2_AVAILABLE:
-    from taf.lfs import register_lfs_filter
-
-    # At import time, before any repository object or worker thread exists:
-    # pygit2's filter registry is not thread-safe, and the updater materializes
-    # target repositories concurrently. Without this, pygit2 checkouts write
-    # Git LFS pointer text into the working tree instead of file content.
-    register_lfs_filter()
+# Registered here, at import time, because pygit2's filter registry is not
+# thread-safe and the updater materializes target repositories concurrently -
+# so this has to happen before any repository object or worker thread exists.
+# Without it, pygit2 checkouts write Git LFS pointer text into the working tree
+# instead of file content. Called unconditionally: `taf.lfs` reports whether it
+# could register (it needs pygit2 >= 1.13.3) and is a no-op otherwise.
+register_lfs_filter()
 
 EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 
