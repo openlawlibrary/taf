@@ -328,7 +328,7 @@ def setup_signing_yubikey(
         )
         if not yubikeys:
             raise YubikeyError("Could not generate a new key")
-        _, serial_num, _ = yubikeys[0]
+        _, serial_num, _, _ = yubikeys[0]
     else:
         # not resetting, so the PIN itself is untouched - it's only needed
         # here to unlock the card's stored management key

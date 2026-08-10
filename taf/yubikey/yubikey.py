@@ -467,6 +467,19 @@ def _resolve_and_cache_pin(
     pin_manager.add_pin(serial_num, pin)
 
 
+def _prompt_for_slot_selection(serial_num, device_keys):
+    """Ask the user which of a device's occupied PIV slots holds the key
+    they want. Used when more than one slot is occupied and there's no
+    other way (e.g. a role's validity check) to tell which one they mean.
+    """
+    ordered = sorted(device_keys.items(), key=lambda item: item[0].value)
+    print(f"YubiKey serial={serial_num} has more than one key set up:")
+    for index, (slot, key) in enumerate(ordered, start=1):
+        print(f"  {index}. slot={slot.name} keyid={key.keyid}")
+    choice = click.prompt("Select the key to use", type=click.IntRange(1, len(ordered)))
+    return ordered[choice - 1]
+
+
 def _read_and_check_single_yubikey(
     role,
     key_name,
@@ -529,9 +542,18 @@ def _read_and_check_single_yubikey(
     # check if this key is already loaded as the provided role's key (we can use the same key
     # to sign different metadata)
     # read the public key, unless a new key needs to be generated on the yubikey
-    public_key = (
-        get_piv_public_key_tuf(serial=serial_num) if not creating_new_key else None
-    )
+    slot = None
+    if creating_new_key:
+        public_key = None
+    else:
+        device_keys = get_piv_public_keys_tuf(serial=serial_num).get(serial_num, {})
+        if not device_keys:
+            public_key = None
+        elif len(device_keys) == 1:
+            ((slot, public_key),) = device_keys.items()
+        else:
+            slot, public_key = _prompt_for_slot_selection(serial_num, device_keys)
+
     # check if this yubikey is can be used for signing the provided role's metadata
     # if the key was already registered as that role's key
     if not registering_new_key and role is not None and taf_repo is not None:
@@ -556,12 +578,14 @@ def _read_and_check_single_yubikey(
     if taf_repo is not None:
         # when reusing the same yubikey, public key will already be in the public keys dictionary
         # but the key name still needs to be added to the key id mapping dictionary
-        taf_repo.yubikey_store.add_key_data(key_name, serial_num, public_key, role)
+        taf_repo.yubikey_store.add_key_data(
+            key_name, serial_num, public_key, role, slot=slot
+        )
 
     taf_logger.debug(
         f"_read_and_check_single_yubikey returning for serial={serial_num}, key_name='{key_name}'"
     )
-    return public_key, serial_num, key_name
+    return public_key, serial_num, key_name, slot
 
 
 def _read_and_check_yubikeys(
@@ -612,37 +636,55 @@ def _read_and_check_yubikeys(
     for index, serial_num in enumerate(serials):
         if not taf_repo.yubikey_store.is_loaded_for_role(serial_num, role):
             all_loaded = False
-            # read the public key, unless a new key needs to be generated on the yubikey
-            public_key = get_piv_public_key_tuf(serial=serial_num)
-            # check if this yubikey is can be used for signing the provided role's metadata
-            # if the key was already registered as that role's key
-            if role is not None and taf_repo is not None:
-                if not taf_repo.is_valid_metadata_yubikey(role, public_key):
-                    invalid_keys.append(serial_num)
-                    taf_logger.debug(
-                        f"Serial={serial_num} not valid for role='{role}'."
-                    )
+            # a role's key can live in any occupied PIV slot, not just
+            # SIGNATURE, and a single device can hold more than one key
+            # valid for this role (each in its own slot) - every one of
+            # them counts toward the threshold, so collect them all instead
+            # of stopping at the first match. SIGNATURE is checked first to
+            # keep today's behavior when that's the only one present.
+            device_keys = get_piv_public_keys_tuf(serial=serial_num).get(serial_num, {})
+            ordered_slots = [SLOT.SIGNATURE] + [
+                s for s in device_keys if s != SLOT.SIGNATURE
+            ]
+            found_valid_key = False
+            for candidate_slot in ordered_slots:
+                public_key = device_keys.get(candidate_slot)
+                if public_key is None:
                     continue
+                if not (
+                    role is None
+                    or taf_repo is None
+                    or taf_repo.is_valid_metadata_yubikey(role, public_key)
+                ):
+                    continue
+                slot = candidate_slot
+                found_valid_key = True
 
-            key_name = taf_repo.keys_name_mappings.get(public_key.keyid)
-            taf_logger.debug(
-                f"Potential YubiKey with serial={serial_num}, associated key_name='{key_name}'."
-            )
-            _resolve_and_cache_pin(
-                pin_manager,
-                serial_num,
-                public_key,
-                taf_dir,
-                key_name,
-                pin_confirm,
-                pin_repeat,
-                key_id_pins,
-            )
+                key_name = taf_repo.keys_name_mappings.get(public_key.keyid)
+                taf_logger.debug(
+                    f"Potential YubiKey with serial={serial_num}, associated key_name='{key_name}', slot={slot}."
+                )
+                _resolve_and_cache_pin(
+                    pin_manager,
+                    serial_num,
+                    public_key,
+                    taf_dir,
+                    key_name,
+                    pin_confirm,
+                    pin_repeat,
+                    key_id_pins,
+                )
 
-            # when reusing the same yubikey, public key will already be in the public keys dictionary
-            # but the key name still needs to be added to the key id mapping dictionary
-            taf_repo.yubikey_store.add_key_data(key_name, serial_num, public_key, role)
-            yubikeys.append((public_key, serial_num, key_name))
+                # when reusing the same yubikey, public key will already be in the public keys dictionary
+                # but the key name still needs to be added to the key id mapping dictionary
+                taf_repo.yubikey_store.add_key_data(
+                    key_name, serial_num, public_key, role, slot=slot
+                )
+                yubikeys.append((public_key, serial_num, key_name, slot))
+
+            if not found_valid_key:
+                invalid_keys.append(serial_num)
+                taf_logger.debug(f"Serial={serial_num} not valid for role='{role}'.")
 
     if not hide_already_loaded_message and all_loaded:
         print("All inserted YubiKeys already loaded")
@@ -654,7 +696,7 @@ def _read_and_check_yubikeys(
 
 
 @raise_yubikey_err("Cannot sign data.")
-def sign_piv_rsa_pkcs1v15(data, pin, serial=None):
+def sign_piv_rsa_pkcs1v15(data, pin, serial=None, slot=SLOT.SIGNATURE):
     """Sign data with key from YubiKey's piv slot.
 
     Args:
@@ -662,6 +704,8 @@ def sign_piv_rsa_pkcs1v15(data, pin, serial=None):
         - pin(str): Pin for piv slot login.
         - pub_key_pem(str): Match Yubikey's public key (PEM) if multiple keys
                             are inserted
+        - slot(SLOT): The PIV slot holding the signing key. Defaults to
+                      SLOT.SIGNATURE.
 
     Returns:
         Signature (bytes)
@@ -669,11 +713,11 @@ def sign_piv_rsa_pkcs1v15(data, pin, serial=None):
     Raises:
         - YubikeyError
     """
-    taf_logger.debug(f"Signing data using YubiKey serial={serial}.")
+    taf_logger.debug(f"Signing data using YubiKey serial={serial}, slot={slot}.")
     with _yk_piv_ctrl(serial=serial) as [(ctrl, _)]:
         ctrl.verify_pin(pin)
         sig = ctrl.sign(
-            SLOT.SIGNATURE, KEY_TYPE.RSA2048, data, hashes.SHA256(), padding.PKCS1v15()
+            slot, KEY_TYPE.RSA2048, data, hashes.SHA256(), padding.PKCS1v15()
         )
         taf_logger.debug("Data signed successfully.")
         return sig
@@ -1035,7 +1079,7 @@ def yubikey_prompt(
 
         if not yubikeys and not retry_on_failure:
             taf_logger.debug("No YubiKeys found and retry_on_failure=False. Returning.")
-            return [(None, None, None)]
+            return [(None, None, None, None)]
         if yubikeys:
             taf_logger.debug(f"Returning discovered YubiKeys: {yubikeys}")
             return yubikeys

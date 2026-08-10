@@ -34,27 +34,43 @@ class YubiKeyStore:
         serial_num: str,
         public_key: SSlibKey,
         role_name: str,
+        slot=None,
     ) -> None:
         """Add data associated with a YubiKey."""
-        if role_name in self._yubikeys_data:
+        if key_name in self._yubikeys_data:
             key_data = self._yubikeys_data[key_name]
         else:
-            key_data = {"serial": serial_num, "public_key": public_key, "roles": []}
-        key_data["roles"].append(role_name)
+            key_data = {
+                "serial": serial_num,
+                "public_key": public_key,
+                "roles": [],
+                "slot": None,
+            }
+        key_data["serial"] = serial_num
+        key_data["public_key"] = public_key
+        if slot is not None:
+            key_data["slot"] = slot
+        if role_name not in key_data["roles"]:
+            key_data["roles"].append(role_name)
         self._yubikeys_data[key_name] = key_data
 
-    def get_key_data(self, key_name: str) -> Optional[Tuple[str, SSlibKey]]:
+    def get_key_data(self, key_name: str) -> Optional[Tuple[SSlibKey, str, object]]:
         """Retrieve data associated with a given YubiKey name."""
         if not self.is_key_name_loaded(key_name):
             return None
         key_data = self._yubikeys_data.get(key_name)
-        return key_data["public_key"], key_data["serial"]
+        return key_data["public_key"], key_data["serial"], key_data.get("slot")
 
-    def get_roles_of_key(self, serial_number: str) -> List[str]:
+    def get_roles_of_key(
+        self, serial_number: str, public_key: Optional[SSlibKey] = None
+    ) -> List[str]:
         roles = []
         for data in self._yubikeys_data.values():
-            if data["serial"] == serial_number:
-                roles.extend(data["roles"])
+            if data["serial"] != serial_number:
+                continue
+            if public_key is not None and data["public_key"].keyid != public_key.keyid:
+                continue
+            roles.extend(data["roles"])
         return roles
 
     def remove_key_data(self, key_name: str) -> bool:
