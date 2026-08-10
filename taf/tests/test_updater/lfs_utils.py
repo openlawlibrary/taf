@@ -38,6 +38,9 @@ LFS_POINTER_PREFIX = b"version https://git-lfs.github.com/spec/v1"
 LFS_TRACKED_PATTERN = "*.bin"
 LFS_FILE_NAME = "large_file.bin"
 
+#: An ordinary, non-LFS file, for checking the filter stays out of the way.
+PLAIN_FILE_NAME = "plain_file.txt"
+
 
 def git_lfs_version() -> str:
     """Return the installed ``git lfs`` version, or "" when unavailable.
@@ -160,6 +163,23 @@ def build_lfs_origin(path: Path, other_branch: str = "other") -> GitRepository:
     repo.create_branch(other_branch)
     (path / LFS_FILE_NAME).write_bytes(lfs_file_content("v2"))
     repo.commit("Update LFS-tracked file (v2)")
+    return repo
+
+
+def build_plain_origin(path: Path, other_branch: str = "other") -> GitRepository:
+    """Like ``build_lfs_origin`` but with no LFS involved at all.
+
+    Used to check that the LFS machinery stays out of the way of ordinary
+    repositories, including when ``git-lfs`` is not installed.
+    """
+    path.mkdir(parents=True, exist_ok=True)
+    repo = GitRepository(path=path)
+    repo.init_repo()
+    (path / PLAIN_FILE_NAME).write_text("plain v1")
+    repo.commit("Add plain file (v1)")
+    repo.create_branch(other_branch)
+    (path / PLAIN_FILE_NAME).write_text("plain v2")
+    repo.commit("Update plain file (v2)")
     return repo
 
 

@@ -48,18 +48,23 @@ Python one (``lfs_server.py``) - no extra dependency to install.
 """
 
 import subprocess
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
+from loguru import logger
 
+from taf import lfs
 from taf.git import GitRepository
 from taf.tests.test_updater.conftest import SetupManager
 from taf.tests.test_updater.lfs_server import LFSServer
 from taf.tests.test_updater.lfs_utils import (
     LFS_FILE_NAME,
+    PLAIN_FILE_NAME,
     add_lfs_target_commits,
     assert_lfs_content_materialized,
     build_lfs_origin,
+    build_plain_origin,
     git_lfs_version,
     update_lfs_target_commits,
 )
@@ -148,6 +153,26 @@ def lfs_global_config(monkeypatch, tmp_path):
 
     monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(config_path))
     return config_path
+
+
+@pytest.fixture
+def lfs_log():
+    """Collect what ``taf.lfs`` logs during a test.
+
+    TAF logs through loguru, not the stdlib, so pytest's ``caplog`` sees
+    nothing; add a sink for the duration of the test instead. This matters
+    because pygit2 discards the exception raised inside a filter, so the log is
+    the only place the real reason survives.
+    """
+    messages: list = []
+    handler_id = logger.add(
+        lambda message: messages.append(message.record["message"]),
+        level="WARNING",
+        filter=lambda record: record["name"] == "taf.lfs",
+        format="{message}",
+    )
+    yield messages
+    logger.remove(handler_id)
 
 
 @pytest.fixture
@@ -265,17 +290,6 @@ def test_clone_lfs_without_server_configured(origin_auth_repo, client_dir):
         assert_lfs_content_materialized(target_repo.path, "v1")
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "GitRepository.checkout_branch() checks out through pygit2 when the "
-        "branch already exists locally. libgit2 has a filter API but does not "
-        "run the external filters declared in git config, and TAF registers no "
-        "LFS filter of its own, so the smudge never happens and the working "
-        "tree is left holding pointer text. Not reached by a plain clone/update "
-        "(see this module's docstring for the paths that do reach it)."
-    ),
-)
 def test_checkout_branch_materializes_lfs_content(tmp_path):
     """Isolate the checkout path from the transfer question.
 
@@ -304,6 +318,88 @@ def test_checkout_branch_materializes_lfs_content(tmp_path):
     # the default branch does exist locally, so this takes the pygit2 path
     client.checkout_branch(default_branch)
     assert_lfs_content_materialized(client.path, "v2")
+
+
+def test_checkout_reports_missing_git_lfs_instead_of_writing_a_pointer(
+    tmp_path, monkeypatch, lfs_log
+):
+    """git-lfs absent while the repository *does* use LFS: fail, and say why.
+
+    The dangerous outcome is a silent one - a working tree full of pointer text
+    that looks like a successful checkout. pygit2 discards the exception a
+    filter raises (it surfaces as ``failed to close filter stream``), so the
+    filter logs the real reason itself; that log line is the contract here.
+    """
+    origin = build_lfs_origin(tmp_path / "origin")
+    client = GitRepository(path=tmp_path / "client")
+    client.clone_from_disk(origin.path, keep_remote=True)
+    client.checkout_branch("other", create=True)
+
+    monkeypatch.setattr(lfs, "git_lfs_executable", lambda: None)
+
+    client = GitRepository(path=client.path)
+    with pytest.raises(Exception):
+        client.checkout_branch(client.default_branch)
+
+    assert any(
+        "git-lfs" in message for message in lfs_log
+    ), f"nothing explained the failure; logged: {lfs_log}"
+
+
+def test_plain_repository_unaffected_when_git_lfs_missing(
+    tmp_path, monkeypatch, lfs_log
+):
+    """git-lfs absent and LFS unused: everything behaves exactly as before.
+
+    The filter declares ``attributes = "filter=lfs"``, so libgit2 only invokes
+    it for paths ``.gitattributes`` routes to LFS. A repository that uses none
+    must be untouched - no error, no log noise.
+    """
+    monkeypatch.setattr(lfs, "git_lfs_executable", lambda: None)
+
+    origin = build_plain_origin(tmp_path / "origin")
+    client = GitRepository(path=tmp_path / "client")
+    client.clone_from_disk(origin.path, keep_remote=True)
+
+    client.checkout_branch("other", create=True)
+    assert (client.path / PLAIN_FILE_NAME).read_text() == "plain v1"
+
+    client = GitRepository(path=client.path)
+    client.checkout_branch(client.default_branch)
+    assert (client.path / PLAIN_FILE_NAME).read_text() == "plain v2"
+
+    assert not lfs_log, f"the LFS filter should have stayed silent, logged: {lfs_log}"
+
+
+def test_concurrent_checkouts_through_the_filter(tmp_path):
+    """The filter is registered once and used from several threads at once.
+
+    pygit2 documents the filter *registry* as not thread-safe; registration
+    happens once at import, but the filter itself runs concurrently because the
+    updater materializes target repositories through a ThreadPoolExecutor.
+    """
+    repos = []
+    for index in range(4):
+        origin = build_lfs_origin(tmp_path / f"origin{index}")
+        client = GitRepository(path=tmp_path / f"client{index}")
+        client.clone_from_disk(origin.path, keep_remote=True)
+        client.checkout_branch("other", create=True)
+        repos.append(GitRepository(path=client.path))
+
+    errors = []
+
+    def checkout(repo):
+        try:
+            repo.checkout_branch(repo.default_branch)
+        except Exception as error:  # noqa: BLE001 - reported below
+            errors.append(f"{repo.path.name}: {error}")
+
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        list(executor.map(checkout, repos))
+
+    assert not errors, f"concurrent checkouts failed: {errors}"
+    for repo in repos:
+        assert_lfs_content_materialized(repo.path, "v2")
 
 
 @pytest.mark.parametrize("origin_auth_repo", [TARGETS_WITH_LFS], indirect=True)

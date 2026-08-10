@@ -44,6 +44,15 @@ except ImportError:
     pygit2 = None
     PYGIT2_AVAILABLE = False
 
+if PYGIT2_AVAILABLE:
+    from taf.lfs import register_lfs_filter
+
+    # At import time, before any repository object or worker thread exists:
+    # pygit2's filter registry is not thread-safe, and the updater materializes
+    # target repositories concurrently. Without this, pygit2 checkouts write
+    # Git LFS pointer text into the working tree instead of file content.
+    register_lfs_filter()
+
 EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 
 # Per-process cache for default branch detection.

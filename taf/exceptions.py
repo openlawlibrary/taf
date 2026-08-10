@@ -56,6 +56,17 @@ class GitError(TAFError):
         self.error = error
 
 
+class GitLFSError(TAFError):
+    """Raised when a Git LFS object cannot be materialized.
+
+    Note that pygit2 discards exceptions raised inside a filter callback, so
+    when this is raised from ``taf.lfs`` the caller sees a generic pygit2
+    ``GitError`` instead; ``taf.lfs`` logs the real reason for that case.
+    """
+
+    pass
+
+
 class InvalidBranchError(TAFError):
     pass
 
