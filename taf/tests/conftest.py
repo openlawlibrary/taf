@@ -36,26 +36,17 @@ TESTS_DEFAULT_BRANCH = "main"
 
 @pytest.fixture(scope="session", autouse=True)
 def deterministic_git_environment():
-    """Stop the developer's git setup from deciding what the tests assert.
+    """Isolate the git environment the tests run in. Yields the config path.
 
-    Two leaks made results depend on the machine and even on the checked-out
-    branch:
+    ``GIT_CEILING_DIRECTORIES`` stops git's repository discovery at
+    ``taf/tests``. Discovery walks upward and test repositories live inside the
+    TAF checkout, so without it git answers about TAF's own repository whenever
+    it is run against a path that is not a repository yet.
 
-    * Repository discovery walks *upward*. Test repositories live under
-      ``taf/tests/data``, inside the TAF checkout, so ``git`` run against a
-      path that is not yet a repository would answer about **TAF's own
-      repository** - e.g. ``symbolic-ref HEAD`` returning the branch TAF itself
-      is on. ``GIT_CEILING_DIRECTORIES`` stops the search at ``taf/tests``.
-    * ``git init`` names the first branch after ``init.defaultBranch``, so a
-      developer with ``main`` configured got repositories on ``main`` while
-      detection leaked ``master`` from the enclosing checkout - the two
-      disagreed and 20 tests in ``test_git`` failed. They passed on CI only
-      because the enclosing branch happened to match the ``git init`` default.
-
-    ``GIT_CONFIG_GLOBAL`` points at a generated config so the default branch is
-    fixed here rather than inherited. The developer's identity is carried over
-    (resolved before the redirect, so it is what git would have used anyway);
-    without it nothing could commit.
+    ``GIT_CONFIG_GLOBAL`` points at a generated config, so ``init.defaultBranch``
+    is fixed here instead of inherited from the developer. Their identity is
+    carried over - resolved before the redirect, so it is what git would have
+    used - because committing needs it.
     """
     import subprocess
 
@@ -82,7 +73,7 @@ def deterministic_git_environment():
 
     monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(config_path))
     monkeypatch.setenv("GIT_CEILING_DIRECTORIES", str(TEST_DATA_PATH.parent))
-    yield
+    yield config_path
     monkeypatch.undo()
     shutil.rmtree(config_dir, ignore_errors=True)
 

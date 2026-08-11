@@ -1,25 +1,23 @@
 """Make libgit2 checkouts honor Git LFS, by delegating to the git-lfs binary.
 
 Git LFS keeps a small text *pointer* in the repository and the real bytes in a
-separate store, moved by the ``smudge``/``clean`` filters git runs on
-checkout/commit. libgit2 provides a filter framework but deliberately does not
-execute the external filter commands declared in git config
-(``filter.lfs.process`` and friends), so anything TAF checks out through
-``pygit2`` would land in the working tree as pointer text.
+separate store, moved by the ``smudge`` and ``clean`` filters git runs on
+checkout and commit. libgit2 provides a filter framework but does not execute
+the external filter commands declared in git config (``filter.lfs.process`` and
+friends), so files TAF checks out through ``pygit2`` land in the working tree as
+pointer text unless a filter is registered here.
 
-Rather than reimplement Git LFS - pointer parsing, the object store, the Batch
-API, credential handling - this registers a filter that pipes the blob through
-the real ``git-lfs`` binary, which already does all of that, including fetching
-from the LFS server when an object is not cached locally.
+The filter pipes the blob through the ``git-lfs`` binary, which handles pointer
+parsing, the object store, Batch API fetches and credentials. Git LFS is not
+reimplemented; this is a pipe.
 
-Both directions must be implemented, not just ``smudge``. If ``clean`` is left
-out, libgit2 compares real working-tree bytes against a pointer blob, concludes
-the file is modified, and refuses to check out with "1 conflict prevents
-checkout".
+Both directions are implemented. Without ``clean``, libgit2 compares real
+working-tree bytes against a pointer blob, decides the file is modified, and
+refuses to check out with "1 conflict prevents checkout".
 
-The filter declares ``attributes = "filter=lfs"``, so libgit2 invokes it only
-for paths ``.gitattributes`` routes to LFS. Repositories that do not use LFS
-never reach this code, which is what keeps ``git-lfs`` an optional dependency.
+``attributes = "filter=lfs"`` means libgit2 invokes the filter only for paths
+``.gitattributes`` routes to LFS, so repositories that do not use LFS never
+reach this code - which is what keeps ``git-lfs`` an optional dependency.
 """
 
 import shutil

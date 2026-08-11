@@ -1,53 +1,40 @@
-"""Does TAF clone and update target repositories that use Git LFS?
+"""Cloning and updating target repositories that keep their content in Git LFS.
 
-TAF itself knows nothing about LFS - it drives git. What is under test is
-whether the git operations TAF chooses leave a *usable* working tree when a
-target repository keeps its content in LFS, or whether the client is left
-holding pointer files.
+TAF knows nothing about LFS; it drives git. What these tests establish is
+whether the git operations TAF chooses leave real file content in the working
+tree, or LFS pointer files.
 
-The decisive variable is where git-lfs can find objects. It asks the endpoint it
-resolves for the repository: ``lfs.url``, normally from a **committed**
-``.lfsconfig`` (so it survives cloning), otherwise derived from the git remote.
-That matters here because TAF never clones a target repository straight from its
-origin - it clones into a temporary partition as a *bare* repo, and a bare clone
-carries no LFS objects, then materializes the user's copy from that temporary
-repo (``updater_pipeline.update_users_target_repositories`` -> ``clone_from_disk``).
+Where git-lfs looks for objects decides the outcome. It uses the endpoint it
+resolves for the repository: ``lfs.url``, normally from a committed
+``.lfsconfig`` so it survives cloning, otherwise derived from the git remote.
+TAF never clones a target repository straight from its origin - it clones into a
+temporary partition as a *bare* repo, which carries no LFS objects, then
+materializes the user's copy from that temporary repo
+(``updater_pipeline.update_users_target_repositories`` -> ``clone_from_disk``).
+The intermediate repo therefore cannot supply objects:
 
-So the intermediate repo can never supply the objects, and the outcome hinges
-entirely on ``.lfsconfig``:
+* with an LFS server configured, the client fetches from it and clone and update
+  both work. The tests prove the bytes travel over HTTP by deleting the origin's
+  local objects and asserting the server served them.
+* with no ``lfs.url``, git-lfs falls back to the git remote - the objectless
+  temporary clone - and the update fails with ``smudge filter lfs failed``. LFS
+  target repositories need a reachable LFS server; a local mirror is not enough.
 
-* with an LFS server configured, the client fetches from it and everything works
-  - this is the deployed shape (GitHub/GitLab hosting the objects), and the
-  tests below prove the bytes really travel over HTTP by deleting the origin's
-  local objects first and asserting the server served them;
-* with no ``lfs.url``, git-lfs falls back to the git remote, which is the
-  objectless temporary clone, and the update fails with
-  ``fatal: <file>: smudge filter lfs failed``.
+``taf.lfs`` covers the other half: libgit2 does not run the external filters
+declared in git config, so pygit2 checkouts need TAF's own registered filter to
+materialize LFS content. ``test_checkout_branch_materializes_lfs_content``
+covers that at the ``GitRepository`` level. A plain clone or update does not
+exercise it - pygit2's checkout is a no-op when already on the target branch and
+the following subprocess merge does the smudging - but ``--force`` across
+branches, ``taf repo reset`` and the development-mode rollback in ``updater.py``
+do.
 
-A separate gap sits in ``GitRepository.checkout_branch()``, which checks out
-through ``pygit2`` when the branch already exists locally. libgit2 *does* have a
-filter API (and pygit2 exposes it from 1.13.3 - though TAF still pins
-``pygit2==1.9.*`` on Python < 3.11, where it is absent), but it does not run the
-external filters declared in git config, and TAF registers no LFS filter of its
-own. So that checkout writes pointer text even when the objects are present.
-
-The standard clone/update flows above do not hit it: pygit2's checkout is a
-no-op when the repo is already on the target branch, and the subsequent
-subprocess ``git merge``/``reset --hard`` does the smudging. It is reachable
-when the checkout actually changes branches, which the updater normally refuses
-to do (it warns instead) *unless* ``--force`` is passed - and from
-``taf repo reset`` (``api/repository.py``) and the development-mode rollback in
-``updater.py``. ``test_checkout_branch_materializes_lfs_content`` pins the
-behavior at the ``GitRepository`` level; no test here yet drives it through the
-CLI.
-
-These tests need the ``git-lfs`` binary. They skip without it rather than
-failing, so the suite still runs on a machine with no LFS installed; CI installs
-it (see ``.github/workflows/ci.yml``). The LFS server is a small in-process
-Python one (``lfs_server.py``) - no extra dependency to install.
+These tests need the ``git-lfs`` binary and skip without it, so the suite still
+runs where LFS is not installed; CI installs it (``.github/workflows/ci.yml``).
+The LFS server is a small in-process Python one (``lfs_server.py``), so there is
+no service to install.
 """
 
-import subprocess
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -86,71 +73,32 @@ TARGETS_WITH_LFS = {
 
 
 @pytest.fixture(autouse=True)
-def lfs_global_config(monkeypatch, tmp_path):
-    """Make the LFS filters visible to git *globally*, hermetically.
+def lfs_global_config(monkeypatch, tmp_path, deterministic_git_environment):
+    """Make the LFS filters visible to git globally, for this test only.
 
-    A clone inherits filter config from global/system config only - never from
-    the source repository's local config - so without this a cloned target
-    repository would keep pointer files no matter what TAF does, and the test
-    would be measuring the developer's machine setup instead of TAF.
+    A clone inherits filter config from global or system config, never from the
+    source repository's local config, so a cloned target repository keeps
+    pointer files unless the filters are configured globally.
 
-    Rather than running ``git lfs install`` (which would edit the developer's
-    real ``~/.gitconfig``), point ``GIT_CONFIG_GLOBAL`` at a throwaway file that
-    ``include``s the original, and restate the resolved essentials explicitly.
+    Extends the suite's generated config (``deterministic_git_environment``)
+    with what ``git lfs install`` would write, rather than running that command
+    and editing the developer's real ``~/.gitconfig``.
     """
-
-    def git_config_get(key):
-        result = subprocess.run(
-            ["git", "config", "--get", key], capture_output=True, text=True
-        )
-        return result.stdout.strip() if result.returncode == 0 else ""
-
-    # Resolve these *before* redirecting GIT_CONFIG_GLOBAL, so they are exactly
-    # the values git would otherwise have used.
-    carried_over = {
-        key: git_config_get(key)
-        for key in ("user.name", "user.email", "init.defaultBranch", "core.autocrlf")
-    }
-
-    original_path = ""
-    listed = subprocess.run(
-        ["git", "config", "--global", "--list", "--show-origin"],
-        capture_output=True,
-        text=True,
-    )
-    if listed.returncode == 0 and listed.stdout:
-        # "file:/home/u/.gitconfig\tuser.name=..." -> the path of the real config
-        first = listed.stdout.splitlines()[0]
-        if first.startswith("file:"):
-            original_path = first[len("file:") :].split("\t")[0]
-
-    lines = []
-    if original_path:
-        # keep everything else the suite might rely on (safe.directory, ...)
-        lines += ["[include]", f"\tpath = {Path(original_path).as_posix()}"]
-    # The include above is best-effort; on a machine whose global config lives
-    # somewhere unparsed (or nowhere) these must still be present or the tests
-    # below cannot commit.
-    if carried_over["user.name"] or carried_over["user.email"]:
-        lines.append("[user]")
-        for key in ("user.name", "user.email"):
-            if carried_over[key]:
-                lines.append(f"\t{key.split('.')[1]} = {carried_over[key]}")
-    if carried_over["init.defaultBranch"]:
-        lines += ["[init]", f"\tdefaultBranch = {carried_over['init.defaultBranch']}"]
-    if carried_over["core.autocrlf"]:
-        lines += ["[core]", f"\tautocrlf = {carried_over['core.autocrlf']}"]
-    # what `git lfs install` writes, spelled out so we don't mutate real config
-    lines += [
-        '[filter "lfs"]',
-        "\tclean = git-lfs clean -- %f",
-        "\tsmudge = git-lfs smudge -- %f",
-        "\tprocess = git-lfs filter-process",
-        "\trequired = true",
-    ]
     config_path = tmp_path / "lfs_gitconfig"
-    config_path.write_text("\n".join(lines) + "\n")
-
+    config_path.write_text(
+        "\n".join(
+            [
+                "[include]",
+                f"\tpath = {Path(deterministic_git_environment).as_posix()}",
+                '[filter "lfs"]',
+                "\tclean = git-lfs clean -- %f",
+                "\tsmudge = git-lfs smudge -- %f",
+                "\tprocess = git-lfs filter-process",
+                "\trequired = true",
+            ]
+        )
+        + "\n"
+    )
     monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(config_path))
     return config_path
 
@@ -271,10 +219,9 @@ def test_update_materializes_new_lfs_content_from_server(
 def test_clone_lfs_without_server_configured(origin_auth_repo, client_dir):
     """No ``lfs.url`` anywhere: cloning an LFS target repository fails.
 
-    Documents a real constraint rather than a defect to fix: because TAF stages
-    every target repository through a bare intermediate clone, the origin's own
-    ``.git/lfs/objects`` is never reachable from the client. Somebody must host
-    the objects.
+    A constraint, not a defect to fix. TAF stages every target repository
+    through a bare intermediate clone, so the origin's own ``.git/lfs/objects``
+    is unreachable from the client and something has to host the objects.
     """
     setup_manager = SetupManager(origin_auth_repo)
     setup_manager.add_task(add_lfs_target_commits, {"revision": "v1"})
@@ -291,13 +238,12 @@ def test_clone_lfs_without_server_configured(origin_auth_repo, client_dir):
 
 
 def test_checkout_branch_materializes_lfs_content(tmp_path):
-    """Isolate the checkout path from the transfer question.
+    """A checkout that changes branches materializes LFS content.
 
-    Uses ``GitRepository`` directly - no updater - and clones from a *non-bare*
-    origin, so ``git clone --local`` hardlinks ``.git/lfs/objects`` and every
-    object is already present locally. Nothing needs downloading and no server
-    is involved; the only question is whether the checkout runs the smudge
-    filter.
+    Clones from a non-bare origin, so ``git clone --local`` hardlinks
+    ``.git/lfs/objects`` and every object is already present: no server is
+    involved and nothing needs downloading, leaving only the question of whether
+    the checkout runs the smudge filter.
     """
     origin = build_lfs_origin(tmp_path / "origin")
     client = GitRepository(path=tmp_path / "client")
@@ -308,10 +254,9 @@ def test_checkout_branch_materializes_lfs_content(tmp_path):
     client.checkout_branch("other", create=True)
     assert_lfs_content_materialized(client.path, "v1")
 
-    # A fresh instance, as a subsequent TAF run would use: reusing `client` here
-    # would instead trip over its cached pygit2 handle, whose in-memory index is
-    # stale after the subprocess checkout above ("1 conflict prevents checkout")
-    # - a separate issue that would mask the one under test.
+    # A fresh instance, as a subsequent TAF run would use. Reusing `client` here
+    # would hit its cached pygit2 handle, whose in-memory index is stale after
+    # the subprocess checkout above ("1 conflict prevents checkout").
     client = GitRepository(path=client.path)
     assert not client.something_to_commit(), "working tree should be clean"
 
@@ -349,7 +294,7 @@ def test_checkout_reports_missing_git_lfs_instead_of_writing_a_pointer(
 def test_plain_repository_unaffected_when_git_lfs_missing(
     tmp_path, monkeypatch, lfs_log
 ):
-    """git-lfs absent and LFS unused: everything behaves exactly as before.
+    """git-lfs absent and LFS unused: nothing changes.
 
     The filter declares ``attributes = "filter=lfs"``, so libgit2 only invokes
     it for paths ``.gitattributes`` routes to LFS. A repository that uses none

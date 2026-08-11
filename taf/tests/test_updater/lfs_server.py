@@ -1,20 +1,17 @@
 """A minimal Git LFS server for tests, speaking the real Batch API over HTTP.
 
-This is not a mock: it is a real server implementing the documented Git LFS
-protocol (``POST /objects/batch`` plus ``basic`` transfer GET/PUT), which the
-real ``git-lfs`` client talks to over a real socket. Nothing in TAF is stubbed.
+Implements the two endpoints the ``basic`` transfer adapter needs -
+``POST /objects/batch`` plus GET/PUT of the object itself - so the real
+``git-lfs`` client talks to it over a real socket.
 
-Why a server is needed at all: git-lfs looks for objects at the endpoint it
-resolves for the repository - ``lfs.url`` (typically from a committed
-``.lfsconfig``), else derived from the git remote. TAF materializes a client's
-target repository from an intermediate *bare* clone, and bare clones carry no
-LFS objects, so whether a clone succeeds depends entirely on whether some
-endpoint other than that intermediate repo can supply the objects. Only a
-server reproduces the deployed topology (GitHub/GitLab hosting the objects).
+A server is what reproduces the deployed topology, where the objects live on
+GitHub or GitLab rather than in any repository TAF can reach: TAF materializes a
+client's target repository from an intermediate bare clone, and bare clones carry
+no LFS objects.
 
-Storage is a flat directory keyed by oid. ``downloads``/``uploads`` record what
-the client actually asked for, so a test can assert the bytes genuinely came
-over the wire rather than from a local hardlink.
+Storage is a flat directory keyed by oid. ``downloads`` and ``uploads`` record
+what the client asked for, so a test can assert the bytes came over the wire
+rather than from a local hardlink.
 
 Protocol reference: https://github.com/git-lfs/git-lfs/blob/main/docs/api/batch.md
 """

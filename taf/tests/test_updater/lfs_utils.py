@@ -1,24 +1,19 @@
 """Helpers for exercising TAF against target repositories that use Git LFS.
 
-Git LFS replaces the tracked file's content in git with a small text *pointer*
+Git LFS replaces a tracked file's content in git with a small text *pointer*
 (``version https://git-lfs.github.com/spec/v1\\noid sha256:...\\nsize ...``) and
-keeps the real bytes in a separate object store, transferred by the ``smudge``/
-``clean`` filters that git runs on checkout/commit.
+keeps the real bytes in a separate object store, moved by the ``smudge`` and
+``clean`` filters git runs on checkout and commit.
 
-Two consequences drive everything here:
+The filters are configured in git *config*, and a clone inherits global and
+system config but not the source repository's local config, so enabling LFS per
+repository is not enough for a clone to materialize content - the configuration
+has to be visible globally (``lfs_global_config`` in ``test_lfs.py``).
 
-* Only ``git`` (the subprocess) runs those filters. libgit2/``pygit2`` does not
-  implement them, so anything checked out through ``pygit2`` lands in the
-  working tree as the pointer text.
-* The filters are configured in git *config*, and a clone inherits only
-  global/system config - not the source repository's local config. So enabling
-  LFS per-repository is not enough for a clone to materialize content;
-  ``git lfs install`` must be visible globally. ``lfs_global_config`` below
-  arranges that hermetically, without touching the developer's real config.
-
-No LFS server is required: git-lfs speaks a ``file://`` endpoint for
-filesystem remotes and reads objects straight out of the origin's
-``.git/lfs/objects``, which is exactly the shape of TAF's test origins.
+``build_lfs_origin`` and ``build_plain_origin`` create standalone repositories
+with two revisions on separate branches, which is what makes a checkout have to
+rewrite the tracked file. ``add_lfs_target_commits`` is the ``SetupManager``
+equivalent for the updater's target repositories.
 """
 
 import shutil
