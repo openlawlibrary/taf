@@ -29,9 +29,57 @@ WITH_DELEGATIONS_NO_YUBIKEY = (
 REPOSITORIES_JSON_PATH = TEST_INIT_DATA_PATH / "repositories.json"
 MIRRORS_JSON_PATH = TEST_INIT_DATA_PATH / "mirrors.json"
 
+#: Branch name `git init` gives test repositories. Fixed here so results do not
+#: depend on the developer's `init.defaultBranch`.
+TESTS_DEFAULT_BRANCH = "main"
+
 
 @pytest.fixture(scope="session", autouse=True)
-def repo_dir():
+def deterministic_git_environment():
+    """Isolate the git environment the tests run in. Yields the config path.
+
+    ``GIT_CEILING_DIRECTORIES`` stops git's repository discovery at
+    ``taf/tests``. Discovery walks upward and test repositories live inside the
+    TAF checkout, so without it git answers about TAF's own repository whenever
+    it is run against a path that is not a repository yet.
+
+    ``GIT_CONFIG_GLOBAL`` points at a generated config, so ``init.defaultBranch``
+    is fixed here instead of inherited from the developer. Their identity is
+    carried over - resolved before the redirect, so it is what git would have
+    used - because committing needs it.
+    """
+    import subprocess
+
+    def git_config_get(key):
+        result = subprocess.run(
+            ["git", "config", "--get", key], capture_output=True, text=True
+        )
+        return result.stdout.strip() if result.returncode == 0 else ""
+
+    identity = {key: git_config_get(f"user.{key}") for key in ("name", "email")}
+
+    monkeypatch = pytest.MonkeyPatch()
+    config_dir = TEST_DATA_PATH / "git-config"
+    config_dir.mkdir(parents=True, exist_ok=True)
+    config_path = config_dir / "gitconfig"
+
+    lines = ["[init]", f"\tdefaultBranch = {TESTS_DEFAULT_BRANCH}"]
+    if identity["name"] or identity["email"]:
+        lines.append("[user]")
+        for key, value in identity.items():
+            if value:
+                lines.append(f"\t{key} = {value}")
+    config_path.write_text("\n".join(lines) + "\n")
+
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(config_path))
+    monkeypatch.setenv("GIT_CEILING_DIRECTORIES", str(TEST_DATA_PATH.parent))
+    yield config_path
+    monkeypatch.undo()
+    shutil.rmtree(config_dir, ignore_errors=True)
+
+
+@pytest.fixture(scope="session", autouse=True)
+def repo_dir(deterministic_git_environment):
     path = CLIENT_DIR_PATH
     if path.is_dir():
         shutil.rmtree(path, onerror=on_rm_error)

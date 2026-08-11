@@ -45,10 +45,17 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install libhdf5-serial-dev zlib1g-dev libatlas-base-dev lcov swig3.0 libpcsclite-dev
+          sudo apt-get install libhdf5-serial-dev zlib1g-dev libatlas-base-dev lcov swig3.0 libpcsclite-dev git-lfs
           mkdir -p ~/bin/ && ln -s /usr/bin/swig3.0 ~/bin/swig && export PATH=~/bin/:$PATH
           pip install wheel  # Ensure wheel is installed
           pip install -e .[ci,test,yubikey]
+
+      # taf/tests/test_updater/test_lfs.py needs the `git lfs` subcommand; it
+      # skips itself when absent, so assert it is really here rather than let
+      # the LFS coverage silently disappear. No `git lfs install` is needed -
+      # the tests supply their own filter config via GIT_CONFIG_GLOBAL.
+      - name: Verify git-lfs is available
+        run: git lfs version
 
       - name: Setup GitHub user
         run: |

@@ -29,6 +29,7 @@ from taf.exceptions import (
     UpdateFailedError,
     PygitError,
 )
+from taf.lfs import register_lfs_filter
 from taf.log import NOTICE, taf_logger
 from taf.utils import format_command_args, run
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
@@ -43,6 +44,14 @@ try:
 except ImportError:
     pygit2 = None
     PYGIT2_AVAILABLE = False
+
+# Registered here, at import time, because pygit2's filter registry is not
+# thread-safe and the updater materializes target repositories concurrently -
+# so this has to happen before any repository object or worker thread exists.
+# Without it, pygit2 checkouts write Git LFS pointer text into the working tree
+# instead of file content. Called unconditionally: `taf.lfs` reports whether it
+# could register (it needs pygit2 >= 1.13.3) and is a no-op otherwise.
+register_lfs_filter()
 
 EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 
@@ -1589,6 +1598,12 @@ class GitRepository:
         self._is_git_repository = None
         if self.urls is not None and len(self.urls):
             self._git("remote add origin {}", self.urls[0])
+        # A GitRepository is often constructed before the repository exists, when
+        # the default branch cannot be determined yet. Now that `init` has named
+        # the first branch, resolve it - the same refresh `clone` and
+        # `clone_from_disk` already do.
+        if self.default_branch is None:
+            self.default_branch = self._determine_default_branch()
 
     def is_path_ignored(self, path: str) -> bool:
         """
