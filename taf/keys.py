@@ -659,17 +659,16 @@ def _setup_yubikey(
         if yubikeys is not None:
             key, serial_num, key_name, _ = yubikeys[0]
             if not use_existing:
-                # TODO: always resetting is temporary - once signing supports
-                # slots other than SIGNATURE, let the user pick which slot to
-                # use here (default SIGNATURE), and only overwrite it (force,
-                # non-destructive to the rest of the card) instead of ever
-                # doing a full reset
+                # TODO: always uses SLOT.SIGNATURE - let the user pick which
+                # slot to generate the new key in. taf never resets or
+                # overwrites a card, so this fails outright if SIGNATURE is
+                # already occupied; the user has to reset the YubiKey's PIV
+                # application themselves and try again.
                 key = yk.setup_new_yubikey(
                     auth_repo.pin_manager,
                     serial_num,
                     scheme,
                     key_size=key_size,
-                    reset=True,
                 )
 
             if certs_dir is not None:

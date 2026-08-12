@@ -1,3 +1,4 @@
+import secrets
 from pathlib import Path
 from unittest import mock
 
@@ -6,13 +7,14 @@ from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
+from ykman.piv import MANAGEMENT_KEY_TYPE, pivman_set_mgm_key
 from yubikit.core import NotSupportedError
-from yubikit.piv import DEFAULT_MANAGEMENT_KEY, SLOT
+from yubikit.piv import SLOT
 
 import taf.api.yubikey as yk_api
 import taf.keys as taf_keys
 import taf.yubikey.yubikey as yk
-from taf.exceptions import YubikeyError
+from taf.exceptions import KeystoreError, YubikeyError
 from taf.tools.yubikey.yubikey_utils import FakePivController
 from taf.tuf.keys import YkSigner, load_signer_from_file
 from taf.yubikey.yubikey_manager import PinManager, YubiKeyStore
@@ -86,43 +88,26 @@ def test_is_slot_occupied_falls_back_to_certificate_on_older_firmware(
     assert yk.is_slot_occupied(fake_yubikey.serial, SLOT.SIGNATURE)
 
 
-def test_setup_reset_randomizes_and_stores_protected_management_key(fake_yubikey):
-    yk.setup(
-        pin="654321",
-        serial=fake_yubikey.serial,
-        cert_cn="Reset key",
-        reset=True,
-    )
-
-    # the management key must no longer be the well-known PIV default...
-    assert fake_yubikey.management_key != DEFAULT_MANAGEMENT_KEY
-    # ...and it must be recoverable with the PIN that was just set
+def test_setup_recovers_stored_management_key(fake_yubikey, keystore):
+    # simulate a card that was previously set up (by another tool, or an
+    # earlier taf version) with a randomized, PIN-protected management key -
+    # setup() must recover it on its own and authenticate successfully with
+    # it, not the PIV default
+    new_mgm_key = secrets.token_bytes(24)
     with yk._yk_piv_ctrl(serial=fake_yubikey.serial) as [(ctrl, _)]:
-        ctrl.verify_pin("654321")
-        assert yk._get_protected_management_key(ctrl) == fake_yubikey.management_key
+        ctrl.verify_pin(fake_yubikey.pin)
+        pivman_set_mgm_key(
+            ctrl, new_mgm_key, MANAGEMENT_KEY_TYPE.TDES, store_on_device=True
+        )
+    assert fake_yubikey.management_key == new_mgm_key
 
-
-def test_setup_non_reset_recovers_stored_management_key(fake_yubikey, keystore):
-    # reset first, choosing a new PIN - this randomizes the management key
-    # and stores it protected by that PIN
-    yk.setup(
-        pin="654321",
-        serial=fake_yubikey.serial,
-        cert_cn="Reset key",
-        reset=True,
-    )
-
-    # a later non-reset call, using the same PIN, must recover the stored
-    # (randomized, no longer default) management key on its own and
-    # authenticate successfully with it - not the PIV default
     new_key_pem = (keystore / "root2").read_bytes()
     yk.setup(
-        pin="654321",
+        pin=fake_yubikey.pin,
         serial=fake_yubikey.serial,
         cert_cn="Second key",
         private_key_pem=new_key_pem,
         slot=SLOT.AUTHENTICATION,
-        reset=False,
     )
 
     status = yk.get_slot_status(serial=fake_yubikey.serial)[fake_yubikey.serial]
@@ -168,110 +153,139 @@ def test_setup_into_free_slot_does_not_touch_existing_key(fake_yubikey, keystore
     )
 
 
-def test_setup_refuses_to_overwrite_occupied_slot_without_force(fake_yubikey):
+def test_setup_refuses_to_overwrite_occupied_slot(fake_yubikey):
     with pytest.raises(YubikeyError):
         yk.setup(
             pin="123456",
             serial=fake_yubikey.serial,
             cert_cn="Should not be written",
             slot=SLOT.SIGNATURE,
-            reset=False,
         )
 
-
-def test_setup_overwrites_occupied_slot_with_force(fake_yubikey, keystore):
-    new_key_pem = (keystore / "root2").read_bytes()
-
-    yk.setup(
-        pin="123456",
-        serial=fake_yubikey.serial,
-        cert_cn="Replacement key",
-        private_key_pem=new_key_pem,
-        slot=SLOT.SIGNATURE,
-        reset=False,
-        force=True,
-    )
-
+    # the original key must be untouched
     status = yk.get_slot_status(serial=fake_yubikey.serial)[fake_yubikey.serial]
-    new_cert = status[SLOT.SIGNATURE]
     assert (
-        new_cert.public_key().public_numbers() != fake_yubikey.pub_key.public_numbers()
-    )
-
-
-def test_setup_signing_yubikey_can_write_signature_slot_without_resetting(
-    fake_yubikey, monkeypatch
-):
-    monkeypatch.setattr(yk_api.click, "confirm", lambda *args, **kwargs: True)
-    monkeypatch.setattr(yk, "export_yk_certificate", lambda *args, **kwargs: None)
-    monkeypatch.setattr("builtins.input", lambda prompt="": "New signer")
-
-    # SIGNATURE is already occupied by the fixture's default key, so
-    # force=True is required, exactly like any other non-reset overwrite.
-    yk_api.setup_signing_yubikey(
-        _pin_manager(fake_yubikey),
-        key_size=2048,
-        slot="SIGNATURE",
-        reset=False,
-        force=True,
-    )
-
-    status = yk.get_slot_status(serial=fake_yubikey.serial)[fake_yubikey.serial]
-    new_cert = status[SLOT.SIGNATURE]
-    assert (
-        new_cert.public_key().public_numbers() != fake_yubikey.pub_key.public_numbers()
-    )
-
-
-def test_setup_test_yubikey_declining_occupied_slot_confirmation_leaves_key_untouched(
-    fake_yubikey, monkeypatch, keystore
-):
-    monkeypatch.setattr(yk_api.click, "confirm", lambda *args, **kwargs: False)
-
-    new_key_path = keystore / "root2"
-
-    yk_api.setup_test_yubikey(_pin_manager(fake_yubikey), str(new_key_path))
-
-    status = yk.get_slot_status(serial=fake_yubikey.serial)[fake_yubikey.serial]
-    original_cert = status[SLOT.SIGNATURE]
-    assert (
-        original_cert.public_key().public_numbers()
+        status[SLOT.SIGNATURE].public_key().public_numbers()
         == fake_yubikey.pub_key.public_numbers()
     )
 
 
-def test_setup_test_yubikey_force_skips_occupied_slot_confirmation(
+def test_setup_refuses_occupied_slot_without_verifying_pin(fake_yubikey, monkeypatch):
+    # checking slot occupancy is an unauthenticated PIV read - an occupied
+    # slot must be refused before the PIN is ever verified, so a doomed
+    # attempt doesn't burn one of the card's limited PIN retries.
+    # raise_yubikey_err would wrap *any* unexpected exception (including one
+    # raised by this mock) into a YubikeyError too, so match on the expected
+    # message specifically rather than just the exception type - otherwise
+    # this would pass even if verify_pin actually got called.
+    def _unexpected_verify_pin(self, pin):
+        raise AssertionError("should not verify the PIN for an occupied slot")
+
+    monkeypatch.setattr(FakePivController, "verify_pin", _unexpected_verify_pin)
+
+    with pytest.raises(YubikeyError, match="already has a key"):
+        yk.setup(
+            pin="123456",
+            serial=fake_yubikey.serial,
+            cert_cn="Should not be written",
+            slot=SLOT.SIGNATURE,
+        )
+
+
+def test_setup_signing_yubikey_refuses_occupied_slot_without_prompting(
+    fake_yubikey, monkeypatch
+):
+    # SIGNATURE is already occupied by the fixture's default key - taf must
+    # refuse outright. There's no overwrite/reset flow to confirm anymore,
+    # so click.confirm must never even be called.
+    def _unexpected_confirm(*args, **kwargs):
+        raise AssertionError("should not prompt to overwrite an occupied slot")
+
+    monkeypatch.setattr("builtins.input", lambda prompt="": "")
+
+    with mock.patch("click.confirm", side_effect=_unexpected_confirm):
+        with pytest.raises(YubikeyError):
+            yk_api.setup_signing_yubikey(
+                _pin_manager(fake_yubikey),
+                key_size=2048,
+                slot="SIGNATURE",
+            )
+
+    status = yk.get_slot_status(serial=fake_yubikey.serial)[fake_yubikey.serial]
+    assert (
+        status[SLOT.SIGNATURE].public_key().public_numbers()
+        == fake_yubikey.pub_key.public_numbers()
+    )
+
+
+def test_setup_test_yubikey_refuses_occupied_slot_without_prompting_for_pin(
+    fake_yubikey, keystore, monkeypatch
+):
+    # an empty PinManager means _prepare_setup would have to prompt for a
+    # PIN via get_and_validate_pin if it got that far - it must not, since
+    # checking slot occupancy needs no PIN at all (an unauthenticated PIV
+    # read).
+    def _unexpected_get_and_validate_pin(*args, **kwargs):
+        raise AssertionError("should not prompt for a PIN for an occupied slot")
+
+    monkeypatch.setattr(yk, "get_and_validate_pin", _unexpected_get_and_validate_pin)
+
+    new_key_path = keystore / "root2"
+    with pytest.raises(YubikeyError, match="already has a key"):
+        yk_api.setup_test_yubikey(PinManager(), str(new_key_path))
+
+
+def test_setup_test_yubikey_missing_key_file_raises_keystore_error(
+    fake_yubikey, monkeypatch
+):
+    # a bad key path is a plain file error, not a YubiKey problem - and it
+    # must be caught before ever resolving a device/prompting for a PIN.
+    def _unexpected_get_and_validate_pin(*args, **kwargs):
+        raise AssertionError("should not prompt for a PIN for a missing key file")
+
+    monkeypatch.setattr(yk, "get_and_validate_pin", _unexpected_get_and_validate_pin)
+
+    with pytest.raises(KeystoreError, match="does not exist"):
+        yk_api.setup_test_yubikey(PinManager(), "/no/such/key/file")
+
+
+def test_setup_test_yubikey_validates_pin_against_card(
+    fake_yubikey, keystore, monkeypatch
+):
+    # the PIN entered here is always the card's existing PIN (taf never sets
+    # a new one) - a wrong entry must be caught and retried against the
+    # card itself, not silently accepted like a "choose a new secret"
+    # confirm-by-retyping prompt would.
+    wrong_then_right_pins = iter(["000000", fake_yubikey.pin])
+    monkeypatch.setattr(yk, "get_pin_for", lambda *a, **k: next(wrong_then_right_pins))
+
+    new_key_path = keystore / "root2"
+    with mock.patch("click.confirm", return_value=True) as confirm:
+        yk_api.setup_test_yubikey(
+            PinManager(), str(new_key_path), slot="AUTHENTICATION"
+        )
+    confirm.assert_called_once()
+
+    status = yk.get_slot_status(serial=fake_yubikey.serial)[fake_yubikey.serial]
+    assert status[SLOT.AUTHENTICATION] is not None
+
+
+def test_setup_test_yubikey_refuses_occupied_slot_without_prompting(
     fake_yubikey, keystore
 ):
-    # force=True on an already-occupied slot must succeed without any
-    # interactive confirmation, so click.confirm is deliberately left
-    # unmocked here.
-    new_key_path = keystore / "root2"
-
-    yk_api.setup_test_yubikey(_pin_manager(fake_yubikey), str(new_key_path), force=True)
-
-    status = yk.get_slot_status(serial=fake_yubikey.serial)[fake_yubikey.serial]
-    new_cert = status[SLOT.SIGNATURE]
-    assert (
-        new_cert.public_key().public_numbers() != fake_yubikey.pub_key.public_numbers()
-    )
-
-
-def test_setup_test_yubikey_explicit_reset_wipes_other_slots(
-    fake_yubikey, monkeypatch, keystore
-):
-    monkeypatch.setattr(yk_api.click, "confirm", lambda *args, **kwargs: True)
+    def _unexpected_confirm(*args, **kwargs):
+        raise AssertionError("should not prompt to overwrite an occupied slot")
 
     new_key_path = keystore / "root2"
-
-    yk_api.setup_test_yubikey(PinManager(), str(new_key_path), reset=True)
+    with mock.patch("click.confirm", side_effect=_unexpected_confirm):
+        with pytest.raises(YubikeyError):
+            yk_api.setup_test_yubikey(_pin_manager(fake_yubikey), str(new_key_path))
 
     status = yk.get_slot_status(serial=fake_yubikey.serial)[fake_yubikey.serial]
-    new_cert = status[SLOT.SIGNATURE]
     assert (
-        new_cert.public_key().public_numbers() != fake_yubikey.pub_key.public_numbers()
+        status[SLOT.SIGNATURE].public_key().public_numbers()
+        == fake_yubikey.pub_key.public_numbers()
     )
-    assert status[SLOT.AUTHENTICATION] is None
 
 
 def test_sign_piv_rsa_pkcs1v15_uses_given_slot(fake_yubikey, keystore):
@@ -381,6 +395,69 @@ def test_read_and_check_yubikeys_counts_every_valid_key_on_one_device(
         (sig_key.keyid, SLOT.SIGNATURE),
         (auth_key.keyid, SLOT.AUTHENTICATION),
     }
+
+
+def test_signs_correctly_with_each_key_when_multiple_slots_occupied(
+    fake_yubikey, keystore
+):
+    # discovering 2 valid keys on one device is only half the story - each
+    # one must actually sign with its own key when used, not get mixed up
+    # with the other slot's key on the same physical device.
+    new_key_pem = (keystore / "root2").read_bytes()
+    yk.setup(
+        pin="123456",
+        serial=fake_yubikey.serial,
+        cert_cn="Second key",
+        private_key_pem=new_key_pem,
+        slot=SLOT.AUTHENTICATION,
+    )
+    sig_key = fake_yubikey.tuf_key.public_key
+    auth_key = load_signer_from_file(keystore / "root2").public_key
+    taf_repo = _MinimalTafRepo({sig_key.keyid: "root1", auth_key.keyid: "root2"})
+
+    result = yk._read_and_check_yubikeys(
+        role="root",
+        taf_repo=taf_repo,
+        pin_manager=_pin_manager(fake_yubikey),
+        pin_confirm=False,
+        pin_repeat=False,
+        prompt_message=None,
+        key_names=["root1", "root2"],
+        retrying=False,
+        hide_already_loaded_message=True,
+        hide_threshold_message=True,
+        key_id_pins=None,
+    )
+    assert len(result) == 2
+
+    auth_priv_key = serialization.load_pem_private_key(
+        new_key_pem, None, default_backend()
+    )
+    payload = b"shared payload signed by both keys"
+    signed_slots = set()
+    for public_key, serial_num, key_name, slot in result:
+        signer = YkSigner(
+            public_key, serial_num, lambda name: "123456", key_name, slot=slot
+        )
+        sig = bytes.fromhex(signer.sign(payload).signature)
+
+        correct_key = (
+            fake_yubikey.pub_key
+            if slot == SLOT.SIGNATURE
+            else auth_priv_key.public_key()
+        )
+        wrong_key = (
+            auth_priv_key.public_key()
+            if slot == SLOT.SIGNATURE
+            else fake_yubikey.pub_key
+        )
+
+        correct_key.verify(sig, payload, padding.PKCS1v15(), hashes.SHA256())
+        with pytest.raises(InvalidSignature):
+            wrong_key.verify(sig, payload, padding.PKCS1v15(), hashes.SHA256())
+        signed_slots.add(slot)
+
+    assert signed_slots == {SLOT.SIGNATURE, SLOT.AUTHENTICATION}
 
 
 def test_read_and_check_single_yubikey_auto_selects_sole_occupied_slot(

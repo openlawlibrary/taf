@@ -44,6 +44,7 @@ class FakeYubiKey:
         self.data_objects: dict = {}
         self.pin_verified = False
         self.management_key = DEFAULT_MANAGEMENT_KEY
+        self.pin_attempts_remaining = 3
 
     @property
     def driver(self):
@@ -139,8 +140,8 @@ class FakePivController:
     def generate_self_signed_certificate(self, *args, **kwargs):
         pass
 
-    def get_pin_tries(self):
-        return 1
+    def get_pin_attempts(self):
+        return self._driver.pin_attempts_remaining
 
     def put_key(self, slot, private_key, pin_policy=None, touch_policy=None):
         self._slots[slot] = {
@@ -172,6 +173,7 @@ class FakePivController:
         self._driver.pin_verified = False
         self._driver.management_key = DEFAULT_MANAGEMENT_KEY
         self._driver.pin = VALID_PIN
+        self._driver.pin_attempts_remaining = 3
 
     def get_object(self, object_id):
         if (
@@ -209,7 +211,9 @@ class FakePivController:
 
     def verify_pin(self, pin):
         if self._driver.pin != pin:
+            self._driver.pin_attempts_remaining -= 1
             raise InvalidPinError(0)
+        self._driver.pin_attempts_remaining = 3
         self._driver.pin_verified = True
 
 
