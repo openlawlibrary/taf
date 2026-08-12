@@ -462,9 +462,7 @@ def _resolve_and_cache_pin(
 
 def _prompt_for_slot_selection(serial_num, device_keys):
     """Ask the user which of a device's occupied PIV slots holds the key
-    they want. Used when more than one slot is occupied and there's no
-    other way (e.g. a role's validity check) to tell which one they mean.
-    """
+    they want."""
     ordered = sorted(device_keys.items(), key=lambda item: item[0].value)
     print(f"YubiKey serial={serial_num} has more than one key set up:")
     for index, (slot, key) in enumerate(ordered, start=1):
@@ -728,16 +726,13 @@ def _get_protected_management_key(ctrl):
 
 
 def _slot_occupied(ctrl, slot) -> bool:
-    """Check whether a PIV slot already has a key in it.
-
-    Prefers get_slot_metadata, which detects a key even without a
-    certificate (e.g. an interrupted setup()), falling back to
-    get_certificate on firmware older than 5.3 that doesn't support it.
-    """
+    """Check whether a PIV slot already has a key in it."""
     try:
+        # detects a key even without a certificate (e.g. an interrupted setup())
         ctrl.get_slot_metadata(slot)
         return True
     except NotSupportedError:
+        # firmware older than 5.3 - fall back to checking for a certificate
         pass
     except Exception:
         return False
@@ -798,8 +793,7 @@ def setup(
 ):
     """Generate or import a key (and self-signed certificate) into a single
     PIV slot of the inserted YubiKey. Every other slot, and the PIN/PUK, are
-    left untouched. Raises if the target slot is already occupied - taf
-    never resets or overwrites a card.
+    left untouched. Raises if the target slot is already occupied.
 
     Args:
         - cert_cn(str): x509 common name

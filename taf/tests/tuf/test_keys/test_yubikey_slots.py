@@ -1,5 +1,6 @@
 import secrets
 from pathlib import Path
+from typing import Optional
 from unittest import mock
 
 import pytest
@@ -34,7 +35,9 @@ class _MinimalTafRepo:
     tested without building a full repository on disk just to check
     role/key validity."""
 
-    def __init__(self, key_names_by_keyid: dict, pin_manager: PinManager = None):
+    def __init__(
+        self, key_names_by_keyid: dict, pin_manager: Optional[PinManager] = None
+    ):
         self.path = Path.cwd()
         self.yubikey_store = YubiKeyStore()
         self.keys_name_mappings = dict(key_names_by_keyid)

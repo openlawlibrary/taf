@@ -21,9 +21,7 @@ SETUP_SLOTS = {SLOT.SIGNATURE, SLOT.AUTHENTICATION, SLOT.KEY_MANAGEMENT, SLOT.CA
 
 
 def _ensure_slot_free(serial: str, piv_slot: SLOT) -> None:
-    """Raise a clear error if the target slot is already occupied. taf never
-    overwrites or resets a YubiKey - if the slot isn't free, the user has to
-    reset the card's PIV application themselves and try again."""
+    """Raise a clear error if the target slot is already occupied."""
     if yk.is_slot_occupied(serial, piv_slot):
         raise YubikeyError(
             f"The {piv_slot.name} slot on YubiKey {serial} already has a key. "
@@ -40,11 +38,11 @@ def _prepare_setup(
     insert_prompt: Optional[str] = None,
 ) -> Tuple[str, str]:
     """Resolve which YubiKey to use, confirm the target slot is free, and get
-    its PIN. Occupancy is checked first since it needs no PIN - no point
-    prompting for one only to fail on an occupied slot."""
+    its PIN."""
     if serial is None:
         serial = _resolve_single_serial(insert_prompt)
 
+    # an unauthenticated PIV read, so check it before ever asking for a PIN
     _ensure_slot_free(serial, piv_slot)
 
     # needed to unlock the card's stored, PIN-protected management key
