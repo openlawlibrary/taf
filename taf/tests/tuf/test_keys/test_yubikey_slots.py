@@ -539,6 +539,72 @@ def test_read_and_check_single_yubikey_prompts_when_multiple_slots_occupied(
     assert public_key.keyid == auth_key.keyid
 
 
+def test_prompt_for_new_key_slot_auto_selects_sole_free_slot():
+    # SIGNATURE, KEY_MANAGEMENT and CARD_AUTH are occupied - AUTHENTICATION
+    # is the only free slot, so there's nothing to ask about.
+    occupied = {SLOT.SIGNATURE, SLOT.KEY_MANAGEMENT, SLOT.CARD_AUTH}
+    with mock.patch("click.prompt") as prompt:
+        slot = yk._prompt_for_new_key_slot("123456", occupied)
+    prompt.assert_not_called()
+    assert slot == SLOT.AUTHENTICATION
+
+
+def test_prompt_for_new_key_slot_prompts_when_multiple_free_slots():
+    # only SIGNATURE is occupied - AUTHENTICATION, KEY_MANAGEMENT and
+    # CARD_AUTH are all free, so the user must pick one.
+    occupied = {SLOT.SIGNATURE}
+    # sorted by slot value: AUTHENTICATION(154), KEY_MANAGEMENT(157),
+    # CARD_AUTH(158) - option 2 is KEY_MANAGEMENT
+    with mock.patch("click.prompt", return_value=2) as prompt:
+        slot = yk._prompt_for_new_key_slot("123456", occupied)
+    prompt.assert_called_once()
+    assert slot == SLOT.KEY_MANAGEMENT
+
+
+def test_prompt_for_new_key_slot_raises_when_no_free_slot():
+    occupied = {
+        SLOT.SIGNATURE,
+        SLOT.AUTHENTICATION,
+        SLOT.KEY_MANAGEMENT,
+        SLOT.CARD_AUTH,
+    }
+    with mock.patch("click.prompt") as prompt:
+        with pytest.raises(YubikeyError, match="no free slot"):
+            yk._prompt_for_new_key_slot("123456", occupied)
+    prompt.assert_not_called()
+
+
+def test_setup_yubikey_creates_new_key_in_a_free_non_signature_slot(
+    fake_yubikey, monkeypatch
+):
+    # SIGNATURE is already occupied by the fixture's default key - creating
+    # a new key must land in a different, free slot instead of failing.
+    monkeypatch.setattr("builtins.input", lambda prompt="": "New signer")
+    auth_repo = _MinimalTafRepo({}, pin_manager=_pin_manager(fake_yubikey))
+
+    def _confirm_side_effect(message, *args, **kwargs):
+        # "reuse already set up Yubikey?" -> no, create a new one; every
+        # other confirm (the now-stale delete-everything warning) -> proceed
+        if message == "Do you want to reuse already set up Yubikey?":
+            return False
+        return True
+
+    with mock.patch("click.confirm", side_effect=_confirm_side_effect), mock.patch(
+        "click.prompt", return_value=1
+    ):
+        key, serial_num, slot = taf_keys._setup_yubikey(
+            auth_repo, "root", "root1", key_size=2048
+        )
+
+    assert slot == SLOT.AUTHENTICATION
+    status = yk.get_slot_status(serial=fake_yubikey.serial)[fake_yubikey.serial]
+    assert status[SLOT.AUTHENTICATION] is not None
+    assert (
+        status[SLOT.SIGNATURE].public_key().public_numbers()
+        == fake_yubikey.pub_key.public_numbers()
+    )
+
+
 def test_load_and_verify_yubikey_uses_the_slot_the_user_picked(fake_yubikey, keystore):
     new_key_pem = (keystore / "root2").read_bytes()
     yk.setup(

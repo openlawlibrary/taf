@@ -13,11 +13,9 @@ from taf.log import taf_logger
 from taf.tuf.keys import get_sslib_key_from_value
 from taf.tuf.repository import MAIN_ROLES
 import taf.yubikey.yubikey as yk
+from taf.yubikey.yubikey import SETUP_SLOTS
 from taf.yubikey.yubikey_manager import PinManager
 from yubikit.piv import SLOT
-
-# Retired slots (RETIRED1-RETIRED20) are reserved for key history/decryption, not signing.
-SETUP_SLOTS = {SLOT.SIGNATURE, SLOT.AUTHENTICATION, SLOT.KEY_MANAGEMENT, SLOT.CARD_AUTH}
 
 
 def _ensure_slot_free(serial: str, piv_slot: SLOT) -> None:

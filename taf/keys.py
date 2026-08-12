@@ -33,6 +33,7 @@ from taf.keystore import (
     load_signer_from_private_keystore,
 )
 from taf import YubikeyMissingLibrary
+from securesystemslib.signer import SSlibKey
 from securesystemslib.signer._crypto_signer import CryptoSigner
 
 try:
@@ -512,7 +513,7 @@ def _setup_yubikey_roles_keys(
             taf_logger.debug(
                 f"Preparing to set up YubiKey for role '{role.name}', key_name='{key_name}'."
             )
-            public_key, serial_num = _setup_yubikey(
+            public_key, serial_num, slot = _setup_yubikey(
                 auth_repo,
                 role.name,
                 key_name,
@@ -522,7 +523,9 @@ def _setup_yubikey_roles_keys(
                 yubikes_to_skip,
             )
             loaded_keys_num += 1
-            signer = _create_signer(auth_repo, public_key, serial_num, key_name)
+            signer = _create_signer(
+                auth_repo, public_key, serial_num, key_name, slot=slot
+            )
             signers.append(signer)
 
         key_id = _get_legacy_keyid(public_key)
@@ -627,7 +630,7 @@ def _setup_yubikey(
     certs_dir: Optional[Union[Path, str]] = None,
     key_size: int = 2048,
     yubikeys_to_skip: Optional[List] = None,
-) -> Tuple[Dict, str]:
+) -> Tuple[SSlibKey, str, object]:
     print(f"Registering keys for {key_name}")
     taf_logger.debug(
         f"Starting YubiKey setup for role '{role_name}', key '{key_name}'. Checking if user wants to reuse an existing key."
@@ -657,26 +660,26 @@ def _setup_yubikey(
             yubikeys_to_skip=yubikeys_to_skip,
         )
         if yubikeys is not None:
-            key, serial_num, key_name, _ = yubikeys[0]
+            key, serial_num, key_name, slot = yubikeys[0]
             if not use_existing:
-                # TODO: always uses SLOT.SIGNATURE - let the user pick which
-                # slot to generate the new key in. taf never resets or
-                # overwrites a card, so this fails outright if SIGNATURE is
-                # already occupied; the user has to reset the YubiKey's PIV
-                # application themselves and try again.
+                occupied = yk.get_piv_public_keys_tuf(serial=serial_num).get(
+                    serial_num, {}
+                )
+                slot = yk._prompt_for_new_key_slot(serial_num, occupied.keys())
                 key = yk.setup_new_yubikey(
                     auth_repo.pin_manager,
                     serial_num,
                     scheme,
                     key_size=key_size,
+                    slot=slot,
                 )
 
             if certs_dir is not None:
                 # check if already exported
-                if len(auth_repo.yubikey_store.get_roles_of_key(serial_num)) == 1:
+                if len(auth_repo.yubikey_store.get_roles_of_key(serial_num, key)) == 1:
                     # this is the first time that this key is being used (can only be used once per role)
                     yk.export_yk_certificate(certs_dir, key, serial=serial_num)
-            return key, serial_num
+            return key, serial_num, slot
 
 
 def _load_remaining_keys_of_role(

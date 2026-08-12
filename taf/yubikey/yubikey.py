@@ -44,6 +44,9 @@ from securesystemslib.signer._key import SSlibKey
 
 EXPIRATION_INTERVAL = 36500
 
+# Retired slots (RETIRED1-RETIRED20) are reserved for key history/decryption, not signing.
+SETUP_SLOTS = {SLOT.SIGNATURE, SLOT.AUTHENTICATION, SLOT.KEY_MANAGEMENT, SLOT.CARD_AUTH}
+
 
 def raise_yubikey_err(msg: Optional[str] = None) -> Callable:
     """Decorator used to catch all errors raised by yubikey-manager and raise
@@ -460,15 +463,40 @@ def _resolve_and_cache_pin(
     pin_manager.add_pin(serial_num, pin)
 
 
+def _prompt_for_slot(serial_num, options):
+    """Ask the user to pick one of `options` (a list of (SLOT, label) pairs,
+    already ordered) and return the chosen SLOT. Auto-selects without
+    prompting if there's only one option."""
+    if len(options) == 1:
+        return options[0][0]
+    print(f"YubiKey serial={serial_num}:")
+    for index, (slot, label) in enumerate(options, start=1):
+        print(f"  {index}. slot={slot.name} {label}")
+    choice = click.prompt("Select a slot", type=click.IntRange(1, len(options)))
+    return options[choice - 1][0]
+
+
 def _prompt_for_slot_selection(serial_num, device_keys):
     """Ask the user which of a device's occupied PIV slots holds the key
     they want."""
     ordered = sorted(device_keys.items(), key=lambda item: item[0].value)
-    print(f"YubiKey serial={serial_num} has more than one key set up:")
-    for index, (slot, key) in enumerate(ordered, start=1):
-        print(f"  {index}. slot={slot.name} keyid={key.keyid}")
-    choice = click.prompt("Select the key to use", type=click.IntRange(1, len(ordered)))
-    return ordered[choice - 1]
+    options = [(slot, f"keyid={key.keyid}") for slot, key in ordered]
+    slot = _prompt_for_slot(serial_num, options)
+    return slot, device_keys[slot]
+
+
+def _prompt_for_new_key_slot(serial_num, occupied_slots):
+    """Pick a free PIV slot to write a newly generated key into. Raises
+    YubikeyError if every setup slot is already occupied."""
+    free_slots = sorted(SETUP_SLOTS - set(occupied_slots), key=lambda s: s.value)
+    if not free_slots:
+        raise YubikeyError(
+            f"YubiKey serial={serial_num} has no free slot. taf will not "
+            "overwrite or reset it - reset the YubiKey's PIV application "
+            "outside of taf and try again."
+        )
+    options = [(slot, "free") for slot in free_slots]
+    return _prompt_for_slot(serial_num, options)
 
 
 def _read_and_check_single_yubikey(
