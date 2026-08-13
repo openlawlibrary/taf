@@ -273,6 +273,29 @@ def test_setup_test_yubikey_validates_pin_against_card(
     assert status[SLOT.AUTHENTICATION] is not None
 
 
+def test_setup_test_yubikey_uses_pin_from_environment_variable(
+    fake_yubikey, keystore, monkeypatch
+):
+    # _prepare_setup must go through the same env-var-then-validate PIN
+    # flow used everywhere else a PIN is entered (_resolve_and_cache_pin),
+    # not a partial reimplementation that skips the environment variable.
+    monkeypatch.setenv(f"PIN_{fake_yubikey.serial}", fake_yubikey.pin)
+
+    def _unexpected_prompt(*args, **kwargs):
+        raise AssertionError("should not prompt - PIN available from environment")
+
+    with mock.patch("click.prompt", side_effect=_unexpected_prompt), mock.patch(
+        "taf.yubikey.yubikey.get_pin_for", side_effect=_unexpected_prompt
+    ):
+        new_key_path = keystore / "root2"
+        yk_api.setup_test_yubikey(
+            PinManager(), str(new_key_path), slot="AUTHENTICATION"
+        )
+
+    status = yk.get_slot_status(serial=fake_yubikey.serial)[fake_yubikey.serial]
+    assert status[SLOT.AUTHENTICATION] is not None
+
+
 def test_setup_test_yubikey_refuses_occupied_slot_without_prompting(
     fake_yubikey, keystore
 ):

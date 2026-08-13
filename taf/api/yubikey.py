@@ -4,6 +4,7 @@ from typing import Dict, Optional, Tuple
 from pathlib import Path
 from cryptography import x509
 from logdecorator import log_on_end, log_on_error, log_on_start
+from taf.api.utils._conf import find_taf_directory
 from taf.auth_repo import AuthenticationRepository
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import KeystoreError, TAFError, YubikeyError
@@ -43,14 +44,16 @@ def _prepare_setup(
     # an unauthenticated PIV read, so check it before ever asking for a PIN
     _ensure_slot_free(serial, piv_slot)
 
-    # needed to unlock the card's stored, PIN-protected management key
-    pin = pin_manager.get_pin(serial)
-    if pin is None:
-        name = f"YubiKey {serial}" if len(yk.get_serial_nums()) > 1 else "YubiKey"
-        pin = yk.get_and_validate_pin(name, serial=serial)
-        pin_manager.add_pin(serial, pin)
+    # needed to unlock the card's stored, PIN-protected management key -
+    # reuse the same resolve-from-env-then-validate flow used everywhere
+    # else a PIN is entered, instead of a partial reimplementation
+    name = f"YubiKey {serial}" if len(yk.get_serial_nums()) > 1 else "YubiKey"
+    taf_dir = find_taf_directory(Path.cwd())
+    yk._resolve_and_cache_pin(
+        pin_manager, serial, None, taf_dir, name, True, True, None
+    )
 
-    return serial, pin
+    return serial, pin_manager.get_pin(serial)
 
 
 def _resolve_single_serial(prompt: Optional[str] = None) -> str:
@@ -296,8 +299,6 @@ def setup_signing_yubikey(
     """
     piv_slot = _resolve_slot(slot)
 
-    # the PIN itself is untouched by this - it's only needed here to unlock
-    # the card's stored management key
     serial_num, _ = _prepare_setup(
         pin_manager,
         piv_slot,
