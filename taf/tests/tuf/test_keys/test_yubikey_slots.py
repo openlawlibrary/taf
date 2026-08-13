@@ -515,6 +515,39 @@ def test_read_and_check_single_yubikey_auto_selects_sole_occupied_slot(
     assert serial_num == fake_yubikey.serial
 
 
+def test_read_and_check_single_yubikey_returns_none_when_reusing_empty_device(
+    fake_yubikey, monkeypatch
+):
+    # "reuse an already set up Yubikey" was chosen, but this device has no
+    # key on any slot - there's nothing to reuse. Must fail clearly and
+    # without ever asking for a PIN, instead of proceeding with
+    # public_key=None (which crashed certificate export downstream).
+    monkeypatch.setattr(yk, "get_piv_public_keys_tuf", lambda *a, **k: {})
+
+    def _unexpected_prompt(*args, **kwargs):
+        raise AssertionError("should not ask for a PIN - nothing to reuse")
+
+    with mock.patch("click.prompt", side_effect=_unexpected_prompt), mock.patch(
+        "taf.yubikey.yubikey.get_pin_for", side_effect=_unexpected_prompt
+    ):
+        result = yk._read_and_check_single_yubikey(
+            role="root",
+            key_name="root1",
+            taf_repo=_MinimalTafRepo({}),
+            pin_manager=PinManager(),
+            registering_new_key=True,
+            creating_new_key=False,
+            pin_confirm=False,
+            pin_repeat=False,
+            prompt_message=None,
+            retrying=False,
+            yubikeys_to_skip=None,
+            key_id_pins=None,
+        )
+
+    assert result is None
+
+
 def test_read_and_check_single_yubikey_prompts_when_multiple_slots_occupied(
     fake_yubikey, keystore
 ):
@@ -605,14 +638,9 @@ def test_setup_yubikey_creates_new_key_in_a_free_non_signature_slot(
     monkeypatch.setattr("builtins.input", lambda prompt="": "New signer")
     auth_repo = _MinimalTafRepo({}, pin_manager=_pin_manager(fake_yubikey))
 
-    def _confirm_side_effect(message, *args, **kwargs):
-        # "reuse already set up Yubikey?" -> no, create a new one; every
-        # other confirm (the now-stale delete-everything warning) -> proceed
-        if message == "Do you want to reuse already set up Yubikey?":
-            return False
-        return True
-
-    with mock.patch("click.confirm", side_effect=_confirm_side_effect), mock.patch(
+    with mock.patch(
+        "click.confirm", return_value=False
+    ), mock.patch(  # "reuse already set up Yubikey?" -> no, create a new one
         "click.prompt", return_value=1
     ):
         key, serial_num, slot = taf_keys._setup_yubikey(
@@ -626,6 +654,30 @@ def test_setup_yubikey_creates_new_key_in_a_free_non_signature_slot(
         status[SLOT.SIGNATURE].public_key().public_numbers()
         == fake_yubikey.pub_key.public_numbers()
     )
+
+
+def test_setup_yubikey_updates_store_with_generated_key_for_cert_export(
+    fake_yubikey, monkeypatch, tmp_path
+):
+    # a newly created key is recorded in yubikey_store with public_key=None
+    # (it doesn't exist yet at that point) - _setup_yubikey must refresh
+    # that entry once the key is actually generated, since certs_dir export
+    # relies on get_roles_of_key(serial, key) finding a real public key
+    # there, not crashing or silently keeping the stale None.
+    monkeypatch.setattr("builtins.input", lambda prompt="": "New signer")
+    auth_repo = _MinimalTafRepo({}, pin_manager=_pin_manager(fake_yubikey))
+
+    with mock.patch(
+        "click.confirm", return_value=False
+    ), mock.patch(  # "reuse already set up Yubikey?" -> no, create a new one
+        "click.prompt", return_value=1
+    ):
+        key, serial_num, slot = taf_keys._setup_yubikey(
+            auth_repo, "root", "root1", key_size=2048, certs_dir=str(tmp_path)
+        )
+
+    assert auth_repo.yubikey_store.get_key_data("root1") == (key, serial_num, slot)
+    assert list(tmp_path.glob(f"{key.keyid}.cert"))
 
 
 def test_load_and_verify_yubikey_uses_the_slot_the_user_picked(fake_yubikey, keystore):

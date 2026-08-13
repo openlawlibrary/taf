@@ -6,6 +6,8 @@ which is how the standalone setup command calls into the prompt: there is no
 authentication repository involved when provisioning a fresh key.
 """
 
+from yubikit.piv import SLOT
+
 import taf.yubikey.yubikey as yk
 from taf.yubikey.yubikey import yubikey_prompt
 from taf.yubikey.yubikey_manager import PinManager
@@ -23,6 +25,10 @@ def test_setup_new_yubikey_without_taf_repo_does_not_crash(
     monkeypatch.setattr(yk, "get_pin_for", lambda *a, **k: "111111")
     # If the (separate) validate-against-card path runs, don't let it loop/lock.
     monkeypatch.setattr(yk, "is_valid_pin", lambda *a, **k: (True, None))
+    # slot selection isn't under test here - fake_single_yubikey has no real
+    # PIV backend behind it to read occupancy from
+    monkeypatch.setattr(yk, "get_piv_public_keys_tuf", lambda *a, **k: {})
+    monkeypatch.setattr(yk, "_prompt_for_new_key_slot", lambda *a, **k: SLOT.SIGNATURE)
 
     pin_manager = PinManager()
     result = yubikey_prompt(
@@ -58,6 +64,10 @@ def test_setup_new_yubikey_pin_is_not_validated_against_card(
         return (False, 0)
 
     monkeypatch.setattr(yk, "is_valid_pin", fake_is_valid_pin)
+    # slot selection isn't under test here - fake_single_yubikey has no real
+    # PIV backend behind it to read occupancy from
+    monkeypatch.setattr(yk, "get_piv_public_keys_tuf", lambda *a, **k: {})
+    monkeypatch.setattr(yk, "_prompt_for_new_key_slot", lambda *a, **k: SLOT.SIGNATURE)
 
     pin_manager = PinManager()
     result = yubikey_prompt(

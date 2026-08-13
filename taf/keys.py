@@ -25,7 +25,6 @@ from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME, RoleSetupParams
 from taf.exceptions import (
     KeystoreError,
     SigningError,
-    YubikeyError,
 )
 from taf.keystore import (
     get_keystore_keys_of_role,
@@ -641,13 +640,6 @@ def _setup_yubikey(
             f"User chose to {'reuse' if use_existing else 'generate a new'} YubiKey for '{key_name}'."
         )
 
-        if not use_existing:
-            if not click.confirm(
-                "WARNING - this will delete everything from the inserted key. Proceed?"
-            ):
-                if click.confirm("Cancel?"):
-                    raise YubikeyError("Yubikey setup canceled")
-                continue
         yubikeys = yk.yubikey_prompt(
             [key_name],
             pin_manager=auth_repo.pin_manager,
@@ -662,10 +654,6 @@ def _setup_yubikey(
         if yubikeys is not None:
             key, serial_num, key_name, slot = yubikeys[0]
             if not use_existing:
-                occupied = yk.get_piv_public_keys_tuf(serial=serial_num).get(
-                    serial_num, {}
-                )
-                slot = yk._prompt_for_new_key_slot(serial_num, occupied.keys())
                 key = yk.setup_new_yubikey(
                     auth_repo.pin_manager,
                     serial_num,
@@ -673,12 +661,20 @@ def _setup_yubikey(
                     key_size=key_size,
                     slot=slot,
                 )
+                # the key didn't exist yet when yubikey_prompt recorded this
+                # entry, so it was stored with public_key=None - refresh it
+                # now that the key has actually been generated
+                auth_repo.yubikey_store.add_key_data(
+                    key_name, serial_num, key, role_name, slot=slot
+                )
 
             if certs_dir is not None:
                 # check if already exported
                 if len(auth_repo.yubikey_store.get_roles_of_key(serial_num, key)) == 1:
                     # this is the first time that this key is being used (can only be used once per role)
-                    yk.export_yk_certificate(certs_dir, key, serial=serial_num)
+                    yk.export_yk_certificate(
+                        certs_dir, key, serial=serial_num, slot=slot
+                    )
             return key, serial_num, slot
 
 

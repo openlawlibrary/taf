@@ -189,13 +189,17 @@ def get_serial_nums():
 
 
 @raise_yubikey_err("Cannot export x509 certificate.")
-def export_piv_x509(cert_format=serialization.Encoding.PEM, serial=None):
+def export_piv_x509(
+    cert_format=serialization.Encoding.PEM, serial=None, slot=SLOT.SIGNATURE
+):
     """Exports YubiKey's piv slot x509.
 
     Args:
         - cert_format(str): One of 'serialization.Encoding' formats.
         - pub_key_pem(str): Match Yubikey's public key (PEM) if multiple keys
                             are inserted
+        - slot(SLOT): The PIV slot to read the certificate from. Defaults to
+                      SLOT.SIGNATURE.
 
     Returns:
         PIV x509 certificate in a given format (bytes)
@@ -203,9 +207,9 @@ def export_piv_x509(cert_format=serialization.Encoding.PEM, serial=None):
     Raises:
         - YubikeyError
     """
-    taf_logger.debug(f"Exporting X509 certificate for serial={serial}")
+    taf_logger.debug(f"Exporting X509 certificate for serial={serial}, slot={slot}")
     with _yk_piv_ctrl(serial=serial) as [(ctrl, _)]:
-        x509_cert = ctrl.get_certificate(SLOT.SIGNATURE)
+        x509_cert = ctrl.get_certificate(slot)
         return x509_cert.public_bytes(encoding=cert_format)
 
 
@@ -238,7 +242,7 @@ def export_piv_pub_key(pub_key_format=serialization.Encoding.PEM, serial=None):
 
 
 @raise_yubikey_err("Cannot export yk certificate.")
-def export_yk_certificate(certs_dir, key: SSlibKey, serial: str):
+def export_yk_certificate(certs_dir, key: SSlibKey, serial: str, slot=SLOT.SIGNATURE):
     if certs_dir is None:
         certs_dir = Path.home()
     else:
@@ -248,7 +252,7 @@ def export_yk_certificate(certs_dir, key: SSlibKey, serial: str):
     print(f"Exporting certificate to {cert_path}")
     taf_logger.debug(f"Writing certificate file for keyid={key.keyid}, serial={serial}")
     with open(cert_path, "wb") as f:
-        f.write(export_piv_x509(serial=serial))
+        f.write(export_piv_x509(serial=serial, slot=slot))
 
 
 def get_and_validate_pin(
@@ -468,7 +472,11 @@ def _prompt_for_slot(serial_num, options):
     already ordered) and return the chosen SLOT. Auto-selects without
     prompting if there's only one option."""
     if len(options) == 1:
-        return options[0][0]
+        slot, label = options[0]
+        print(
+            f"YubiKey serial={serial_num}: using the only available slot={slot.name} ({label})"
+        )
+        return slot
     print(f"YubiKey serial={serial_num}:")
     for index, (slot, label) in enumerate(options, start=1):
         print(f"  {index}. slot={slot.name} {label}")
@@ -563,11 +571,20 @@ def _read_and_check_single_yubikey(
     # read the public key, unless a new key needs to be generated on the yubikey
     slot = None
     if creating_new_key:
+        # occupancy is an unauthenticated PIV read - resolve the slot before
+        # ever asking for a PIN, and abort outright if none is free
+        occupied = get_piv_public_keys_tuf(serial=serial_num).get(serial_num, {})
+        slot = _prompt_for_new_key_slot(serial_num, occupied.keys())
         public_key = None
     else:
         device_keys = get_piv_public_keys_tuf(serial=serial_num).get(serial_num, {})
         if not device_keys:
-            public_key = None
+            print(
+                f"YubiKey serial={serial_num} has no key set up yet - nothing to "
+                "reuse. Insert a YubiKey that has already been set up, or answer "
+                "'n' to create a new key instead."
+            )
+            return None
         elif len(device_keys) == 1:
             ((slot, public_key),) = device_keys.items()
         else:

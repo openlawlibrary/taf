@@ -68,7 +68,10 @@ class YubiKeyStore:
         for data in self._yubikeys_data.values():
             if data["serial"] != serial_number:
                 continue
-            if public_key is not None and data["public_key"].keyid != public_key.keyid:
+            if public_key is not None and (
+                data["public_key"] is None
+                or data["public_key"].keyid != public_key.keyid
+            ):
                 continue
             roles.extend(data["roles"])
         return roles

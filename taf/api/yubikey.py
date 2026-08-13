@@ -311,7 +311,7 @@ def setup_signing_yubikey(
         key_size=key_size,
         slot=piv_slot,
     )
-    yk.export_yk_certificate(certs_dir, key, serial_num)
+    yk.export_yk_certificate(certs_dir, key, serial_num, slot=piv_slot)
 
 
 @log_on_start(DEBUG, "Setting up a new test YubiKey", logger=taf_logger)
