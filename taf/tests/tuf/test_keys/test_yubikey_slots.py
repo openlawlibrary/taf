@@ -1,6 +1,4 @@
 import secrets
-from pathlib import Path
-from typing import Optional
 from unittest import mock
 
 import pytest
@@ -27,24 +25,6 @@ def _pin_manager(fake_yubikey) -> PinManager:
     pin_manager = PinManager()
     pin_manager.add_pin(fake_yubikey.serial, fake_yubikey.pin)
     return pin_manager
-
-
-class _MinimalTafRepo:
-    """Stand-in for the parts of AuthenticationRepository that
-    _read_and_check_yubikeys/_load_and_verify_yubikey need, so this can be
-    tested without building a full repository on disk just to check
-    role/key validity."""
-
-    def __init__(
-        self, key_names_by_keyid: dict, pin_manager: Optional[PinManager] = None
-    ):
-        self.path = Path.cwd()
-        self.yubikey_store = YubiKeyStore()
-        self.keys_name_mappings = dict(key_names_by_keyid)
-        self.pin_manager = pin_manager if pin_manager is not None else PinManager()
-
-    def is_valid_metadata_yubikey(self, role, public_key):
-        return public_key is not None and public_key.keyid in self.keys_name_mappings
 
 
 def test_resolve_slot_rejects_retired_slots():
@@ -338,23 +318,19 @@ def test_sign_piv_rsa_pkcs1v15_uses_given_slot(fake_yubikey, keystore):
 
 
 def test_read_and_check_yubikeys_finds_role_key_in_non_signature_slot(
-    fake_yubikey, keystore
+    keystore, make_fake_yubikey, create_auth_repo
 ):
-    new_key_pem = (keystore / "root2").read_bytes()
-    yk.setup(
-        pin="123456",
-        serial=fake_yubikey.serial,
-        cert_cn="Second key",
-        private_key_pem=new_key_pem,
-        slot=SLOT.AUTHENTICATION,
-    )
+    # SIGNATURE holds "targets"' key - a real key, but not one of root's -
+    # it must be excluded even though it's on the same device as a real
+    # root key (root2) in AUTHENTICATION.
+    device = make_fake_yubikey("targets", extra_slots={SLOT.AUTHENTICATION: "root2"})
     auth_key = load_signer_from_file(keystore / "root2").public_key
-    taf_repo = _MinimalTafRepo({auth_key.keyid: "root2"})
+    taf_repo = create_auth_repo()
 
     result = yk._read_and_check_yubikeys(
         role="root",
         taf_repo=taf_repo,
-        pin_manager=_pin_manager(fake_yubikey),
+        pin_manager=_pin_manager(device),
         pin_confirm=False,
         pin_repeat=False,
         prompt_message=None,
@@ -372,9 +348,10 @@ def test_read_and_check_yubikeys_finds_role_key_in_non_signature_slot(
 
     # the discovered slot must actually be used to sign, not SIGNATURE
     signer = YkSigner(
-        public_key, serial_num, lambda name: "123456", key_name, slot=slot
+        public_key, serial_num, lambda name: device.pin, key_name, slot=slot
     )
     sig = signer.sign(b"hello").signature
+    new_key_pem = (keystore / "root2").read_bytes()
     auth_priv_key = serialization.load_pem_private_key(
         new_key_pem, None, default_backend()
     )
@@ -384,7 +361,7 @@ def test_read_and_check_yubikeys_finds_role_key_in_non_signature_slot(
 
 
 def test_read_and_check_yubikeys_counts_every_valid_key_on_one_device(
-    fake_yubikey, keystore
+    fake_yubikey, keystore, create_auth_repo
 ):
     # one physical device can hold 2 keys valid for the same role (one per
     # slot) - both must count toward that role's threshold, not just the
@@ -399,7 +376,7 @@ def test_read_and_check_yubikeys_counts_every_valid_key_on_one_device(
     )
     sig_key = fake_yubikey.tuf_key.public_key
     auth_key = load_signer_from_file(keystore / "root2").public_key
-    taf_repo = _MinimalTafRepo({sig_key.keyid: "root1", auth_key.keyid: "root2"})
+    taf_repo = create_auth_repo()
 
     result = yk._read_and_check_yubikeys(
         role="root",
@@ -424,7 +401,7 @@ def test_read_and_check_yubikeys_counts_every_valid_key_on_one_device(
 
 
 def test_signs_correctly_with_each_key_when_multiple_slots_occupied(
-    fake_yubikey, keystore
+    fake_yubikey, keystore, create_auth_repo
 ):
     # discovering 2 valid keys on one device is only half the story - each
     # one must actually sign with its own key when used, not get mixed up
@@ -439,7 +416,7 @@ def test_signs_correctly_with_each_key_when_multiple_slots_occupied(
     )
     sig_key = fake_yubikey.tuf_key.public_key
     auth_key = load_signer_from_file(keystore / "root2").public_key
-    taf_repo = _MinimalTafRepo({sig_key.keyid: "root1", auth_key.keyid: "root2"})
+    taf_repo = create_auth_repo()
 
     result = yk._read_and_check_yubikeys(
         role="root",
@@ -487,11 +464,11 @@ def test_signs_correctly_with_each_key_when_multiple_slots_occupied(
 
 
 def test_read_and_check_single_yubikey_auto_selects_sole_occupied_slot(
-    fake_yubikey,
+    fake_yubikey, create_auth_repo
 ):
     # only one slot (SIGNATURE, the fixture's default) is occupied, so there
     # is nothing to disambiguate - no prompt should be shown.
-    taf_repo = _MinimalTafRepo({fake_yubikey.tuf_key.public_key.keyid: "root1"})
+    taf_repo = create_auth_repo()
 
     result = yk._read_and_check_single_yubikey(
         role="root",
@@ -516,7 +493,7 @@ def test_read_and_check_single_yubikey_auto_selects_sole_occupied_slot(
 
 
 def test_read_and_check_single_yubikey_returns_none_when_reusing_empty_device(
-    fake_yubikey, monkeypatch
+    fake_yubikey, monkeypatch, create_auth_repo
 ):
     # "reuse an already set up Yubikey" was chosen, but this device has no
     # key on any slot - there's nothing to reuse. Must fail clearly and
@@ -533,7 +510,7 @@ def test_read_and_check_single_yubikey_returns_none_when_reusing_empty_device(
         result = yk._read_and_check_single_yubikey(
             role="root",
             key_name="root1",
-            taf_repo=_MinimalTafRepo({}),
+            taf_repo=create_auth_repo(),
             pin_manager=PinManager(),
             registering_new_key=True,
             creating_new_key=False,
@@ -549,7 +526,7 @@ def test_read_and_check_single_yubikey_returns_none_when_reusing_empty_device(
 
 
 def test_read_and_check_single_yubikey_prompts_when_multiple_slots_occupied(
-    fake_yubikey, keystore
+    fake_yubikey, keystore, create_auth_repo
 ):
     # more than one key is set up on this device - there's no way to know
     # which one the user means, so they must be asked to pick.
@@ -562,12 +539,7 @@ def test_read_and_check_single_yubikey_prompts_when_multiple_slots_occupied(
         slot=SLOT.AUTHENTICATION,
     )
     auth_key = load_signer_from_file(keystore / "root2").public_key
-    taf_repo = _MinimalTafRepo(
-        {
-            fake_yubikey.tuf_key.public_key.keyid: "root1",
-            auth_key.keyid: "root2",
-        }
-    )
+    taf_repo = create_auth_repo()
 
     # AUTHENTICATION (slot value 154) sorts before SIGNATURE (156), so
     # option 1 is AUTHENTICATION - select it to prove the user's choice
@@ -631,12 +603,12 @@ def test_prompt_for_new_key_slot_raises_when_no_free_slot():
 
 
 def test_setup_yubikey_creates_new_key_in_a_free_non_signature_slot(
-    fake_yubikey, monkeypatch
+    fake_yubikey, monkeypatch, create_auth_repo
 ):
     # SIGNATURE is already occupied by the fixture's default key - creating
     # a new key must land in a different, free slot instead of failing.
     monkeypatch.setattr("builtins.input", lambda prompt="": "New signer")
-    auth_repo = _MinimalTafRepo({}, pin_manager=_pin_manager(fake_yubikey))
+    auth_repo = create_auth_repo(pin_manager=_pin_manager(fake_yubikey))
 
     with mock.patch(
         "click.confirm", return_value=False
@@ -657,7 +629,7 @@ def test_setup_yubikey_creates_new_key_in_a_free_non_signature_slot(
 
 
 def test_setup_yubikey_updates_store_with_generated_key_for_cert_export(
-    fake_yubikey, monkeypatch, tmp_path
+    fake_yubikey, monkeypatch, tmp_path, create_auth_repo
 ):
     # a newly created key is recorded in yubikey_store with public_key=None
     # (it doesn't exist yet at that point) - _setup_yubikey must refresh
@@ -665,7 +637,7 @@ def test_setup_yubikey_updates_store_with_generated_key_for_cert_export(
     # relies on get_roles_of_key(serial, key) finding a real public key
     # there, not crashing or silently keeping the stale None.
     monkeypatch.setattr("builtins.input", lambda prompt="": "New signer")
-    auth_repo = _MinimalTafRepo({}, pin_manager=_pin_manager(fake_yubikey))
+    auth_repo = create_auth_repo(pin_manager=_pin_manager(fake_yubikey))
 
     with mock.patch(
         "click.confirm", return_value=False
@@ -680,7 +652,9 @@ def test_setup_yubikey_updates_store_with_generated_key_for_cert_export(
     assert list(tmp_path.glob(f"{key.keyid}.cert"))
 
 
-def test_load_and_verify_yubikey_uses_the_slot_the_user_picked(fake_yubikey, keystore):
+def test_load_and_verify_yubikey_uses_the_slot_the_user_picked(
+    fake_yubikey, keystore, create_auth_repo
+):
     new_key_pem = (keystore / "root2").read_bytes()
     yk.setup(
         pin="123456",
@@ -690,13 +664,7 @@ def test_load_and_verify_yubikey_uses_the_slot_the_user_picked(fake_yubikey, key
         slot=SLOT.AUTHENTICATION,
     )
     auth_key = load_signer_from_file(keystore / "root2").public_key
-    taf_repo = _MinimalTafRepo(
-        {
-            fake_yubikey.tuf_key.public_key.keyid: "root1",
-            auth_key.keyid: "root2",
-        },
-        pin_manager=_pin_manager(fake_yubikey),
-    )
+    taf_repo = create_auth_repo(pin_manager=_pin_manager(fake_yubikey))
 
     # option 1 is AUTHENTICATION - the correct one for root2
     with mock.patch("click.prompt", return_value=1), mock.patch(
@@ -710,7 +678,7 @@ def test_load_and_verify_yubikey_uses_the_slot_the_user_picked(fake_yubikey, key
 
 
 def test_load_and_verify_yubikey_reports_mismatch_when_wrong_slot_picked(
-    fake_yubikey, keystore
+    fake_yubikey, keystore, create_auth_repo
 ):
     # the caller already knows which key it wants (public_key) - if the
     # user picks a different slot at the prompt, that must be caught as a
@@ -724,13 +692,7 @@ def test_load_and_verify_yubikey_reports_mismatch_when_wrong_slot_picked(
         slot=SLOT.AUTHENTICATION,
     )
     auth_key = load_signer_from_file(keystore / "root2").public_key
-    taf_repo = _MinimalTafRepo(
-        {
-            fake_yubikey.tuf_key.public_key.keyid: "root1",
-            auth_key.keyid: "root2",
-        },
-        pin_manager=_pin_manager(fake_yubikey),
-    )
+    taf_repo = create_auth_repo(pin_manager=_pin_manager(fake_yubikey))
 
     # option 2 is SIGNATURE (the fixture's default key) - the wrong one,
     # since we're looking for root2 (AUTHENTICATION). First confirm is
