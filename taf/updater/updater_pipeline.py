@@ -31,6 +31,7 @@ from taf.updater.types.update import OperationType, UpdateType
 from taf.utils import TempPartition, on_rm_error, ensure_pre_push_hook
 from taf.updater.in_memory_updater import InMemoryUpdater
 from taf.log import taf_logger
+from taf.tools.cli import safe_cleanup
 
 EXPIRED_METADATA_ERROR = "ExpiredMetadataError"
 
@@ -211,35 +212,41 @@ class Pipeline:
         self.current_step = None
         self.run_mode = run_mode
 
+    @safe_cleanup
     def run(self):
         self.state.errors = []
         self.state.warnings = []
-        for step, step_run_mode, should_run_fn in self.steps:
-            try:
-                if (
-                    step_run_mode == RunMode.ALL or step_run_mode == self.run_mode
-                ) and (
-                    should_run_fn()
-                ):  # runs method like object
-                    self.current_step = step
-                    update_status = step()
-                    combined_status = combine_statuses(
-                        self.state.update_status, update_status
-                    )
-                    self.state.update_status = combined_status
-                    if combined_status == UpdateStatus.FAILED:
-                        message = "\n".join(str(error) for error in self.state.errors)
-                        raise UpdateFailedError(message)
+        try:
+            for step, step_run_mode, should_run_fn in self.steps:
+                try:
+                    if (
+                        step_run_mode == RunMode.ALL or step_run_mode == self.run_mode
+                    ) and (
+                        should_run_fn()
+                    ):  # runs method like object
+                        self.current_step = step
+                        update_status = step()
+                        combined_status = combine_statuses(
+                            self.state.update_status, update_status
+                        )
+                        self.state.update_status = combined_status
 
-            except Exception as e:
-                self.handle_error(e)
-                break
-            except KeyboardInterrupt as e:
-                self.handle_error(e)
-        self.set_output()
+                        if combined_status == UpdateStatus.FAILED:
+                            message = "\n".join(
+                                str(error) for error in self.state.errors
+                            )
+                            raise UpdateFailedError(message)
+
+                except Exception as e:
+                    self.handle_error(e)
+                    break
+                except KeyboardInterrupt as e:
+                    self.handle_error(e)
+                    raise
+        finally:
+            self.set_output()
 
     def handle_error(self, e):
-        self.remove_temp_repositories()
         self.state.event = Event.FAILED
         if self.state.auth_repo_name is not None:
             taf_logger.error(
@@ -2034,7 +2041,7 @@ but commit not on branch {current_branch}"
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
 
-    def remove_temp_repositories(self):
+    def remove_temp_repositories(self, final_cleanup=False):
         taf_logger.debug(f"{self.state.auth_repo_name}: Removing temp repositories...")
         if not self.state.temp_root:
             return self.state.update_status
@@ -2043,8 +2050,12 @@ but commit not on branch {current_branch}"
             # renaming/removing the temp directory on Windows
             for repo in self.state.temp_target_repositories.values():
                 repo.cleanup()
-            self.state.update_handler.cleanup()
+            # self.state.update_handler.cleanup() # This doesn't exist and is unnecesary
+
+            # finally clean temps
             self.state.temp_root.cleanup_async()
+            if final_cleanup:
+                self.state.temp_root = None  # Solves double cleanup issues
         except Exception:
             taf_logger.warning(
                 f"WARNING: Could not remove clean up temp folder: {self.state.temp_root}. Please remove it manually."
