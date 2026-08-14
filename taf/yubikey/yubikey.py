@@ -20,7 +20,7 @@ from taf.yubikey.yubikey_manager import PinManager
 from taf.models.types import KeysMapping
 from ykman.device import list_all_devices
 from yubikit.core import NotSupportedError
-from yubikit.core.smartcard import SmartCardConnection
+from yubikit.core.smartcard import ApduError, SW, SmartCardConnection
 from ykman.piv import (
     KEY_TYPE,
     MANAGEMENT_KEY_TYPE,
@@ -873,14 +873,24 @@ def setup(
                 "taf and try again."
             )
 
-        if management_key is not None:
-            ctrl.authenticate(MANAGEMENT_KEY_TYPE.TDES, management_key)
-        else:
-            ctrl.verify_pin(pin)
-            stored_key = _get_protected_management_key(ctrl)
-            ctrl.authenticate(
-                MANAGEMENT_KEY_TYPE.TDES, stored_key or DEFAULT_MANAGEMENT_KEY
-            )
+        try:
+            if management_key is not None:
+                ctrl.authenticate(MANAGEMENT_KEY_TYPE.TDES, management_key)
+            else:
+                ctrl.verify_pin(pin)
+                stored_key = _get_protected_management_key(ctrl)
+                ctrl.authenticate(
+                    MANAGEMENT_KEY_TYPE.TDES, stored_key or DEFAULT_MANAGEMENT_KEY
+                )
+        except ApduError as e:
+            if e.sw == SW.SECURITY_CONDITION_NOT_SATISFIED:
+                raise YubikeyError(
+                    "Could not authenticate with the YubiKey's management key. "
+                    "This can happen if its PIV application was previously set "
+                    "up by a different tool or is in an inconsistent state - "
+                    "reset it (e.g. `ykman piv reset`) and try again."
+                ) from e
+            raise
 
         if private_key_pem is None:
             taf_logger.debug("Generating RSA private key on the fly...")

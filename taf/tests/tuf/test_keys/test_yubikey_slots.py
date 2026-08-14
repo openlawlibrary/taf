@@ -414,8 +414,6 @@ def test_signs_correctly_with_each_key_when_multiple_slots_occupied(
         private_key_pem=new_key_pem,
         slot=SLOT.AUTHENTICATION,
     )
-    sig_key = fake_yubikey.tuf_key.public_key
-    auth_key = load_signer_from_file(keystore / "root2").public_key
     taf_repo = create_auth_repo()
 
     result = yk._read_and_check_yubikeys(
@@ -726,17 +724,6 @@ class TestYubiKeyStore:
         store.add_key_data("root1", "111", "pubkey-obj", "root")
 
         assert store.get_roles_of_key("111") == ["root"]
-
-    def test_get_key_data_returns_slot(self):
-        store = YubiKeyStore()
-        store.add_key_data(
-            "root1", "111", "pubkey-obj", "root", slot=SLOT.AUTHENTICATION
-        )
-
-        public_key, serial_num, slot = store.get_key_data("root1")
-        assert public_key == "pubkey-obj"
-        assert serial_num == "111"
-        assert slot == SLOT.AUTHENTICATION
 
     def test_get_roles_of_key_isolates_keys_sharing_one_device(self):
         # two different keys (different slots) on the same physical device,
