@@ -744,8 +744,8 @@ def _load_and_verify_yubikey(
             pin_repeat=True,
         )
         if yubikeys:
-            yubikey = yubikeys[0]
-            yk_pub_key_id = yubikey[0].keyid if yubikey[0] is not None else None
+            yk_public_key, serial_num, _, slot = yubikeys[0]
+            yk_pub_key_id = yk_public_key.keyid if yk_public_key is not None else None
             if yk_pub_key_id != public_key.keyid:
                 print(
                     "Public key of the inserted key is not equal to the specified one."
@@ -753,4 +753,4 @@ def _load_and_verify_yubikey(
                 if not click.confirm("Try again?"):
                     return None
                 continue
-            return yubikey[1], yubikey[3]
+            return serial_num, slot

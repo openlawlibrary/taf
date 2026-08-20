@@ -24,8 +24,8 @@ def _ensure_slot_free(serial: str, piv_slot: SLOT) -> None:
     if yk.is_slot_occupied(serial, piv_slot):
         raise YubikeyError(
             f"The {piv_slot.name} slot on YubiKey {serial} already has a key. "
-            "taf will not overwrite or reset it - reset the YubiKey's PIV "
-            "application outside of taf and try again."
+            "taf will not overwrite or reset it. Use another slot with --slot "
+            "or reset the YubiKey's PIV application outside of taf and try again."
         )
     print(f"Setting up a new key in the {piv_slot.name} slot.")
 
