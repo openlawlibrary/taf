@@ -1,6 +1,9 @@
 import shutil
 import sys
 import click
+import signal
+import threading
+import functools
 from functools import partial, wraps
 from logging import ERROR
 from logdecorator import log_on_error
@@ -15,6 +18,7 @@ from taf.log import taf_logger
 from taf.repository_utils import find_valid_repository
 from taf.git import GitRepository
 from taf.utils import is_run_from_python_executable, on_rm_error
+from taf.updater.lifecycle_handlers import Event
 
 
 def catch_cli_exception(
@@ -156,3 +160,93 @@ def common_repo_edit_options(func):
         help="Whether to skip the check if there are any remote changes. Can be used when the SSH key requires a passphrase",
     )(func)
     return func
+
+
+def safe_cleanup(method):
+    """
+    Decorator that handles gracefull shutdown (SIGINT and SIGTERM)
+    applicable for:
+    Pipeline
+    any with cleanup()
+    """
+
+    @functools.wraps(method)
+    def wrapper(self, *args, **kwargs):
+
+        is_pipeline = "Pipeline" in self.__class__.__name__
+
+        has_cleanup = hasattr(self, "cleanup") and callable(self.cleanup)
+
+        # Signal handler only mutates state; deletion is delegated to finally.
+        def _signal_handler(signum, frame):
+            if is_pipeline:
+                if (
+                    not self.only_validate
+                    and not self.state.existing_repo
+                    and self.state.users_auth_repo is not None
+                ):
+                    self.state.event = Event.FAILED
+            elif True:
+                pass  # Expand Here
+            raise KeyboardInterrupt(f"Received signal {signum}")
+
+        original_sigint = None
+        original_sigterm = None
+
+        if threading.current_thread() is threading.main_thread():
+            # Save and override handlers
+            original_sigint = signal.getsignal(signal.SIGINT)
+            try:
+                original_sigterm = signal.getsignal(signal.SIGTERM)
+            except Exception:
+                original_sigterm = None
+
+            try:
+                signal.signal(signal.SIGINT, _signal_handler)
+            except (OSError, ValueError):
+                pass  # Not allowed to set signal handler (e.g., in embedded interpreter)
+            try:
+                signal.signal(signal.SIGTERM, _signal_handler)
+            except (OSError, ValueError):
+                pass  # Windows: SIGTERM cannot be caught
+
+        try:
+            return method(self, *args, **kwargs)
+
+        except KeyboardInterrupt:
+            # Set state for non-KeyboardInterrupt exceptions (ValueError, SystemExit, etc.)
+            if is_pipeline:
+                if (
+                    not self.only_validate
+                    and not self.state.existing_repo
+                    and self.state.users_auth_repo is not None
+                ):
+                    self.state.event = Event.FAILED
+            elif True:
+                pass  # Expand Here
+            raise
+
+        finally:
+            # Restore original handlers if changed
+            if threading.current_thread() is threading.main_thread():
+                if original_sigint is not None:
+                    try:
+                        signal.signal(signal.SIGINT, original_sigint)
+                    except Exception:
+                        pass
+                if original_sigterm is not None:
+                    try:
+                        signal.signal(signal.SIGTERM, original_sigterm)
+                    except Exception:
+                        pass
+
+            # Cleanup lives here (and ONLY here)
+            if is_pipeline:
+                self.remove_temp_repositories(final_cleanup=True)
+            elif has_cleanup:
+                self.cleanup()  # Expand Here
+
+            # Add other object types here if needed
+            # elif hasattr(self, 'cleanup'): self.cleanup()
+
+    return wrapper
