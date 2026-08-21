@@ -139,7 +139,6 @@ def _setup_auth_repo_and_signers(
     Returns the auth_repo instance.
     """
     from taf.api.yubikey import get_yk_roles
-    import taf.yubikey.yubikey as yk
 
     keystore_path = kwargs.get("keystore")
 
@@ -166,26 +165,14 @@ def _setup_auth_repo_and_signers(
         raise TAFError("No roles specified")
     taf_logger.info(f"Loading keys of roles {', '.join(all_roles)}")
 
-    key_id_pins = None
+    key_pin = kwargs.get("key_pin")
+    key_id_pins: Dict = {}
+    if key_pin is not None:
+        key_id_pins = _resolve_key_id_pins(auth_repo, all_roles, key_pin)
 
-    if kwargs.get("key_pin") is not None:
-        serial_nums = yk.get_serial_nums()
-        if len(serial_nums) == 0:
-            taf_logger.error("No Yubikeys found")
-            raise TAFError(
-                "Passed in a --key-pin but no YubiKeys inserted. Please insert a YubiKey and try again."
-            )
-        if len(serial_nums) > 1:
-            taf_logger.error("Multiple Yubikeys found")
-            raise TAFError(
-                "Passed in a --key-pin but multiple YubiKeys inserted. Please insert only one YubiKey and try again."
-            )
-        serial_num = serial_nums[0]
-        public_key = yk.get_piv_public_key_tuf(serial=serial_num)
-        keyid = _get_legacy_keyid(public_key)
-        key_id_pins = {keyid: kwargs.get("key_pin")}
-
-    use_yubikeys_to_sign = key_id_pins is not None
+    # a supplied key pin still means "sign using YubiKeys", even if that pin
+    # could not be bound to a specific key
+    use_yubikeys_to_sign = key_pin is not None
     sorted_roles = sorted(all_roles, key=role_priority)
     auth_repo.pin_manager.auto_continue = True
 
@@ -202,6 +189,68 @@ def _setup_auth_repo_and_signers(
             auth_repo.add_signers_to_cache({role: yubikey_signers})
 
     return auth_repo
+
+
+def _resolve_key_id_pins(
+    auth_repo: AuthenticationRepository, all_roles: List[str], key_pin: str
+) -> Dict:
+    """
+    Given a single --key-pin and the roles about to be loaded, figure out which
+    of the currently inserted YubiKeys the pin belongs to.
+
+    A YubiKey is a candidate if it is a valid signing key for at least one of
+    `all_roles`. If exactly one candidate is found, the pin is bound to its
+    keyid. Otherwise (no candidates, or more than one), the pin is not bound
+    to anything and a warning is logged - the caller falls back to the normal
+    interactive PIN prompt (or PIN_<serial>/PIN_<key_name> env vars) instead
+    of erroring out.
+    """
+    import taf.yubikey.yubikey as yk
+
+    serial_nums = yk.get_serial_nums()
+    if len(serial_nums) == 0:
+        taf_logger.error("No Yubikeys found")
+        raise TAFError(
+            "Passed in a --key-pin but no YubiKeys inserted. Please insert a YubiKey and try again."
+        )
+
+    candidates = []
+    for serial_num in serial_nums:
+        try:
+            public_key = yk.get_piv_public_key_tuf(serial=serial_num)
+        except Exception as e:
+            taf_logger.debug(
+                f"Could not read public key of YubiKey serial={serial_num}: {e}"
+            )
+            continue
+
+        for role in all_roles:
+            try:
+                if auth_repo.is_valid_metadata_yubikey(role, public_key):
+                    candidates.append((serial_num, public_key))
+                    break
+            except TAFError:
+                continue
+
+    if len(candidates) == 1:
+        serial_num, public_key = candidates[0]
+        keyid = _get_legacy_keyid(public_key)
+        return {keyid: key_pin}
+
+    candidate_serials = [serial_num for serial_num, _ in candidates]
+    if not candidates:
+        taf_logger.warning(
+            f"Passed in a --key-pin, but none of the inserted YubiKeys "
+            f"({', '.join(serial_nums)}) are valid signing keys for "
+            f"{', '.join(all_roles)}. Ignoring --key-pin."
+        )
+    else:
+        taf_logger.warning(
+            f"Passed in a --key-pin, but multiple inserted YubiKeys "
+            f"({', '.join(candidate_serials)}) are valid signing keys for "
+            f"{', '.join(all_roles)}. --key-pin is ambiguous and will be ignored."
+        )
+    return {}
 
 
 def _map_keynames_to_keyids(
