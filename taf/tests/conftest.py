@@ -4,13 +4,14 @@ import json
 import re
 import shutil
 import subprocess
+import tempfile
 from contextlib import contextmanager
 from pathlib import Path
 
 from taf.tuf.keys import load_signer_from_file
 
 # from taf.tests import TEST_WITH_REAL_YK
-from taf.utils import on_rm_error
+from taf.utils import on_rm_error, run
 
 TEST_DATA_PATH = Path(__file__).parent / "data"
 TEST_DATA_REPOS_PATH = TEST_DATA_PATH / "repos"
@@ -31,38 +32,40 @@ WITH_DELEGATIONS_NO_YUBIKEY = (
 REPOSITORIES_JSON_PATH = TEST_INIT_DATA_PATH / "repositories.json"
 MIRRORS_JSON_PATH = TEST_INIT_DATA_PATH / "mirrors.json"
 
-#: Branch name `git init` gives test repositories. Fixed here so results do not
-#: depend on the developer's `init.defaultBranch`.
+#: Branch name `git init` gives test repositories.
 TESTS_DEFAULT_BRANCH = "main"
 
 
-def _git_config_get(key):
+def _get_git_config(key):
     """Value git resolves for ``key`` right now, or "" when it is unset."""
-    result = subprocess.run(
-        ["git", "config", "--get", key], capture_output=True, text=True
-    )
-    return result.stdout.strip() if result.returncode == 0 else ""
+    try:
+        return run("git", "config", "--get", key) or ""
+    except subprocess.CalledProcessError:
+        return ""
 
 
 @contextmanager
 def deterministic_git_environment_context():
     """Isolate the git environment the tests run in. Yields the config path.
 
-    ``GIT_CEILING_DIRECTORIES`` stops git's repository discovery at
-    ``taf/tests``. Discovery walks upward and test repositories live inside the
-    TAF checkout, so without it git answers about TAF's own repository whenever
-    it is run against a path that is not a repository yet.
+    Both variables are read by the ``git`` subprocess only; libgit2 honors
+    neither, so pygit2 code paths still see the developer's real global config
+    and still discover repositories above ``taf/tests``.
+
+    ``GIT_CEILING_DIRECTORIES`` stops repository discovery at ``taf/tests``.
+    Discovery walks upward and test repositories live inside the TAF checkout,
+    so without it git answers about TAF's own repository whenever it is run
+    against a path that is not a repository yet.
 
     ``GIT_CONFIG_GLOBAL`` points at a generated config, so ``init.defaultBranch``
     is fixed here instead of inherited from the developer. Their identity is
     carried over - resolved before the redirect, so it is what git would have
     used - because committing needs it.
     """
-    identity = {key: _git_config_get(f"user.{key}") for key in ("name", "email")}
+    identity = {key: _get_git_config(f"user.{key}") for key in ("name", "email")}
 
     monkeypatch = pytest.MonkeyPatch()
-    config_dir = TEST_DATA_PATH / "git-config"
-    config_dir.mkdir(parents=True, exist_ok=True)
+    config_dir = Path(tempfile.mkdtemp(prefix="taf-tests-gitconfig-"))
     config_path = config_dir / "gitconfig"
 
     lines = ["[init]", f"\tdefaultBranch = {TESTS_DEFAULT_BRANCH}"]

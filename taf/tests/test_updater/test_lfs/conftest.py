@@ -264,6 +264,14 @@ def path_without_git_lfs() -> str:
     )
 
 
+def run_ignoring_failure(*command: str) -> None:
+    """Run ``command``, tolerating a non-zero exit."""
+    try:
+        run(*command)
+    except subprocess.CalledProcessError:
+        pass
+
+
 def publish_lfs_objects(origin_auth_repo, lfs_server) -> None:
     """Move every target repository's LFS objects onto the server.
 

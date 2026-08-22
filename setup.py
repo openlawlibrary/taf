@@ -52,6 +52,7 @@ kwargs = {
     "author_email": AUTHOR_EMAIL,
     "keywords": KEYWORDS,
     "packages": packages,
+    "python_requires": ">=3.10",
     "include_package_data": True,
     "data_files": [("lib/site-packages/taf", ["./LICENSE.md", "./README.md"])],
     "zip_safe": False,

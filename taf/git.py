@@ -45,8 +45,7 @@ except ImportError:
     PYGIT2_AVAILABLE = False
 
 if PYGIT2_AVAILABLE:
-    # imported for its side effect: registering the Git LFS filter with libgit2,
-    # so pygit2 checkouts materialize LFS content instead of pointer text
+    # imported for its side effect: registering the Git LFS filter with libgit2
     import taf.lfs  # noqa: F401
 
 EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
