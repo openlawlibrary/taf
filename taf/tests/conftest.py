@@ -48,8 +48,8 @@ def _get_git_config(key: str) -> str:
 def deterministic_git_environment_context():
     """Isolate the git environment the tests run in. Yields the config path.
 
-    Both variables are read by the ``git`` subprocess only; libgit2 honors
-    neither, so pygit2 code paths still see the developer's real global config
+    These variables are read by the ``git`` subprocess only; libgit2 honors
+    none of them, so pygit2 code paths still see the developer's real global config
     and still discover repositories above ``taf/tests``.
 
     ``GIT_CEILING_DIRECTORIES`` stops repository discovery at ``taf/tests``.

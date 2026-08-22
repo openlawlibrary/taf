@@ -393,6 +393,47 @@ def test_filter_stands_aside_for_a_non_lfs_filter_command(
 
 
 @needs_git_lfs
+def test_filter_commands_are_reread_when_the_config_changes(tmp_path):
+    """The per-repository answer is cached, but not past a config change.
+
+    One ``git config`` spawn per file is minutes of wall time on a repository
+    with a hundred thousand of them; a stale answer makes pygit2 and git
+    disagree about the working tree.
+    """
+    origin = build_lfs_origin(tmp_path / "origin")
+    client = GitRepository(path=tmp_path / "client")
+    client.clone_from_disk(origin.path, keep_remote=True)
+    workdir = str(client.path)
+
+    assert all(lfs_module.get_lfs_filter_commands(workdir)), "LFS should be on"
+
+    run("git", "-C", workdir, "config", "--local", "filter.lfs.process", "")
+    run(
+        "git",
+        "-C",
+        workdir,
+        "config",
+        "--local",
+        "filter.lfs.smudge",
+        "some-other-program",
+    )
+    run(
+        "git",
+        "-C",
+        workdir,
+        "config",
+        "--local",
+        "filter.lfs.clean",
+        "some-other-program",
+    )
+
+    assert lfs_module.get_lfs_filter_commands(workdir) == (
+        "",
+        "",
+    ), "a cached answer survived a change to the repository's config"
+
+
+@needs_git_lfs
 def test_skip_smudge_is_honored(tmp_path):
     """``git lfs install --skip-smudge`` asks for pointers; do not override it.
 

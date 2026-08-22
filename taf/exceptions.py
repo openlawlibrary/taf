@@ -57,7 +57,7 @@ class GitError(TAFError):
 
 
 class GitLFSError(TAFError):
-    """Raised when a Git LFS object cannot be materialized."""
+    """Raised when a Git LFS object cannot be read from or written to storage."""
 
     pass
 
