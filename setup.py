@@ -63,9 +63,6 @@ kwargs = {
         "cryptography==43.0.*",
         "securesystemslib==1.*",
         "loguru==0.7.*",
-        # One pin for every supported Python: 1.14 ships wheels for cp39-cp312,
-        # so the old `< 3.11 -> 1.9.*` split is unnecessary. 1.14 also provides
-        # the filter API (added in 1.13.3) that `taf.lfs` needs.
         "pygit2==1.14.*",
         "pyOpenSSL==24.2.*",
         "logdecorator==2.*",
@@ -94,7 +91,6 @@ kwargs = {
         "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
         "Operating System :: OS Independent",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",

@@ -3,6 +3,8 @@ import pytest
 import json
 import re
 import shutil
+import subprocess
+from contextlib import contextmanager
 from pathlib import Path
 
 from taf.tuf.keys import load_signer_from_file
@@ -34,8 +36,16 @@ MIRRORS_JSON_PATH = TEST_INIT_DATA_PATH / "mirrors.json"
 TESTS_DEFAULT_BRANCH = "main"
 
 
-@pytest.fixture(scope="session", autouse=True)
-def deterministic_git_environment():
+def _git_config_get(key):
+    """Value git resolves for ``key`` right now, or "" when it is unset."""
+    result = subprocess.run(
+        ["git", "config", "--get", key], capture_output=True, text=True
+    )
+    return result.stdout.strip() if result.returncode == 0 else ""
+
+
+@contextmanager
+def deterministic_git_environment_context():
     """Isolate the git environment the tests run in. Yields the config path.
 
     ``GIT_CEILING_DIRECTORIES`` stops git's repository discovery at
@@ -48,15 +58,7 @@ def deterministic_git_environment():
     carried over - resolved before the redirect, so it is what git would have
     used - because committing needs it.
     """
-    import subprocess
-
-    def git_config_get(key):
-        result = subprocess.run(
-            ["git", "config", "--get", key], capture_output=True, text=True
-        )
-        return result.stdout.strip() if result.returncode == 0 else ""
-
-    identity = {key: git_config_get(f"user.{key}") for key in ("name", "email")}
+    identity = {key: _git_config_get(f"user.{key}") for key in ("name", "email")}
 
     monkeypatch = pytest.MonkeyPatch()
     config_dir = TEST_DATA_PATH / "git-config"
@@ -73,9 +75,17 @@ def deterministic_git_environment():
 
     monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(config_path))
     monkeypatch.setenv("GIT_CEILING_DIRECTORIES", str(TEST_DATA_PATH.parent))
-    yield config_path
-    monkeypatch.undo()
-    shutil.rmtree(config_dir, ignore_errors=True)
+    try:
+        yield config_path
+    finally:
+        monkeypatch.undo()
+        shutil.rmtree(config_dir, ignore_errors=True)
+
+
+@pytest.fixture(scope="session", autouse=True)
+def deterministic_git_environment():
+    with deterministic_git_environment_context() as config_path:
+        yield config_path
 
 
 @pytest.fixture(scope="session", autouse=True)

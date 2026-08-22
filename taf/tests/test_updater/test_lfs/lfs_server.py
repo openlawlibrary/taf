@@ -34,8 +34,15 @@ class _LFSRequestHandler(BaseHTTPRequestHandler):
 
     protocol_version = "HTTP/1.1"
 
-    def log_message(self, format, *args):  # noqa: A002 - signature is fixed
-        """Silence the default stderr access log; tests capture what they need."""
+    def _oid_from_storage_path(self) -> Optional[str]:
+        prefix = "/storage/"
+        if prefix not in self.path:
+            return None
+        oid = self.path.rsplit(prefix, 1)[1].strip("/")
+        # oids are hex sha256; refuse anything else so a path can never escape
+        if len(oid) != 64 or not all(c in "0123456789abcdef" for c in oid):
+            return None
+        return oid
 
     def _read_body(self) -> bytes:
         length = int(self.headers.get("Content-Length") or 0)
@@ -48,6 +55,24 @@ class _LFSRequestHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
+
+    def do_GET(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
+        oid = self._oid_from_storage_path()
+        if oid is None:
+            self.send_error(404)
+            return
+        server = self.lfs_server
+        if not server.has_object(oid):
+            self.send_error(404)
+            return
+
+        data = server.read_object(oid)
+        server.record_download(oid)
+        self.send_response(200)
+        self.send_header("Content-Type", "application/octet-stream")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
 
     def do_POST(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
         if not self.path.rstrip("/").endswith("/objects/batch"):
@@ -76,24 +101,6 @@ class _LFSRequestHandler(BaseHTTPRequestHandler):
 
         self._send_json(200, {"transfer": "basic", "objects": objects})
 
-    def do_GET(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
-        oid = self._oid_from_storage_path()
-        if oid is None:
-            self.send_error(404)
-            return
-        server = self.lfs_server
-        if not server.has_object(oid):
-            self.send_error(404)
-            return
-
-        data = server.read_object(oid)
-        server.record_download(oid)
-        self.send_response(200)
-        self.send_header("Content-Type", "application/octet-stream")
-        self.send_header("Content-Length", str(len(data)))
-        self.end_headers()
-        self.wfile.write(data)
-
     def do_PUT(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
         oid = self._oid_from_storage_path()
         if oid is None:
@@ -104,15 +111,8 @@ class _LFSRequestHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", "0")
         self.end_headers()
 
-    def _oid_from_storage_path(self) -> Optional[str]:
-        prefix = "/storage/"
-        if prefix not in self.path:
-            return None
-        oid = self.path.rsplit(prefix, 1)[1].strip("/")
-        # oids are hex sha256; refuse anything else so a path can never escape
-        if len(oid) != 64 or not all(c in "0123456789abcdef" for c in oid):
-            return None
-        return oid
+    def log_message(self, format, *args):  # noqa: A002 - signature is fixed
+        """Silence the default stderr access log; tests capture what they need."""
 
 
 class LFSServer:
@@ -128,7 +128,44 @@ class LFSServer:
         self._thread: Optional[threading.Thread] = None
         self._port: Optional[int] = None
 
-    # --- lifecycle ---------------------------------------------------------
+    def __enter__(self) -> "LFSServer":
+        return self.start()
+
+    def __exit__(self, *exc_info) -> None:
+        self.stop()
+
+    def _path_for(self, oid: str) -> Path:
+        return self.storage / oid
+
+    def has_object(self, oid: str) -> bool:
+        return self._path_for(oid).is_file()
+
+    def read_object(self, oid: str) -> bytes:
+        return self._path_for(oid).read_bytes()
+
+    def record_download(self, oid: str) -> None:
+        with self._lock:
+            self.downloads.append(oid)
+
+    def reset_counters(self) -> None:
+        with self._lock:
+            self.downloads.clear()
+            self.uploads.clear()
+
+    def seed_from_repo(self, repo_path: Path) -> List[str]:
+        """Publish every LFS object in ``repo_path`` to this server.
+
+        Returns the oids published. Mirrors what ``git lfs push`` would have
+        done, without needing a push remote configured on a test origin.
+        """
+        published = []
+        objects_dir = Path(repo_path) / ".git" / "lfs" / "objects"
+        for path in objects_dir.rglob("*"):
+            if path.is_file():
+                shutil.copyfile(path, self._path_for(path.name))
+                published.append(path.name)
+        return published
+
     def start(self) -> "LFSServer":
         handler = type(
             "_BoundLFSRequestHandler", (_LFSRequestHandler,), {"lfs_server": self}
@@ -149,57 +186,6 @@ class LFSServer:
             self._thread.join(timeout=10)
             self._thread = None
 
-    def __enter__(self) -> "LFSServer":
-        return self.start()
-
-    def __exit__(self, *exc_info) -> None:
-        self.stop()
-
-    @property
-    def url(self) -> str:
-        if self._port is None:
-            raise RuntimeError("LFS server is not running")
-        return f"http://127.0.0.1:{self._port}"
-
-    # --- object store -----------------------------------------------------
-    def _path_for(self, oid: str) -> Path:
-        return self.storage / oid
-
-    def has_object(self, oid: str) -> bool:
-        return self._path_for(oid).is_file()
-
-    def read_object(self, oid: str) -> bytes:
-        return self._path_for(oid).read_bytes()
-
-    def write_object(self, oid: str, data: bytes) -> None:
-        self._path_for(oid).write_bytes(data)
-        with self._lock:
-            self.uploads.append(oid)
-
-    def record_download(self, oid: str) -> None:
-        with self._lock:
-            self.downloads.append(oid)
-
-    def reset_counters(self) -> None:
-        with self._lock:
-            self.downloads.clear()
-            self.uploads.clear()
-
-    # --- test helpers -----------------------------------------------------
-    def seed_from_repo(self, repo_path: Path) -> List[str]:
-        """Publish every LFS object in ``repo_path`` to this server.
-
-        Returns the oids published. Mirrors what ``git lfs push`` would have
-        done, without needing a push remote configured on a test origin.
-        """
-        published = []
-        objects_dir = Path(repo_path) / ".git" / "lfs" / "objects"
-        for path in objects_dir.rglob("*"):
-            if path.is_file():
-                shutil.copyfile(path, self._path_for(path.name))
-                published.append(path.name)
-        return published
-
     def take_local_objects(self, repo_path: Path) -> List[str]:
         """Publish objects to the server, then delete the repo's local copies.
 
@@ -211,3 +197,14 @@ class LFSServer:
         if objects_dir.is_dir():
             shutil.rmtree(objects_dir)
         return published
+
+    @property
+    def url(self) -> str:
+        if self._port is None:
+            raise RuntimeError("LFS server is not running")
+        return f"http://127.0.0.1:{self._port}"
+
+    def write_object(self, oid: str, data: bytes) -> None:
+        self._path_for(oid).write_bytes(data)
+        with self._lock:
+            self.uploads.append(oid)

@@ -10,7 +10,7 @@ import random
 import shutil
 import string
 import json
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 from functools import partial
 from freezegun import freeze_time
 from pathlib import Path
@@ -577,11 +577,18 @@ def add_valid_target_commits(
     pin_manager: PinManager,
     target_repos: list,
     add_if_empty: bool = True,
+    mutate: Optional[Callable[[GitRepository], None]] = None,
+    commit_message: str = "Update target files",
 ):
+    """Commit a change to every target repository, then sign the auth repo.
+
+    ``mutate`` receives each target repository and makes the change; the default
+    appends random text to the files already there.
+    """
     for target_repo in target_repos:
         if not add_if_empty and target_repo.head_commit() is None:
             continue
-        update_target_repository(target_repo, "Update target files")
+        update_target_repository(target_repo, commit_message, mutate=mutate)
     sign_target_repositories(
         TEST_DATA_ORIGIN_PATH, auth_repo.name, KEYSTORE_PATH, pin_manager
     )
@@ -856,10 +863,26 @@ def update_and_sign_metadata_without_clean_check(
 
 
 def update_target_repository(
-    target_repo: GitRepository, commit_message: Optional[str] = None
+    target_repo: GitRepository,
+    commit_message: Optional[str] = None,
+    mutate: Optional[Callable[[GitRepository], None]] = None,
 ):
+    """Change ``target_repo``'s content and optionally commit.
+
+    ``mutate`` makes the change when given; otherwise random text is appended to
+    the files already there.
+    """
+    if mutate is not None:
+        mutate(target_repo)
+    else:
+        _append_random_text(target_repo)
+
+    if commit_message is not None:
+        target_repo.commit(commit_message)
+
+
+def _append_random_text(target_repo: GitRepository):
     text_to_add = _generate_random_text()
-    # Iterate over all files in the repository directory
     is_empty = True
     for file_path in target_repo.path.iterdir():
         if file_path.is_file():
@@ -869,11 +892,7 @@ def update_target_repository(
             file_path.write_text(new_content, encoding="utf-8")
 
     if is_empty:
-        random_text = _generate_random_text()
-        (target_repo.path / "test.txt").write_text(random_text)
-
-    if commit_message is not None:
-        target_repo.commit(commit_message)
+        (target_repo.path / "test.txt").write_text(_generate_random_text())
 
 
 def remove_commits(
