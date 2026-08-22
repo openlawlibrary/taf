@@ -32,6 +32,7 @@ import pygit2
 
 from taf.exceptions import GitLFSError
 from taf.log import taf_logger
+from taf.utils import run
 
 FILTER_NAME = "taf-git-lfs"
 
@@ -105,11 +106,11 @@ def is_lfs_configured(workdir: str) -> bool:
     """
     if not workdir or get_git_lfs_executable() is None:
         return False
-    result = subprocess.run(
-        ["git", "-C", workdir, "config", "--get", "filter.lfs.process"],
-        capture_output=True,
-    )
-    return result.returncode == 0
+    try:
+        run("git", "-C", workdir, "config", "--get", "filter.lfs.process")
+    except subprocess.CalledProcessError:
+        return False
+    return True
 
 
 def run_git_lfs(verb: str, path: str, payload: bytes, workdir: str) -> bytes:
