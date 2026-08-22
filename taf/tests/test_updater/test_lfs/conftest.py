@@ -279,12 +279,7 @@ def publish_lfs_objects(origin_auth_repo, lfs_server) -> None:
         lfs_server.take_local_objects(target_repo.path)
 
 
-def run_ignoring_failure(*command: str) -> None:
-    """Run ``command``, tolerating a non-zero exit."""
-    run_ignoring_failure_output(*command)
-
-
-def run_ignoring_failure_output(*command: str) -> str:
+def run_ignoring_failure(*command: str) -> str:
     """Output of ``command``, or "" when it exits non-zero."""
     try:
         return run(*command) or ""

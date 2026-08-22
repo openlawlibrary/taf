@@ -53,7 +53,6 @@ from taf.tests.test_updater.test_lfs.conftest import (
     path_without_git_lfs,
     publish_lfs_objects,
     run_ignoring_failure,
-    run_ignoring_failure_output,
 )
 from taf.tests.test_updater.update_utils import (
     clone_repositories,
@@ -206,9 +205,9 @@ def test_filter_is_registered_by_importing_taf_git(tmp_path):
 
 @needs_git_lfs
 def test_checkout_without_git_lfs_never_truncates_the_file(tmp_path):
-    """git-lfs absent: refuse or write the pointer, but never destroy content.
+    """git-lfs absent: the filter stands aside and the file survives.
 
-    With git-lfs absent the filter passes the blob through, so libgit2 either
+    Without the binary there is nothing to filter with, so libgit2 either
     refuses the checkout - it cannot reconcile smudged working-tree bytes with a
     pointer blob - or writes the pointer. Both leave the file readable.
     """
@@ -217,13 +216,14 @@ def test_checkout_without_git_lfs_never_truncates_the_file(tmp_path):
     client.clone_from_disk(origin.path, keep_remote=True)
     client.checkout_branch("other", create=True)
 
-    checkout_in_subprocess(
+    result = checkout_in_subprocess(
         GitRepository(path=client.path),
         client.default_branch,
         LFS_FILE_NAME,
         path_without_git_lfs(),
     )
 
+    assert "RAISED:" in result.stdout, f"the checkout never ran: {result.stderr}"
     content = (client.path / LFS_FILE_NAME).read_bytes()
     assert content, "the working-tree file was truncated by the failed checkout"
     assert content == lfs_file_content("v1") or is_lfs_pointer(content), (
@@ -309,7 +309,7 @@ def test_clean_failure_keeps_an_uncommitted_edit(tmp_path):
 
 
 @needs_git_lfs
-def test_lfs_filter_commands_tolerates_an_awkward_path(tmp_path):
+def test_get_lfs_filter_commands_tolerates_an_awkward_path(tmp_path):
     """A path containing ``{`` must not raise out of the config lookup.
 
     An exception escaping ``check()`` leaves libgit2's destination file
@@ -319,7 +319,7 @@ def test_lfs_filter_commands_tolerates_an_awkward_path(tmp_path):
     awkward = tmp_path / "client{x"
     awkward.mkdir()
 
-    smudge, clean = lfs_module.lfs_filter_commands(str(awkward))
+    smudge, clean = lfs_module.get_lfs_filter_commands(str(awkward))
     assert isinstance(smudge, str) and isinstance(clean, str)
 
 
@@ -353,12 +353,43 @@ def test_legacy_filter_configuration_is_recognized(
     client.clone_from_disk(origin.path, keep_remote=True)
     client.checkout_branch("other", create=True)
 
-    smudge, clean = lfs_module.lfs_filter_commands(str(client.path))
+    smudge, clean = lfs_module.get_lfs_filter_commands(str(client.path))
     assert smudge and clean, "the older per-direction config was not recognized"
 
     client = GitRepository(path=client.path)
     client.checkout_branch(client.default_branch)
     assert_lfs_content_materialized(client.path, "v2")
+
+
+@needs_git_lfs
+def test_filter_stands_aside_for_a_non_lfs_filter_command(
+    tmp_path, monkeypatch, deterministic_git_environment
+):
+    """``filter.lfs.*`` pointing at another program is not ours to run.
+
+    Running git-lfs for it would put bytes in the working tree that git never
+    wrote.
+    """
+    other_config = tmp_path / "other_gitconfig"
+    other_config.write_text(
+        "\n".join(
+            [
+                "[include]",
+                f"\tpath = {Path(deterministic_git_environment).as_posix()}",
+                '[filter "lfs"]',
+                "\tsmudge = sed s/x/y/g",
+                "\tclean = sed s/y/x/g",
+            ]
+        )
+        + "\n"
+    )
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(other_config))
+
+    smudge, clean = lfs_module.get_lfs_filter_commands(str(tmp_path))
+    assert (smudge, clean) == (
+        "",
+        "",
+    ), f"git-lfs would have run for another program's filter: {(smudge, clean)}"
 
 
 @needs_git_lfs
@@ -374,7 +405,7 @@ def test_skip_smudge_is_honored(tmp_path):
     client.checkout_branch("other", create=True)
     run("git", "-C", str(client.path), "lfs", "install", "--local", "--skip-smudge")
 
-    smudge, clean = lfs_module.lfs_filter_commands(str(client.path) + "/")
+    smudge, clean = lfs_module.get_lfs_filter_commands(str(client.path) + "/")
     assert not smudge, "smudge should be disabled by --skip-smudge"
     assert clean, "clean must stay enabled, or pointers stop being written"
 
@@ -412,7 +443,7 @@ def test_filter_agrees_with_git_when_lfs_is_not_configured(tmp_path, lfs_log):
             "filter.lfs",
         )
 
-    assert not run_ignoring_failure_output(
+    assert not run_ignoring_failure(
         "git", "-C", str(client.path), "config", "--get", "filter.lfs.process"
     ), "filter.lfs is still configured, so this test proves nothing"
 

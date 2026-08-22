@@ -881,7 +881,7 @@ def update_target_repository(
         target_repo.commit(commit_message)
 
 
-def _append_random_text(target_repo: GitRepository):
+def _append_random_text(target_repo: GitRepository) -> None:
     text_to_add = _generate_random_text()
     is_empty = True
     for file_path in target_repo.path.iterdir():

@@ -36,7 +36,7 @@ MIRRORS_JSON_PATH = TEST_INIT_DATA_PATH / "mirrors.json"
 TESTS_DEFAULT_BRANCH = "main"
 
 
-def _get_git_config(key):
+def _get_git_config(key: str) -> str:
     """Value git resolves for ``key`` right now, or "" when it is unset."""
     try:
         return run("git", "config", "--get", key) or ""
