@@ -8,6 +8,7 @@ so ``lfs_global_config`` makes them visible globally for the duration of a test.
 """
 
 import os
+import shutil
 import subprocess
 import sys
 from functools import partial
@@ -256,20 +257,16 @@ def lfs_server(tmp_path):
 
 
 def path_without_git_lfs() -> str:
-    """``PATH`` with every directory containing ``git-lfs`` removed."""
-    return os.pathsep.join(
+    """``PATH`` with every directory that provides ``git-lfs`` removed."""
+    candidate = os.pathsep.join(
         entry
         for entry in os.environ["PATH"].split(os.pathsep)
-        if entry and not (Path(entry) / "git-lfs").exists()
+        if entry and shutil.which("git-lfs", path=entry) is None
     )
-
-
-def run_ignoring_failure(*command: str) -> None:
-    """Run ``command``, tolerating a non-zero exit."""
-    try:
-        run(*command)
-    except subprocess.CalledProcessError:
-        pass
+    assert (
+        shutil.which("git-lfs", path=candidate) is None
+    ), "git-lfs is still reachable, so this PATH does not simulate its absence"
+    return candidate
 
 
 def publish_lfs_objects(origin_auth_repo, lfs_server) -> None:
@@ -280,6 +277,19 @@ def publish_lfs_objects(origin_auth_repo, lfs_server) -> None:
     """
     for target_repo in load_target_repositories(origin_auth_repo).values():
         lfs_server.take_local_objects(target_repo.path)
+
+
+def run_ignoring_failure(*command: str) -> None:
+    """Run ``command``, tolerating a non-zero exit."""
+    run_ignoring_failure_output(*command)
+
+
+def run_ignoring_failure_output(*command: str) -> str:
+    """Output of ``command``, or "" when it exits non-zero."""
+    try:
+        return run(*command) or ""
+    except subprocess.CalledProcessError:
+        return ""
 
 
 def write_lfs_file(

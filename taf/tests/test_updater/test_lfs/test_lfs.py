@@ -50,6 +50,7 @@ from taf.tests.test_updater.test_lfs.conftest import (
     path_without_git_lfs,
     publish_lfs_objects,
     run_ignoring_failure,
+    run_ignoring_failure_output,
 )
 from taf.tests.test_updater.update_utils import (
     clone_repositories,
@@ -204,11 +205,9 @@ def test_filter_is_registered_by_importing_taf_git(tmp_path):
 def test_checkout_without_git_lfs_never_truncates_the_file(tmp_path):
     """git-lfs absent: refuse or write the pointer, but never destroy content.
 
-    A filter that raises leaves libgit2's destination file truncated to zero
-    bytes, so no filter is registered when git-lfs is missing. libgit2 then
-    either refuses the checkout - it cannot reconcile smudged working-tree bytes
-    with a pointer blob - or writes the pointer, which is what git does without
-    Git LFS installed. Both leave the file readable.
+    With git-lfs absent the filter passes the blob through, so libgit2 either
+    refuses the checkout - it cannot reconcile smudged working-tree bytes with a
+    pointer blob - or writes the pointer. Both leave the file readable.
     """
     origin = build_lfs_origin(tmp_path / "origin")
     client = GitRepository(path=tmp_path / "client")
@@ -276,6 +275,49 @@ def test_unfetchable_lfs_object_leaves_the_pointer_not_an_empty_file(tmp_path, l
 
 
 @needs_git_lfs
+def test_clean_failure_keeps_an_uncommitted_edit(tmp_path):
+    """A failing clean must not cost the user their uncommitted work.
+
+    libgit2 discards an exception raised from a filter and then treats the file
+    as filtered, so a checkout would overwrite it. Passing the raw bytes through
+    leaves them different from the pointer blob, and the checkout is refused.
+    """
+    origin = build_lfs_origin(tmp_path / "origin")
+    client = GitRepository(path=tmp_path / "client")
+    client.clone_from_disk(origin.path, keep_remote=True)
+    client.checkout_branch("other", create=True)
+
+    precious = b"UNCOMMITTED EDIT " * 200
+    (client.path / LFS_FILE_NAME).write_bytes(precious)
+
+    # an object store git-lfs cannot write into, which is what a full disk or a
+    # read-only mount looks like to `git lfs clean`
+    store = client.path / ".git" / "lfs"
+    shutil.rmtree(store, ignore_errors=True)
+    store.write_text("not a directory")
+
+    client = GitRepository(path=client.path)
+    with pytest.raises(Exception):
+        client.checkout_branch(client.default_branch)
+
+    assert (
+        client.path / LFS_FILE_NAME
+    ).read_bytes() == precious, "the uncommitted edit was overwritten by the checkout"
+
+
+def test_is_lfs_configured_tolerates_an_awkward_path(tmp_path):
+    """A path git cannot be asked about must answer False, not raise.
+
+    An exception escaping ``check()`` leaves libgit2's destination file
+    truncated, so the config lookup has to absorb its own failures.
+    """
+    awkward = tmp_path / "client{x"
+    awkward.mkdir()
+
+    assert isinstance(lfs_module.is_lfs_configured(str(awkward)), bool)
+
+
+@needs_git_lfs
 def test_filter_agrees_with_git_when_lfs_is_not_configured(tmp_path, lfs_log):
     """No ``filter.lfs`` config: leave the blob alone, as git does.
 
@@ -298,6 +340,10 @@ def test_filter_agrees_with_git_when_lfs_is_not_configured(tmp_path, lfs_log):
             "--remove-section",
             "filter.lfs",
         )
+
+    assert not run_ignoring_failure_output(
+        "git", "-C", str(client.path), "config", "--get", "filter.lfs.process"
+    ), "filter.lfs is still configured, so this test proves nothing"
 
     client = GitRepository(path=client.path)
     porcelain = run("git", "-C", str(client.path), "status", "--porcelain") or ""

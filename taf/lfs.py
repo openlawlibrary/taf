@@ -10,16 +10,21 @@ pointer text unless a filter is registered.
 The filter pipes the blob through the ``git-lfs`` binary, which handles pointer
 parsing, the object store, Batch API fetches and credentials.
 
-The ``clean`` direction matters as much as ``smudge``: without it libgit2
-compares real working-tree bytes against a pointer blob, decides the file is
-modified, and refuses to check out with "1 conflict prevents checkout".
+Both directions are needed: with ``clean`` missing, libgit2 compares real
+working-tree bytes against a pointer blob, decides the file is modified, and
+refuses to check out with "1 conflict prevents checkout".
 
-Two conditions keep the filter out of the way. It runs only for paths
+Two conditions keep the filter out of the way: it runs only for paths
 ``.gitattributes`` routes to LFS (``attributes = "filter=lfs"``), and only in
-repositories where git itself would run the LFS filters, so pygit2 and git agree
-on what the working tree should contain. A smudge that cannot produce content
-passes the pointer through rather than raising, because an exception leaves
-libgit2's destination file truncated.
+repositories where git itself runs the LFS filters, so pygit2 and git agree on
+what the working tree should contain.
+
+When git-lfs cannot do its job the blob is written through unchanged. An
+exception raised from a filter leaves libgit2's destination file truncated and
+is then discarded, so libgit2 treats the file as filtered successfully. Passing
+the bytes through instead keeps a smudge's pointer readable, and leaves a
+clean's raw content different from the pointer blob, which makes libgit2 refuse
+the checkout exactly as git does.
 """
 
 import os
@@ -32,7 +37,6 @@ import pygit2
 
 from taf.exceptions import GitLFSError
 from taf.log import taf_logger
-from taf.utils import run
 
 FILTER_NAME = "taf-git-lfs"
 
@@ -62,22 +66,22 @@ class GitLFSFilter(pygit2.Filter):
         self._workdir = workdir
 
     def close(self, write_next: Callable[[bytes], None]) -> None:
-        payload = b"".join(self._chunks)
-        if not payload:
-            return
-        smudge = self._mode == pygit2.GIT_FILTER_SMUDGE
+        payload = b""
         try:
-            content = run_git_lfs(
-                "smudge" if smudge else "clean", self._path, payload, self._workdir
-            )
-        except GitLFSError:
-            if not smudge:
+            payload = b"".join(self._chunks)
+            if not payload:
+                return
+            verb = "smudge" if self._mode == pygit2.GIT_FILTER_SMUDGE else "clean"
+            content = run_git_lfs(verb, self._path, payload, self._workdir)
+        except Exception as error:
+            if not payload:
                 raise
-            # Raising leaves libgit2's destination file truncated. Writing the
-            # pointer through keeps the file readable, and `git lfs pull` fills
-            # it in once the object is reachable.
-            write_next(payload)
-            return
+            taf_logger.debug(
+                "Git LFS filter passing '{}' through unfiltered: {}",
+                self._path,
+                error,
+            )
+            content = payload
         write_next(content)
 
     def write(
@@ -95,22 +99,30 @@ def get_git_lfs_executable() -> Optional[str]:
     return shutil.which("git-lfs")
 
 
-@lru_cache(maxsize=None)
 def is_lfs_configured(workdir: str) -> bool:
-    """True when git itself would run the LFS filters in ``workdir``.
+    """True when git itself runs the LFS filters in ``workdir``.
 
-    Keyed on ``filter.lfs.process`` rather than on the ``.gitattributes``
-    attribute alone: a repository can route paths to a filter that git has no
-    definition for, and smudging where git would not leaves a working tree git
-    reports as modified.
+    Read from ``filter.lfs.process`` on every call: a repository can route paths
+    to a filter git has no definition for, and filtering where git does not
+    leaves a working tree git reports as modified. The answer changes whenever
+    the repository's config does, so it is not cached.
+
+    ``git lfs install --skip-smudge`` leaves the filter configured but appends
+    ``--skip``, asking for pointers rather than content.
     """
-    if not workdir or get_git_lfs_executable() is None:
+    git = shutil.which("git")
+    if not workdir or git is None or get_git_lfs_executable() is None:
         return False
     try:
-        run("git", "-C", workdir, "config", "--get", "filter.lfs.process")
-    except subprocess.CalledProcessError:
+        result = subprocess.run(
+            [git, "-C", workdir, "config", "--get", "filter.lfs.process"],
+            capture_output=True,
+            text=True,
+            timeout=GIT_LFS_TIMEOUT,
+        )
+    except (OSError, subprocess.SubprocessError):
         return False
-    return True
+    return result.returncode == 0 and "--skip" not in result.stdout
 
 
 def run_git_lfs(verb: str, path: str, payload: bytes, workdir: str) -> bytes:
@@ -118,9 +130,8 @@ def run_git_lfs(verb: str, path: str, payload: bytes, workdir: str) -> bytes:
     executable = get_git_lfs_executable()
     if executable is None:
         message = (
-            f"Cannot check out '{path}': it is stored in Git LFS, but Git LFS "
-            f"is not installed. Install it from https://git-lfs.com and try "
-            f"again."
+            f"'{path}' is stored in Git LFS, but Git LFS is not installed. "
+            f"Install it from https://git-lfs.com and try again."
         )
         taf_logger.error(message)
         raise GitLFSError(message)
@@ -142,10 +153,14 @@ def run_git_lfs(verb: str, path: str, payload: bytes, workdir: str) -> bytes:
         raise GitLFSError(message) from error
 
     if result.returncode != 0:
-        message = (
-            f"Could not get the Git LFS content for '{path}'. Check that the "
-            f"Git LFS server is reachable and holds this object."
-        )
+        if verb == "smudge":
+            message = (
+                f"Could not get the Git LFS content for '{path}'; the file is "
+                f"left as a pointer. Check that the Git LFS server is reachable "
+                f"and holds this object, then run 'git lfs pull'."
+            )
+        else:
+            message = f"Git LFS could not store the content of '{path}'."
         taf_logger.error(message)
         taf_logger.debug(
             "git-lfs {} exited {}: {}",

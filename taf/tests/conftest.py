@@ -57,10 +57,12 @@ def deterministic_git_environment_context():
     so without it git answers about TAF's own repository whenever it is run
     against a path that is not a repository yet.
 
-    ``GIT_CONFIG_GLOBAL`` points at a generated config, so ``init.defaultBranch``
-    is fixed here instead of inherited from the developer. Their identity is
-    carried over - resolved before the redirect, so it is what git would have
-    used - because committing needs it.
+    ``GIT_CONFIG_GLOBAL`` points at a generated config and
+    ``GIT_CONFIG_NOSYSTEM`` shuts out ``/etc/gitconfig``, so settings such as
+    ``init.defaultBranch`` and the Git LFS filters come from here rather than
+    from the machine. The developer's identity is carried over - resolved before
+    the redirect, so it is what git would have used - because committing needs
+    it.
     """
     identity = {key: _get_git_config(f"user.{key}") for key in ("name", "email")}
 
@@ -77,6 +79,7 @@ def deterministic_git_environment_context():
     config_path.write_text("\n".join(lines) + "\n")
 
     monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(config_path))
+    monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
     monkeypatch.setenv("GIT_CEILING_DIRECTORIES", str(TEST_DATA_PATH.parent))
     try:
         yield config_path
