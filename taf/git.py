@@ -44,9 +44,10 @@ except ImportError:
     pygit2 = None
     PYGIT2_AVAILABLE = False
 
-# imported for its side effect: registering the Git LFS filter with libgit2, so
-# pygit2 checkouts materialize LFS content instead of pointer text
-import taf.lfs  # noqa: F401,E402
+if PYGIT2_AVAILABLE:
+    # imported for its side effect: registering the Git LFS filter with libgit2,
+    # so pygit2 checkouts materialize LFS content instead of pointer text
+    import taf.lfs  # noqa: F401
 
 EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 
@@ -1593,12 +1594,6 @@ class GitRepository:
         self._is_git_repository = None
         if self.urls is not None and len(self.urls):
             self._git("remote add origin {}", self.urls[0])
-        # A GitRepository is often constructed before the repository exists, when
-        # the default branch cannot be determined yet. Now that `init` has named
-        # the first branch, resolve it - the same refresh `clone` and
-        # `clone_from_disk` already do.
-        if self.default_branch is None:
-            self.default_branch = self._determine_default_branch()
 
     def is_path_ignored(self, path: str) -> bool:
         """

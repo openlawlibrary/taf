@@ -9,9 +9,9 @@ GitHub or GitLab rather than in any repository TAF can reach: TAF materializes a
 client's target repository from an intermediate bare clone, and bare clones carry
 no LFS objects.
 
-Storage is a flat directory keyed by oid. ``downloads`` and ``uploads`` record
-what the client asked for, so a test can assert the bytes came over the wire
-rather than from a local hardlink.
+Storage is a flat directory keyed by oid. ``downloads`` records what the client
+asked for, so a test can assert the bytes came over the wire rather than from a
+local hardlink.
 
 Protocol reference: https://github.com/git-lfs/git-lfs/blob/main/docs/api/batch.md
 """
@@ -29,7 +29,6 @@ LFS_CONTENT_TYPE = "application/vnd.git-lfs+json"
 class _LFSRequestHandler(BaseHTTPRequestHandler):
     """Handles the two endpoints the ``basic`` transfer adapter needs."""
 
-    # the server instance sets this; avoids globals
     lfs_server: "LFSServer"
 
     protocol_version = "HTTP/1.1"
@@ -56,7 +55,7 @@ class _LFSRequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def do_GET(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
+    def do_GET(self) -> None:
         oid = self._oid_from_storage_path()
         if oid is None:
             self.send_error(404)
@@ -74,13 +73,12 @@ class _LFSRequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
-    def do_POST(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
+    def do_POST(self) -> None:
         if not self.path.rstrip("/").endswith("/objects/batch"):
             self.send_error(404)
             return
 
         request = json.loads(self._read_body() or b"{}")
-        operation = request.get("operation")
         server = self.lfs_server
         objects: List[Dict] = []
 
@@ -90,9 +88,7 @@ class _LFSRequestHandler(BaseHTTPRequestHandler):
             entry: Dict = {"oid": oid, "size": size, "authenticated": True}
             href = f"{server.url}/storage/{oid}"
 
-            if operation == "upload":
-                entry["actions"] = {"upload": {"href": href}}
-            elif server.has_object(oid):
+            if server.has_object(oid):
                 entry["actions"] = {"download": {"href": href}}
             else:
                 # the protocol's way of saying "this object is not here"
@@ -101,17 +97,7 @@ class _LFSRequestHandler(BaseHTTPRequestHandler):
 
         self._send_json(200, {"transfer": "basic", "objects": objects})
 
-    def do_PUT(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
-        oid = self._oid_from_storage_path()
-        if oid is None:
-            self.send_error(404)
-            return
-        self.lfs_server.write_object(oid, self._read_body())
-        self.send_response(200)
-        self.send_header("Content-Length", "0")
-        self.end_headers()
-
-    def log_message(self, format, *args):  # noqa: A002 - signature is fixed
+    def log_message(self, format, *args):
         """Silence the default stderr access log; tests capture what they need."""
 
 
@@ -122,7 +108,6 @@ class LFSServer:
         self.storage = Path(storage)
         self.storage.mkdir(parents=True, exist_ok=True)
         self.downloads: List[str] = []
-        self.uploads: List[str] = []
         self._lock = threading.Lock()
         self._httpd: Optional[ThreadingHTTPServer] = None
         self._thread: Optional[threading.Thread] = None
@@ -150,21 +135,6 @@ class LFSServer:
     def reset_counters(self) -> None:
         with self._lock:
             self.downloads.clear()
-            self.uploads.clear()
-
-    def seed_from_repo(self, repo_path: Path) -> List[str]:
-        """Publish every LFS object in ``repo_path`` to this server.
-
-        Returns the oids published. Mirrors what ``git lfs push`` would have
-        done, without needing a push remote configured on a test origin.
-        """
-        published = []
-        objects_dir = Path(repo_path) / ".git" / "lfs" / "objects"
-        for path in objects_dir.rglob("*"):
-            if path.is_file():
-                shutil.copyfile(path, self._path_for(path.name))
-                published.append(path.name)
-        return published
 
     def start(self) -> "LFSServer":
         handler = type(
@@ -187,13 +157,17 @@ class LFSServer:
             self._thread = None
 
     def take_local_objects(self, repo_path: Path) -> List[str]:
-        """Publish objects to the server, then delete the repo's local copies.
+        """Publish ``repo_path``'s LFS objects here, then delete its local copies.
 
-        Leaves the server as the *only* source, so a successful checkout in a
+        Leaves the server as the only source, so a successful checkout in a
         clone is proof that the object travelled over HTTP.
         """
-        published = self.seed_from_repo(repo_path)
         objects_dir = Path(repo_path) / ".git" / "lfs" / "objects"
+        published = []
+        for path in objects_dir.rglob("*"):
+            if path.is_file():
+                shutil.copyfile(path, self._path_for(path.name))
+                published.append(path.name)
         if objects_dir.is_dir():
             shutil.rmtree(objects_dir)
         return published
@@ -203,8 +177,3 @@ class LFSServer:
         if self._port is None:
             raise RuntimeError("LFS server is not running")
         return f"http://127.0.0.1:{self._port}"
-
-    def write_object(self, oid: str, data: bytes) -> None:
-        self._path_for(oid).write_bytes(data)
-        with self._lock:
-            self.uploads.append(oid)

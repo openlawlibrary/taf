@@ -24,36 +24,51 @@ These tests need the ``git-lfs`` binary and skip without it, so the suite still
 runs where LFS is not installed; CI installs it (``.github/workflows/ci.yml``).
 """
 
+import os
+import shutil
+import threading
 from concurrent.futures import ThreadPoolExecutor
 
+import pygit2
 import pytest
 
-from taf import lfs
+from taf.exceptions import GitLFSError
 from taf.git import GitRepository
+from taf import lfs as lfs_module
+from taf.lfs import run_git_lfs
 from taf.tests.test_updater.test_lfs.conftest import (
+    LFS_FILE_NAME,
     PLAIN_FILE_NAME,
     assert_lfs_content_materialized,
     build_lfs_origin,
     build_plain_origin,
+    checkout_in_subprocess,
     commit_lfs_content,
-    git_lfs_version,
+    get_git_lfs_version,
+    is_lfs_pointer,
+    lfs_file_content,
+    path_without_git_lfs,
     publish_lfs_objects,
 )
 from taf.tests.test_updater.update_utils import (
     clone_repositories,
     load_target_repositories,
     update_and_check_commit_shas,
+    update_invalid_repos_and_check_if_repos_exist,
 )
 from taf.updater.types.update import OperationType
 
 pytestmark = pytest.mark.skipif(
-    not git_lfs_version(),
+    not get_git_lfs_version(),
     reason="git-lfs is not installed (needs the `git lfs` subcommand on PATH)",
 )
 
 TARGETS_WITH_LFS = {
     "targets_config": [{"name": "target1"}, {"name": "target2"}],
 }
+
+#: git's message when the smudge filter cannot produce a tracked file's content.
+LFS_SMUDGE_FAILED_PATTERN = r"smudge filter lfs failed"
 
 
 @pytest.mark.parametrize("origin_auth_repo", [TARGETS_WITH_LFS], indirect=True)
@@ -106,17 +121,8 @@ def test_update_materializes_new_lfs_content_from_server(
     assert lfs_server.downloads, "the update fetched no object from the LFS server"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "Without an lfs.url, git-lfs falls back to the git remote, which for a "
-        "TAF client is the objectless bare temp clone, so the smudge filter "
-        "fails and the update aborts. LFS target repositories require a "
-        "reachable LFS server - a local mirror alone is not enough."
-    ),
-)
 @pytest.mark.parametrize("origin_auth_repo", [TARGETS_WITH_LFS], indirect=True)
-def test_clone_lfs_without_server_configured(origin_auth_repo, client_dir):
+def test_clone_lfs_without_server_fails_with_smudge_error(origin_auth_repo, client_dir):
     """No ``lfs.url`` anywhere: cloning an LFS target repository fails.
 
     A constraint, not a defect to fix. TAF stages every target repository
@@ -125,14 +131,13 @@ def test_clone_lfs_without_server_configured(origin_auth_repo, client_dir):
     """
     commit_lfs_content(origin_auth_repo, "v1")
 
-    clone_repositories(origin_auth_repo, client_dir)
-
-    client_target_repos = load_target_repositories(
-        origin_auth_repo, library_dir=client_dir
+    update_invalid_repos_and_check_if_repos_exist(
+        OperationType.CLONE,
+        origin_auth_repo,
+        client_dir,
+        LFS_SMUDGE_FAILED_PATTERN,
+        True,
     )
-    assert client_target_repos, "no target repositories were cloned"
-    for target_repo in client_target_repos.values():
-        assert_lfs_content_materialized(target_repo.path, "v1")
 
 
 def test_checkout_branch_materializes_lfs_content(tmp_path):
@@ -152,9 +157,8 @@ def test_checkout_branch_materializes_lfs_content(tmp_path):
     client.checkout_branch("other", create=True)
     assert_lfs_content_materialized(client.path, "v1")
 
-    # A fresh instance, as a subsequent TAF run would use. Reusing `client` here
-    # would hit its cached pygit2 handle, whose in-memory index is stale after
-    # the subprocess checkout above ("1 conflict prevents checkout").
+    # a fresh instance, whose pygit2 handle sees the index the subprocess
+    # checkout above wrote
     client = GitRepository(path=client.path)
     assert not client.something_to_commit(), "working tree should be clean"
 
@@ -163,42 +167,96 @@ def test_checkout_branch_materializes_lfs_content(tmp_path):
     assert_lfs_content_materialized(client.path, "v2")
 
 
-def test_checkout_reports_missing_git_lfs_instead_of_writing_a_pointer(
-    tmp_path, monkeypatch, lfs_log
-):
-    """git-lfs absent while the repository does use LFS: fail, and say why.
+def test_filter_is_registered_by_importing_taf_git(tmp_path):
+    """A caller that imports only ``taf.git`` gets LFS-aware checkouts.
 
-    The dangerous outcome is a silent one - a working tree full of pointer text
-    that looks like a successful checkout. pygit2 discards the exception a
-    filter raises, so the filter logs the reason; that log line is the contract.
+    Runs in a fresh interpreter: this module imports ``taf.lfs`` directly, which
+    would register the filter regardless of whether the production wiring does.
     """
     origin = build_lfs_origin(tmp_path / "origin")
     client = GitRepository(path=tmp_path / "client")
     client.clone_from_disk(origin.path, keep_remote=True)
     client.checkout_branch("other", create=True)
 
-    monkeypatch.setattr(lfs, "get_git_lfs_executable", lambda: None)
+    result = checkout_in_subprocess(
+        GitRepository(path=client.path),
+        "main",
+        LFS_FILE_NAME,
+        os.environ["PATH"],
+    )
+
+    assert "RAISED:none" in result.stdout, result.stderr
+    assert repr(lfs_file_content("v2")) in result.stdout, (
+        "importing taf.git did not register the LFS filter, so the checkout "
+        f"produced pointer text:\n{result.stdout}"
+    )
+
+
+def test_checkout_without_git_lfs_never_truncates_the_file(tmp_path):
+    """git-lfs absent: refuse or write the pointer, but never destroy content.
+
+    A filter that raises leaves libgit2's destination file truncated to zero
+    bytes, so no filter is registered when git-lfs is missing. libgit2 then
+    either refuses the checkout - it cannot reconcile smudged working-tree bytes
+    with a pointer blob - or writes the pointer, which is what git does without
+    Git LFS installed. Both leave the file readable.
+    """
+    origin = build_lfs_origin(tmp_path / "origin")
+    client = GitRepository(path=tmp_path / "client")
+    client.clone_from_disk(origin.path, keep_remote=True)
+    client.checkout_branch("other", create=True)
+
+    checkout_in_subprocess(
+        GitRepository(path=client.path),
+        "main",
+        LFS_FILE_NAME,
+        path_without_git_lfs(),
+    )
+
+    content = (client.path / LFS_FILE_NAME).read_bytes()
+    assert content, "the working-tree file was truncated by the failed checkout"
+    assert content == lfs_file_content("v1") or is_lfs_pointer(content), (
+        "expected the file left untouched or replaced by its pointer, found "
+        f"{len(content)} bytes starting with {content[:40]!r}"
+    )
+
+
+def test_run_git_lfs_reports_a_missing_binary(monkeypatch):
+    """The message a user gets when git-lfs is needed but absent."""
+    monkeypatch.setattr(lfs_module, "get_git_lfs_executable", lambda: None)
+
+    with pytest.raises(GitLFSError, match="Git LFS is not installed"):
+        run_git_lfs("smudge", "some/file.bin", b"pointer", None)
+
+
+def test_checkout_reports_an_unfetchable_lfs_object(tmp_path, lfs_log):
+    """git-lfs present but the object is nowhere: fail loudly, and say why."""
+    origin = build_lfs_origin(tmp_path / "origin")
+    client = GitRepository(path=tmp_path / "client")
+    client.clone_from_disk(origin.path, keep_remote=True)
+    client.checkout_branch("other", create=True)
+
+    # the client can otherwise reach the origin's store over git-lfs' file://
+    # endpoint, so both copies of the object have to go
+    for repo_path in (client.path, origin.path):
+        shutil.rmtree(repo_path / ".git" / "lfs" / "objects", ignore_errors=True)
 
     client = GitRepository(path=client.path)
-    with pytest.raises(Exception):
+    with pytest.raises(pygit2.GitError):
         client.checkout_branch(client.default_branch)
 
     assert any(
-        "Git LFS is not installed" in message for message in lfs_log
+        "Git LFS could not process" in message for message in lfs_log
     ), f"nothing explained the failure; logged: {lfs_log}"
 
 
-def test_plain_repository_unaffected_when_git_lfs_missing(
-    tmp_path, monkeypatch, lfs_log
-):
+def test_plain_repository_unaffected_when_git_lfs_missing(tmp_path, lfs_log):
     """git-lfs absent and LFS unused: nothing changes.
 
     The filter declares ``attributes = "filter=lfs"``, so libgit2 only invokes
     it for paths ``.gitattributes`` routes to LFS. A repository that uses none
     must be untouched - no error, no log noise.
     """
-    monkeypatch.setattr(lfs, "get_git_lfs_executable", lambda: None)
-
     origin = build_plain_origin(tmp_path / "origin")
     client = GitRepository(path=tmp_path / "client")
     client.clone_from_disk(origin.path, keep_remote=True)
@@ -221,7 +279,7 @@ def test_concurrent_checkouts_through_the_filter(tmp_path):
     updater materializes target repositories through a ThreadPoolExecutor.
     """
     repos = []
-    for index in range(4):
+    for index in range(8):
         origin = build_lfs_origin(tmp_path / f"origin{index}")
         client = GitRepository(path=tmp_path / f"client{index}")
         client.clone_from_disk(origin.path, keep_remote=True)
@@ -229,14 +287,18 @@ def test_concurrent_checkouts_through_the_filter(tmp_path):
         repos.append(GitRepository(path=client.path))
 
     errors = []
+    # release every thread into the filter at once, so the streams overlap
+    # instead of finishing one after another
+    barrier = threading.Barrier(len(repos))
 
     def checkout(repo):
+        barrier.wait()
         try:
             repo.checkout_branch(repo.default_branch)
-        except Exception as error:  # noqa: BLE001 - reported below
+        except Exception as error:
             errors.append(f"{repo.path.name}: {error}")
 
-    with ThreadPoolExecutor(max_workers=4) as executor:
+    with ThreadPoolExecutor(max_workers=len(repos)) as executor:
         list(executor.map(checkout, repos))
 
     assert not errors, f"concurrent checkouts failed: {errors}"

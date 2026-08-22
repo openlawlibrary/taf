@@ -50,10 +50,6 @@ jobs:
           pip install wheel  # Ensure wheel is installed
           pip install -e .[ci,test,yubikey]
 
-      # taf/tests/test_updater/test_lfs.py needs the `git lfs` subcommand; it
-      # skips itself when absent, so assert it is really here rather than let
-      # the LFS coverage silently disappear. No `git lfs install` is needed -
-      # the tests supply their own filter config via GIT_CONFIG_GLOBAL.
       - name: Verify git-lfs is available
         run: git lfs version
 

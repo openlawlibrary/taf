@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
-- Git LFS support: pygit2 checkouts now materialize LFS content instead of leaving pointer files, by delegating to the `git-lfs` binary. `git-lfs` remains optional - it is only required by repositories that actually use LFS, and a repository that needs it but cannot find it now fails with a clear error instead of silently writing pointer files ([766])
+- Git LFS support: pygit2 checkouts now materialize LFS content instead of leaving pointer files, by delegating to the `git-lfs` binary. `git-lfs` stays optional - the filter is registered only when it is installed, so repositories that do not use LFS are unaffected, and a missing `git-lfs` leaves working-tree content intact rather than failing mid-checkout ([766])
 - Test coverage for cloning and updating Git LFS target repositories, including an in-process Git LFS server ([766])
 - Support choosing a YubiKey PIV slot when setting up signing keys ([759])
 
@@ -21,7 +21,6 @@ and this project adheres to [Semantic Versioning][semver].
 ### Fixed
 
 - Detect signing scheme from key material instead of assuming RSA ([757])
-- `init_repo` now resolves the repository's default branch, as `clone` already did ([766])
 - Clone no longer fails when the repository path contains a space (e.g. a Windows home directory with a space in the user name) ([762])
 - Surface the underlying git error when a clone fails, instead of hiding it behind a generic access message ([762])
 - Correct the clone access error that rendered as "Cannot None ..." and stop misattributing a local failure to an access/authentication problem ([762])

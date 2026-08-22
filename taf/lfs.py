@@ -17,12 +17,17 @@ refuses to check out with "1 conflict prevents checkout".
 ``attributes = "filter=lfs"`` means libgit2 invokes the filter only for paths
 ``.gitattributes`` routes to LFS, so repositories that do not use LFS never
 reach this code and do not need ``git-lfs`` installed.
+
+A filter that raises leaves libgit2's destination file truncated, so the filter
+is registered only when ``git-lfs`` is present. Without it, LFS-tracked paths
+keep their pointer text, which is what plain git does when Git LFS is not
+installed.
 """
 
 import shutil
 import subprocess
 from functools import lru_cache
-from typing import List, Optional
+from typing import Callable, List, Optional
 
 import pygit2
 
@@ -37,43 +42,41 @@ class GitLFSFilter(pygit2.Filter):
 
     attributes = "filter=lfs"
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self._chunks: List[bytes] = []
         self._path: Optional[str] = None
         self._mode: Optional[int] = None
         self._workdir: Optional[str] = None
 
-    def check(self, src, attr_values):
-        # libgit2 reuses filter instances, so reset per stream
+    def check(self, src: "pygit2.FilterSource", attr_values: List[str]) -> None:
         self._chunks = []
         self._path = src.path
         self._mode = src.mode
         # git-lfs resolves config, the object store and the LFS endpoint
         # relative to the repository, so it has to run inside it
-        repo = getattr(src, "repo", None)
-        workdir = getattr(repo, "workdir", None) if repo is not None else None
-        self._workdir = str(workdir) if workdir else None
+        self._workdir = str(src.repo.workdir) if src.repo.workdir else None
 
-    def close(self, write_next):
+    def close(self, write_next: Callable[[bytes], None]) -> None:
         payload = b"".join(self._chunks)
         if not payload:
             return
         verb = "smudge" if self._mode == pygit2.GIT_FILTER_SMUDGE else "clean"
-        write_next(_run_git_lfs(verb, self._path, payload, self._workdir))
+        write_next(run_git_lfs(verb, self._path, payload, self._workdir))
 
-    def write(self, data, src, write_next):
+    def write(
+        self,
+        data: bytes,
+        src: "pygit2.FilterSource",
+        write_next: Callable[[bytes], None],
+    ) -> None:
         self._chunks.append(bytes(data))
 
 
-def _run_git_lfs(
+def run_git_lfs(
     verb: str, path: Optional[str], payload: bytes, workdir: Optional[str]
 ) -> bytes:
-    """Feed ``payload`` to ``git-lfs <verb>`` and return what it produces.
-
-    Not ``taf.utils.run``: that merges stderr into stdout, and here stdout is
-    the file's content.
-    """
+    """Feed ``payload`` to ``git-lfs <verb>`` and return what it produces."""
     executable = get_git_lfs_executable()
     display_path = path or "file"
     # pygit2 discards exceptions raised inside a filter, so the reason has to be
@@ -101,9 +104,9 @@ def _run_git_lfs(
 
     if result.returncode != 0:
         details = result.stderr.decode(errors="replace").strip()
-        message = f"Git LFS could not process '{display_path}'."
-        taf_logger.error("{} {}", message, details)
-        raise GitLFSError(f"{message} {details}".strip())
+        message = f"Git LFS could not process '{display_path}'. {details}".strip()
+        taf_logger.error(message)
+        raise GitLFSError(message)
 
     return result.stdout
 
@@ -114,4 +117,5 @@ def get_git_lfs_executable() -> Optional[str]:
     return shutil.which("git-lfs")
 
 
-pygit2.filter_register(FILTER_NAME, GitLFSFilter)
+if get_git_lfs_executable() is not None:
+    pygit2.filter_register(FILTER_NAME, GitLFSFilter)

@@ -7,9 +7,12 @@ inherits global and system config but not the source repository's local config,
 so ``lfs_global_config`` makes them visible globally for the duration of a test.
 """
 
+import os
+import subprocess
+import sys
 from functools import partial
 from pathlib import Path
-from typing import List, Optional
+from typing import Callable, List, Optional
 
 import pytest
 from loguru import logger
@@ -27,7 +30,40 @@ LFS_FILE_NAME = "large_file.bin"
 #: An ordinary, non-LFS file, for checking the filter stays out of the way.
 PLAIN_FILE_NAME = "plain_file.txt"
 
-LFS_POINTER_PREFIX = b"version https://git-lfs.github.com/spec/v1"
+#: A checkout in a fresh interpreter, importing only ``taf.git`` - so the result
+#: reflects what a real caller gets, rather than what this test module's own
+#: imports set up.
+CHECKOUT_SCRIPT = """
+import os
+import sys
+from taf.git import GitRepository
+
+client_path, branch, file_name = sys.argv[1:4]
+client = GitRepository(path=client_path)
+try:
+    client.checkout_branch(branch)
+    print("RAISED:none")
+except Exception as exc:
+    print("RAISED:" + type(exc).__name__)
+with open(os.path.join(client_path, file_name), "rb") as handle:
+    print("BYTES:" + repr(handle.read()))
+"""
+
+
+def assert_committed_as_lfs_pointer(repo: GitRepository, file_name: str) -> None:
+    """Assert ``file_name`` is stored in ``repo``'s HEAD commit as an LFS pointer.
+
+    Without this a misconfigured ``.gitattributes`` would commit the payload as
+    an ordinary blob, and tests would pass while exercising no LFS at all.
+    """
+    head_commit = repo.head_commit()
+    assert head_commit is not None, f"{repo.name} has no commits"
+    blob = repo.get_file(head_commit, file_name)
+    assert isinstance(blob, str), f"{file_name} could not be read from HEAD"
+    assert is_lfs_pointer(blob.encode()), (
+        f"{repo.name}: {file_name} was committed as a normal blob, so this test "
+        "is not exercising Git LFS"
+    )
 
 
 def assert_lfs_content_materialized(repo_path: Path, revision: str) -> None:
@@ -56,37 +92,52 @@ def assert_lfs_content_materialized(repo_path: Path, revision: str) -> None:
 
 
 def build_lfs_origin(path: Path, other_branch: str = "other") -> GitRepository:
-    """Create a standalone LFS origin with two revisions on separate branches.
+    """A standalone origin whose tracked file is stored in Git LFS."""
+    repo = build_origin(path, write_lfs_file, other_branch)
+    assert_committed_as_lfs_pointer(repo, LFS_FILE_NAME)
+    return repo
+
+
+def build_origin(
+    path: Path,
+    write_file: Callable[[GitRepository, str], None],
+    other_branch: str = "other",
+) -> GitRepository:
+    """Create a standalone origin with two revisions on separate branches.
 
     The default branch ends at the ``v2`` payload and ``other_branch`` pins
     ``v1``, so a checkout between them has to rewrite the tracked file.
     """
-    repo = _init_repo(path)
-    write_lfs_file(repo, "v1")
-    repo.commit("Add LFS-tracked file (v1)")
+    path.mkdir(parents=True, exist_ok=True)
+    repo = GitRepository(path=path)
+    repo.init_repo()
+    write_file(repo, "v1")
+    repo.commit("Add tracked file (v1)")
     repo.create_branch(other_branch)
-    write_lfs_file(repo, "v2")
-    repo.commit("Update LFS-tracked file (v2)")
+    write_file(repo, "v2")
+    repo.commit("Update tracked file (v2)")
     return repo
 
 
 def build_plain_origin(path: Path, other_branch: str = "other") -> GitRepository:
-    """Like ``build_lfs_origin``, with no LFS involved."""
-    repo = _init_repo(path)
-    (path / PLAIN_FILE_NAME).write_text("plain v1")
-    repo.commit("Add plain file (v1)")
-    repo.create_branch(other_branch)
-    (path / PLAIN_FILE_NAME).write_text("plain v2")
-    repo.commit("Update plain file (v2)")
-    return repo
+    """A standalone origin with no LFS involved."""
+    return build_origin(path, write_plain_file, other_branch)
+
+
+def checkout_in_subprocess(
+    client: GitRepository, branch: str, file_name: str, path_env: str
+) -> subprocess.CompletedProcess:
+    """Check ``branch`` out in a fresh interpreter with ``path_env`` as ``PATH``."""
+    return subprocess.run(
+        [sys.executable, "-c", CHECKOUT_SCRIPT, str(client.path), branch, file_name],
+        capture_output=True,
+        text=True,
+        env={**os.environ, "PATH": path_env},
+    )
 
 
 def commit_lfs_content(origin_auth_repo, revision: str, lfs_url: Optional[str] = None):
-    """Commit LFS-tracked content to every target repository and sign.
-
-    Verifies that the committed blob really is a pointer, so a test can never
-    pass against content that silently bypassed LFS.
-    """
+    """Commit LFS-tracked content to every target repository and sign."""
     setup_manager = SetupManager(origin_auth_repo)
     setup_manager.add_task(
         add_valid_target_commits,
@@ -97,13 +148,10 @@ def commit_lfs_content(origin_auth_repo, revision: str, lfs_url: Optional[str] =
     )
     setup_manager.execute_tasks()
 
-    for target_repo in load_target_repositories(origin_auth_repo).values():
-        head_commit = target_repo.head_commit()
-        blob = target_repo.get_file(head_commit, LFS_FILE_NAME)
-        assert LFS_POINTER_PREFIX.decode() in blob, (
-            f"{target_repo.name}: {LFS_FILE_NAME} was committed as a normal blob, "
-            "so this test is not exercising Git LFS"
-        )
+    target_repos = load_target_repositories(origin_auth_repo)
+    assert target_repos, "no target repositories to commit LFS content to"
+    for target_repo in target_repos.values():
+        assert_committed_as_lfs_pointer(target_repo, LFS_FILE_NAME)
 
 
 def enable_lfs(repo: GitRepository, lfs_url: Optional[str] = None) -> None:
@@ -120,7 +168,7 @@ def enable_lfs(repo: GitRepository, lfs_url: Optional[str] = None) -> None:
         (repo.path / ".lfsconfig").write_text(f"[lfs]\n\turl = {lfs_url}\n")
 
 
-def git_lfs_version() -> str:
+def get_git_lfs_version() -> str:
     """The installed ``git lfs`` version, or "" when unavailable.
 
     Checks the subcommand rather than the binary: a ``git-lfs`` on PATH that git
@@ -132,13 +180,17 @@ def git_lfs_version() -> str:
         return ""
     try:
         return run("git", "lfs", "version") or ""
-    except Exception:
+    except subprocess.CalledProcessError:
         return ""
 
 
 def is_lfs_pointer(content: bytes) -> bool:
-    """True if ``content`` is an unsmudged LFS pointer instead of real data."""
-    return content.startswith(LFS_POINTER_PREFIX)
+    """True when git-lfs itself recognizes ``content`` as a pointer file."""
+    try:
+        run("git", "lfs", "pointer", "--check", "--stdin", input=content, raw=True)
+        return True
+    except subprocess.CalledProcessError:
+        return False
 
 
 def lfs_file_content(revision: str) -> bytes:
@@ -203,6 +255,15 @@ def lfs_server(tmp_path):
         yield server
 
 
+def path_without_git_lfs() -> str:
+    """``PATH`` with every directory containing ``git-lfs`` removed."""
+    return os.pathsep.join(
+        entry
+        for entry in os.environ["PATH"].split(os.pathsep)
+        if entry and not (Path(entry) / "git-lfs").exists()
+    )
+
+
 def publish_lfs_objects(origin_auth_repo, lfs_server) -> None:
     """Move every target repository's LFS objects onto the server.
 
@@ -221,9 +282,6 @@ def write_lfs_file(
     (target_repo.path / LFS_FILE_NAME).write_bytes(lfs_file_content(revision))
 
 
-def _init_repo(path: Path) -> GitRepository:
-    # GitRepository.init_repo() only mkdirs when the directory already exists
-    path.mkdir(parents=True, exist_ok=True)
-    repo = GitRepository(path=path)
-    repo.init_repo()
-    return repo
+def write_plain_file(target_repo: GitRepository, revision: str) -> None:
+    """Write an ordinary, non-LFS file for ``revision``."""
+    (target_repo.path / PLAIN_FILE_NAME).write_text(f"plain {revision}")
