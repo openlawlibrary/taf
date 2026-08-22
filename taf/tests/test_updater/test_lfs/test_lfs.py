@@ -29,6 +29,9 @@ import shutil
 import threading
 from concurrent.futures import ThreadPoolExecutor
 
+from pathlib import Path
+
+import pygit2
 import pytest
 
 from taf.exceptions import GitLFSError
@@ -297,7 +300,7 @@ def test_clean_failure_keeps_an_uncommitted_edit(tmp_path):
     store.write_text("not a directory")
 
     client = GitRepository(path=client.path)
-    with pytest.raises(Exception):
+    with pytest.raises(pygit2.GitError, match="conflict prevents checkout"):
         client.checkout_branch(client.default_branch)
 
     assert (
@@ -305,16 +308,84 @@ def test_clean_failure_keeps_an_uncommitted_edit(tmp_path):
     ).read_bytes() == precious, "the uncommitted edit was overwritten by the checkout"
 
 
-def test_is_lfs_configured_tolerates_an_awkward_path(tmp_path):
-    """A path git cannot be asked about must answer False, not raise.
+@needs_git_lfs
+def test_lfs_filter_commands_tolerates_an_awkward_path(tmp_path):
+    """A path containing ``{`` must not raise out of the config lookup.
 
     An exception escaping ``check()`` leaves libgit2's destination file
-    truncated, so the config lookup has to absorb its own failures.
+    truncated, so the lookup must not go through anything that treats a path as
+    a format string.
     """
     awkward = tmp_path / "client{x"
     awkward.mkdir()
 
-    assert isinstance(lfs_module.is_lfs_configured(str(awkward)), bool)
+    smudge, clean = lfs_module.lfs_filter_commands(str(awkward))
+    assert isinstance(smudge, str) and isinstance(clean, str)
+
+
+@needs_git_lfs
+def test_legacy_filter_configuration_is_recognized(
+    tmp_path, monkeypatch, deterministic_git_environment
+):
+    """``filter.lfs.smudge``/``clean`` without ``filter.lfs.process``.
+
+    git honors that older form fully, so a checkout must materialize content
+    rather than leave a pointer.
+    """
+    legacy_config = tmp_path / "legacy_gitconfig"
+    legacy_config.write_text(
+        "\n".join(
+            [
+                "[include]",
+                f"\tpath = {Path(deterministic_git_environment).as_posix()}",
+                '[filter "lfs"]',
+                "\tsmudge = git-lfs smudge -- %f",
+                "\tclean = git-lfs clean -- %f",
+                "\trequired = true",
+            ]
+        )
+        + "\n"
+    )
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(legacy_config))
+
+    origin = build_lfs_origin(tmp_path / "origin")
+    client = GitRepository(path=tmp_path / "client")
+    client.clone_from_disk(origin.path, keep_remote=True)
+    client.checkout_branch("other", create=True)
+
+    smudge, clean = lfs_module.lfs_filter_commands(str(client.path))
+    assert smudge and clean, "the older per-direction config was not recognized"
+
+    client = GitRepository(path=client.path)
+    client.checkout_branch(client.default_branch)
+    assert_lfs_content_materialized(client.path, "v2")
+
+
+@needs_git_lfs
+def test_skip_smudge_is_honored(tmp_path):
+    """``git lfs install --skip-smudge`` asks for pointers; do not override it.
+
+    It disables the smudge direction only, so clean must still run or pygit2
+    writes raw content into the object database where a pointer belongs.
+    """
+    origin = build_lfs_origin(tmp_path / "origin")
+    client = GitRepository(path=tmp_path / "client")
+    client.clone_from_disk(origin.path, keep_remote=True)
+    client.checkout_branch("other", create=True)
+    run("git", "-C", str(client.path), "lfs", "install", "--local", "--skip-smudge")
+
+    smudge, clean = lfs_module.lfs_filter_commands(str(client.path) + "/")
+    assert not smudge, "smudge should be disabled by --skip-smudge"
+    assert clean, "clean must stay enabled, or pointers stop being written"
+
+    client = GitRepository(path=client.path)
+    client.checkout_branch(client.default_branch)
+
+    content = (client.path / LFS_FILE_NAME).read_bytes()
+    assert is_lfs_pointer(content), (
+        "the user asked for pointers, but the checkout fetched content: "
+        f"{len(content)} bytes"
+    )
 
 
 @needs_git_lfs

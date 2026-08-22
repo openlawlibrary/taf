@@ -16,8 +16,10 @@ refuses to check out with "1 conflict prevents checkout".
 
 Two conditions keep the filter out of the way: it runs only for paths
 ``.gitattributes`` routes to LFS (``attributes = "filter=lfs"``), and only in
-repositories where git itself runs the LFS filters, so pygit2 and git agree on
-what the working tree should contain.
+the direction git itself filters in that repository, so pygit2 and git agree on
+what the working tree and the object database should contain. ``git lfs install
+--skip-smudge`` disables one direction and not the other, and a repository may
+define ``filter.lfs.smudge``/``clean`` without ``filter.lfs.process``.
 
 When git-lfs cannot do its job the blob is written through unchanged. An
 exception raised from a filter leaves libgit2's destination file truncated and
@@ -31,7 +33,7 @@ import os
 import shutil
 import subprocess
 from functools import lru_cache
-from typing import Callable, List, Optional
+from typing import Callable, List, Optional, Tuple
 
 import pygit2
 
@@ -42,6 +44,9 @@ FILTER_NAME = "taf-git-lfs"
 
 #: Seconds a single git-lfs invocation may take before it is abandoned.
 GIT_LFS_TIMEOUT = 300
+
+#: Seconds a `git config` read may take. Short: it is local and runs per stream.
+GIT_CONFIG_TIMEOUT = 30
 
 
 class GitLFSFilter(pygit2.Filter):
@@ -58,7 +63,11 @@ class GitLFSFilter(pygit2.Filter):
 
     def check(self, src: "pygit2.FilterSource", attr_values: List[str]) -> None:
         workdir = str(src.repo.workdir) if src.repo.workdir else ""
-        if not is_lfs_configured(workdir):
+        smudge_command, clean_command = lfs_filter_commands(workdir)
+        wanted = (
+            smudge_command if src.mode == pygit2.GIT_FILTER_SMUDGE else clean_command
+        )
+        if not wanted:
             raise pygit2.Passthrough
         self._chunks = []
         self._path = src.path
@@ -66,16 +75,13 @@ class GitLFSFilter(pygit2.Filter):
         self._workdir = workdir
 
     def close(self, write_next: Callable[[bytes], None]) -> None:
-        payload = b""
+        payload = b"".join(self._chunks)
+        if not payload:
+            return
         try:
-            payload = b"".join(self._chunks)
-            if not payload:
-                return
             verb = "smudge" if self._mode == pygit2.GIT_FILTER_SMUDGE else "clean"
             content = run_git_lfs(verb, self._path, payload, self._workdir)
         except Exception as error:
-            if not payload:
-                raise
             taf_logger.debug(
                 "Git LFS filter passing '{}' through unfiltered: {}",
                 self._path,
@@ -100,29 +106,44 @@ def get_git_lfs_executable() -> Optional[str]:
 
 
 def is_lfs_configured(workdir: str) -> bool:
-    """True when git itself runs the LFS filters in ``workdir``.
+    """True when git runs a Git LFS filter in ``workdir``, in either direction."""
+    return any(lfs_filter_commands(workdir))
 
-    Read from ``filter.lfs.process`` on every call: a repository can route paths
-    to a filter git has no definition for, and filtering where git does not
-    leaves a working tree git reports as modified. The answer changes whenever
-    the repository's config does, so it is not cached.
 
-    ``git lfs install --skip-smudge`` leaves the filter configured but appends
-    ``--skip``, asking for pointers rather than content.
+def lfs_filter_commands(workdir: str) -> Tuple[str, str]:
+    """The smudge and clean commands git runs in ``workdir``, "" where it runs none.
+
+    Read on every call: a repository can route paths to a filter git has no
+    definition for, and filtering where git does not leaves a working tree git
+    reports as modified, or writes raw content where a pointer belongs.
+
+    ``filter.lfs.process`` drives both directions; ``filter.lfs.smudge`` and
+    ``filter.lfs.clean`` are the older per-direction form. A ``--skip`` in the
+    smudge command is ``git lfs install --skip-smudge`` asking for pointers.
     """
     git = shutil.which("git")
     if not workdir or git is None or get_git_lfs_executable() is None:
-        return False
-    try:
-        result = subprocess.run(
-            [git, "-C", workdir, "config", "--get", "filter.lfs.process"],
-            capture_output=True,
-            text=True,
-            timeout=GIT_LFS_TIMEOUT,
-        )
-    except (OSError, subprocess.SubprocessError):
-        return False
-    return result.returncode == 0 and "--skip" not in result.stdout
+        return "", ""
+
+    def configured(key: str) -> str:
+        try:
+            result = subprocess.run(
+                [git, "-C", workdir, "config", "--get", key],
+                capture_output=True,
+                text=True,
+                timeout=GIT_CONFIG_TIMEOUT,
+            )
+        except (OSError, subprocess.SubprocessError) as error:
+            taf_logger.debug("Could not read {} in {}: {}", key, workdir, error)
+            return ""
+        return result.stdout.strip() if result.returncode == 0 else ""
+
+    process = configured("filter.lfs.process")
+    smudge = process or configured("filter.lfs.smudge")
+    clean = process or configured("filter.lfs.clean")
+    if "--skip" in smudge:
+        smudge = ""
+    return smudge, clean
 
 
 def run_git_lfs(verb: str, path: str, payload: bytes, workdir: str) -> bytes:
@@ -160,7 +181,11 @@ def run_git_lfs(verb: str, path: str, payload: bytes, workdir: str) -> bytes:
                 f"and holds this object, then run 'git lfs pull'."
             )
         else:
-            message = f"Git LFS could not store the content of '{path}'."
+            message = (
+                f"Git LFS could not store the content of '{path}'; the file is "
+                f"left as it is and the operation is refused. Check that "
+                f"'.git/lfs' is writable."
+            )
         taf_logger.error(message)
         taf_logger.debug(
             "git-lfs {} exited {}: {}",
