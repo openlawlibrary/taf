@@ -32,7 +32,7 @@ import shutil
 import subprocess
 from functools import lru_cache
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Callable, List, Optional, Set, Tuple
 
 import pygit2
 
@@ -47,8 +47,9 @@ GIT_LFS_TIMEOUT = 300
 #: Seconds a `git config` read may take. Short: it is local and runs per stream.
 GIT_CONFIG_TIMEOUT = 30
 
-#: workdir -> (config_stamp, (smudge, clean)), invalidated when the config changes.
-_filter_command_cache: Dict[str, Tuple[Tuple, Tuple[str, str]]] = {}
+#: Repositories already reported as needing git-lfs, so the warning is not
+#: repeated for every file.
+_reported_missing_binary: Set[str] = set()
 
 
 class GitLFSFilter(pygit2.Filter):
@@ -65,19 +66,12 @@ class GitLFSFilter(pygit2.Filter):
 
     def check(self, src: "pygit2.FilterSource", attr_values: List[str]) -> None:
         workdir = str(src.repo.workdir) if src.repo.workdir else ""
-        if workdir and get_git_lfs_executable() is None:
-            taf_logger.warning(
-                "'{}' is stored in Git LFS, but Git LFS is not installed, so it "
-                "will be checked out as a pointer file. Install it from "
-                "https://git-lfs.com and run 'git lfs pull'.",
-                src.path,
-            )
-            raise pygit2.Passthrough
         smudge_command, clean_command = get_lfs_filter_commands(workdir)
         wanted = (
             smudge_command if src.mode == pygit2.GIT_FILTER_SMUDGE else clean_command
         )
         if not wanted:
+            warn_once_if_git_lfs_is_missing(workdir)
             raise pygit2.Passthrough
         self._chunks = []
         self._path = src.path
@@ -129,9 +123,11 @@ def _git_lfs_only(command: str) -> str:
     resolved = shutil.which(argv[0])
     if resolved and os.path.realpath(resolved) == os.path.realpath(executable):
         return command
-    # the `git lfs <verb>` spelling reaches the same binary through git
-    if len(argv) > 1 and argv[1] == "lfs" and shutil.which(argv[0]):
-        return command
+    # the `git lfs <verb>` spelling reaches the same binary through git itself
+    if len(argv) > 1 and argv[1] == "lfs":
+        git = shutil.which(argv[0])
+        if git and Path(git).stem == "git":
+            return command
     return ""
 
 
@@ -139,30 +135,6 @@ def _git_lfs_only(command: str) -> str:
 def get_git_lfs_executable() -> Optional[str]:
     """Path to the ``git-lfs`` binary, or None when it is not installed."""
     return shutil.which("git-lfs")
-
-
-def config_stamp(workdir: str) -> Tuple:
-    """Identity of every config file that could define the filter for ``workdir``.
-
-    Changes whenever one of them is written, so a cached answer can be reused
-    for the many files of one operation without surviving a config change or a
-    path reused by a different repository.
-    """
-    candidates = [Path(workdir) / ".git" / "config"]
-    global_config = os.environ.get("GIT_CONFIG_GLOBAL")
-    candidates.append(
-        Path(global_config) if global_config else Path.home() / ".gitconfig"
-    )
-    if not os.environ.get("GIT_CONFIG_NOSYSTEM"):
-        candidates.append(Path("/etc/gitconfig"))
-    stamp: List[Tuple[str, Optional[int], Optional[int]]] = []
-    for path in candidates:
-        try:
-            info = path.stat()
-            stamp.append((str(path), info.st_mtime_ns, info.st_size))
-        except OSError:
-            stamp.append((str(path), None, None))
-    return tuple(stamp)
 
 
 def get_lfs_filter_commands(workdir: str) -> Tuple[str, str]:
@@ -177,13 +149,6 @@ def get_lfs_filter_commands(workdir: str) -> Tuple[str, str]:
     if not workdir or git is None or get_git_lfs_executable() is None:
         return "", ""
 
-    # one `git config` spawn per file is minutes of wall time on a repository
-    # with a hundred thousand of them
-    stamp = config_stamp(workdir)
-    cached = _filter_command_cache.get(workdir)
-    if cached is not None and cached[0] == stamp:
-        return cached[1]
-
     process = read_git_config(git, workdir, "filter.lfs.process")
     smudge = _git_lfs_only(
         process or read_git_config(git, workdir, "filter.lfs.smudge")
@@ -191,7 +156,6 @@ def get_lfs_filter_commands(workdir: str) -> Tuple[str, str]:
     clean = _git_lfs_only(process or read_git_config(git, workdir, "filter.lfs.clean"))
     if "--skip" in smudge:
         smudge = ""
-    _filter_command_cache[workdir] = (stamp, (smudge, clean))
     return smudge, clean
 
 
@@ -264,6 +228,31 @@ def run_git_lfs(verb: str, path: str, payload: bytes, workdir: str) -> bytes:
         raise GitLFSError(message)
 
     return result.stdout
+
+
+def warn_once_if_git_lfs_is_missing(workdir: str) -> None:
+    """Say so when a repository wants Git LFS and the binary is not installed.
+
+    Once per repository: the alternative is a line per file, and an archive can
+    hold a hundred thousand of them.
+    """
+    git = shutil.which("git")
+    if not workdir or git is None or get_git_lfs_executable() is not None:
+        return
+    if workdir in _reported_missing_binary:
+        return
+    configured = read_git_config(git, workdir, "filter.lfs.process") or read_git_config(
+        git, workdir, "filter.lfs.smudge"
+    )
+    if not configured:
+        return
+    _reported_missing_binary.add(workdir)
+    taf_logger.warning(
+        "{} stores files in Git LFS, but Git LFS is not installed, so they will "
+        "be checked out as pointer files. Install it from https://git-lfs.com "
+        "and run 'git lfs pull'.",
+        workdir,
+    )
 
 
 pygit2.filter_register(FILTER_NAME, GitLFSFilter)

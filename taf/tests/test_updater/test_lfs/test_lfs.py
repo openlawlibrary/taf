@@ -393,12 +393,12 @@ def test_filter_stands_aside_for_a_non_lfs_filter_command(
 
 
 @needs_git_lfs
-def test_filter_commands_are_reread_when_the_config_changes(tmp_path):
-    """The per-repository answer is cached, but not past a config change.
+def test_config_changes_take_effect_immediately(tmp_path):
+    """The answer follows the repository's config, with nothing cached.
 
-    One ``git config`` spawn per file is minutes of wall time on a repository
-    with a hundred thousand of them; a stale answer makes pygit2 and git
-    disagree about the working tree.
+    git resolves its config from a set of files this code cannot enumerate -
+    ``include.path``, linked worktrees, `GIT_CONFIG_SYSTEM`, XDG paths - so a
+    cached answer can outlive the configuration that produced it.
     """
     origin = build_lfs_origin(tmp_path / "origin")
     client = GitRepository(path=tmp_path / "client")
@@ -407,30 +407,47 @@ def test_filter_commands_are_reread_when_the_config_changes(tmp_path):
 
     assert all(lfs_module.get_lfs_filter_commands(workdir)), "LFS should be on"
 
-    run("git", "-C", workdir, "config", "--local", "filter.lfs.process", "")
-    run(
-        "git",
-        "-C",
-        workdir,
-        "config",
-        "--local",
-        "filter.lfs.smudge",
-        "some-other-program",
-    )
-    run(
-        "git",
-        "-C",
-        workdir,
-        "config",
-        "--local",
-        "filter.lfs.clean",
-        "some-other-program",
-    )
+    for key in ("filter.lfs.process", "filter.lfs.smudge", "filter.lfs.clean"):
+        run("git", "-C", workdir, "config", "--local", key, "some-other-program")
 
     assert lfs_module.get_lfs_filter_commands(workdir) == (
         "",
         "",
-    ), "a cached answer survived a change to the repository's config"
+    ), "a change to the repository's config was not picked up"
+
+
+def test_missing_git_lfs_is_reported_once_per_repository(
+    tmp_path, monkeypatch, lfs_log
+):
+    """One line per repository, not one per file.
+
+    An archive can hold a hundred thousand LFS files, and git itself says
+    nothing at all in this situation.
+    """
+    workdir = tmp_path / "repo"
+    workdir.mkdir()
+    run("git", "-C", str(workdir), "init", "-q", ".")
+    run(
+        "git",
+        "-C",
+        str(workdir),
+        "config",
+        "--local",
+        "filter.lfs.process",
+        "git-lfs filter-process",
+    )
+    monkeypatch.setenv("PATH", path_without_git_lfs())
+    lfs_module.get_git_lfs_executable.cache_clear()
+    lfs_module._reported_missing_binary.discard(str(workdir))
+    try:
+        for _ in range(5):
+            lfs_module.warn_once_if_git_lfs_is_missing(str(workdir))
+    finally:
+        lfs_module.get_git_lfs_executable.cache_clear()
+        lfs_module._reported_missing_binary.discard(str(workdir))
+
+    assert len(lfs_log) == 1, f"expected one warning, got {len(lfs_log)}: {lfs_log}"
+    assert "Git LFS is not installed" in lfs_log[0]
 
 
 @needs_git_lfs
