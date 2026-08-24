@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- `securesystemslib` is capped below 1.5, which requires `cryptography>=48` while `pyOpenSSL==24.2.*` requires `cryptography<44`. The requirement sits on an extra TAF does not install, so pip accepted the combination and it failed at runtime instead: every key read raised `UnsupportedLibraryError`, and the resulting password prompt turned into 244 test errors ([766])
 - Single `pygit2==1.14.*` requirement for all supported Python versions, replacing the `< 3.11` / `>= 3.11` split ([766])
 - `python_requires` is now `>=3.10`, matching the tested versions; pip will no longer install TAF on 3.8 or 3.9 ([766])
 - Target repositories that store content in Git LFS need a reachable LFS server. TAF stages each target repository through a bare intermediate clone, which carries no LFS objects, so cloning one with no `lfs.url` configured fails ([766])
