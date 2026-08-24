@@ -26,82 +26,6 @@ from typing import Dict, List, Optional
 LFS_CONTENT_TYPE = "application/vnd.git-lfs+json"
 
 
-class _LFSRequestHandler(BaseHTTPRequestHandler):
-    """Handles the two endpoints the ``basic`` transfer adapter needs."""
-
-    lfs_server: "LFSServer"
-
-    protocol_version = "HTTP/1.1"
-
-    def do_GET(self) -> None:
-        oid = self._oid_from_storage_path()
-        if oid is None:
-            self.send_error(404)
-            return
-        server = self.lfs_server
-        if not server.has_object(oid):
-            self.send_error(404)
-            return
-
-        data = server.read_object(oid)
-        server.record_download(oid)
-        self.send_response(200)
-        self.send_header("Content-Type", "application/octet-stream")
-        self.send_header("Content-Length", str(len(data)))
-        self.end_headers()
-        self.wfile.write(data)
-
-    def do_POST(self) -> None:
-        if not self.path.rstrip("/").endswith("/objects/batch"):
-            self.send_error(404)
-            return
-
-        request = json.loads(self._read_body() or b"{}")
-        server = self.lfs_server
-        objects: List[Dict] = []
-
-        for requested in request.get("objects", []):
-            oid = requested.get("oid", "")
-            server.record_request(oid)
-            size = requested.get("size", 0)
-            entry: Dict = {"oid": oid, "size": size, "authenticated": True}
-            href = f"{server.url}/storage/{oid}"
-
-            if server.has_object(oid):
-                entry["actions"] = {"download": {"href": href}}
-            else:
-                # the protocol's way of saying "this object is not here"
-                entry["error"] = {"code": 404, "message": f"object {oid} not found"}
-            objects.append(entry)
-
-        self._send_json(200, {"transfer": "basic", "objects": objects})
-
-    def log_message(self, format, *args):
-        """Silence the default stderr access log; tests capture what they need."""
-
-    def _oid_from_storage_path(self) -> Optional[str]:
-        prefix = "/storage/"
-        if prefix not in self.path:
-            return None
-        oid = self.path.rsplit(prefix, 1)[1].strip("/")
-        # oids are hex sha256; refuse anything else so a path can never escape
-        if len(oid) != 64 or not all(c in "0123456789abcdef" for c in oid):
-            return None
-        return oid
-
-    def _read_body(self) -> bytes:
-        length = int(self.headers.get("Content-Length") or 0)
-        return self.rfile.read(length) if length else b""
-
-    def _send_json(self, status: int, payload: dict) -> None:
-        body = json.dumps(payload).encode()
-        self.send_response(status)
-        self.send_header("Content-Type", LFS_CONTENT_TYPE)
-        self.send_header("Content-Length", str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
-
-
 class LFSServer:
     """A Git LFS endpoint on 127.0.0.1, backed by a directory of objects."""
 
@@ -185,3 +109,79 @@ class LFSServer:
 
     def _path_for(self, oid: str) -> Path:
         return self.storage / oid
+
+
+class _LFSRequestHandler(BaseHTTPRequestHandler):
+    """Handles the two endpoints the ``basic`` transfer adapter needs."""
+
+    lfs_server: "LFSServer"
+
+    protocol_version = "HTTP/1.1"
+
+    def do_GET(self) -> None:
+        oid = self._oid_from_storage_path()
+        if oid is None:
+            self.send_error(404)
+            return
+        server = self.lfs_server
+        if not server.has_object(oid):
+            self.send_error(404)
+            return
+
+        data = server.read_object(oid)
+        server.record_download(oid)
+        self.send_response(200)
+        self.send_header("Content-Type", "application/octet-stream")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def do_POST(self) -> None:
+        if not self.path.rstrip("/").endswith("/objects/batch"):
+            self.send_error(404)
+            return
+
+        request = json.loads(self._read_body() or b"{}")
+        server = self.lfs_server
+        objects: List[Dict] = []
+
+        for requested in request.get("objects", []):
+            oid = requested.get("oid", "")
+            server.record_request(oid)
+            size = requested.get("size", 0)
+            entry: Dict = {"oid": oid, "size": size, "authenticated": True}
+            href = f"{server.url}/storage/{oid}"
+
+            if server.has_object(oid):
+                entry["actions"] = {"download": {"href": href}}
+            else:
+                # the protocol's way of saying "this object is not here"
+                entry["error"] = {"code": 404, "message": f"object {oid} not found"}
+            objects.append(entry)
+
+        self._send_json(200, {"transfer": "basic", "objects": objects})
+
+    def log_message(self, format, *args):
+        """Silence the default stderr access log; tests capture what they need."""
+
+    def _oid_from_storage_path(self) -> Optional[str]:
+        prefix = "/storage/"
+        if prefix not in self.path:
+            return None
+        oid = self.path.rsplit(prefix, 1)[1].strip("/")
+        # oids are hex sha256; refuse anything else so a path can never escape
+        if len(oid) != 64 or not all(c in "0123456789abcdef" for c in oid):
+            return None
+        return oid
+
+    def _read_body(self) -> bytes:
+        length = int(self.headers.get("Content-Length") or 0)
+        return self.rfile.read(length) if length else b""
+
+    def _send_json(self, status: int, payload: dict) -> None:
+        body = json.dumps(payload).encode()
+        self.send_response(status)
+        self.send_header("Content-Type", LFS_CONTENT_TYPE)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)

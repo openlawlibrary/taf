@@ -249,6 +249,18 @@ def lfs_filtering_is_required(workdir: str) -> bool:
     return get_git_config(git, workdir, "filter.lfs.required").lower() == "true"
 
 
+def record_failure(workdir: str, path: str) -> None:
+    """Note that ``path`` could not be filtered.
+
+    Kept for the length of the session that hit it; outside one there is nobody
+    to tell.
+    """
+    if SESSION.depth == 0:
+        taf_logger.debug("Git LFS could not process {}, outside an operation", path)
+        return
+    SESSION.failures.setdefault(workdir, set()).add(path)
+
+
 def report_failed_paths(workdir: str, paths: Set[str]) -> None:
     """Account for the ``paths`` an operation could not filter.
 
@@ -273,18 +285,6 @@ def report_failed_paths(workdir: str, paths: Set[str]) -> None:
         taf_logger.warning(message)
         return
     raise GitLFSError(message)
-
-
-def record_failure(workdir: str, path: str) -> None:
-    """Note that ``path`` could not be filtered.
-
-    Kept for the length of the session that hit it; outside one there is nobody
-    to tell.
-    """
-    if SESSION.depth == 0:
-        taf_logger.debug("Git LFS could not process {}, outside an operation", path)
-        return
-    SESSION.failures.setdefault(workdir, set()).add(path)
 
 
 def report_failure(workdir: str, message: str) -> None:

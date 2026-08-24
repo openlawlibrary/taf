@@ -24,10 +24,10 @@ These tests need the ``git-lfs`` binary and skip without it, so the suite still
 runs where LFS is not installed; CI installs it (``.github/workflows/ci.yml``).
 """
 
+import io
 import os
 import shutil
 import threading
-import io
 from concurrent.futures import ThreadPoolExecutor
 
 from pathlib import Path
@@ -121,6 +121,35 @@ def test_a_merge_that_cannot_be_filtered_leaves_no_merge_in_progress(tmp_path):
 
     client = GitRepository(path=client.path)
     with pytest.raises(GitLFSError, match="could not process"):
+        client.merge_branch(client.default_branch, allow_new_commit=True)
+
+    assert not (
+        client.path / ".git" / "MERGE_HEAD"
+    ).exists(), "the repository is still merging"
+    assert not run_ignoring_failure(
+        "git", "-C", str(client.path), "status", "--porcelain"
+    ), "the merge left changes staged"
+    run("git", "-C", str(client.path), "commit", "--allow-empty", "-qm", "later")
+    run("git", "-C", str(client.path), "merge", "-q", client.default_branch)
+
+
+@needs_git_lfs
+def test_a_merge_whose_commit_fails_leaves_no_merge_in_progress(tmp_path):
+    """Committing the merge is what ends it, and committing can fail.
+
+    The state has to go either way, or no later merge in this repository can
+    succeed. A hook that refuses the commit is one way to get there.
+    """
+    origin = build_lfs_origin(tmp_path / "origin")
+    client = GitRepository(path=tmp_path / "client")
+    client.clone_from_disk(origin.path, keep_remote=True)
+    client.checkout_branch("other")
+    hook = client.path / ".git" / "hooks" / "pre-commit"
+    hook.write_text("#!/bin/sh\nexit 1\n")
+    hook.chmod(0o755)
+
+    client = GitRepository(path=client.path)
+    with pytest.raises(GitError):
         client.merge_branch(client.default_branch, allow_new_commit=True)
 
     assert not (

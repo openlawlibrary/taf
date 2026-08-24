@@ -1782,12 +1782,13 @@ class GitRepository:
                 message = commit.message
                 break
 
-            # the merge is over once it is committed and cleaned up, so a
-            # filter failure has to be raised after that, not instead of it
             with filtering(str(repo.workdir or "")):
                 repo.merge(oid)
-                self.commit(message)
-                repo.state_cleanup()
+                try:
+                    self.commit(message)
+                finally:
+                    # a merge left in progress fails every later merge here
+                    repo.state_cleanup()
         else:
             self._git("merge {}", branch_name, log_error=True)
 

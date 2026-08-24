@@ -211,6 +211,20 @@ def commit_lfs_content(origin_auth_repo, revision: str, lfs_url: Optional[str] =
         assert_committed_as_lfs_pointer(target_repo, LFS_FILE_NAME)
 
 
+def enable_lfs(repo: GitRepository, lfs_url: Optional[str] = None) -> None:
+    """Install the LFS filters into ``repo`` and track the LFS pattern there.
+
+    When ``lfs_url`` is given, write a ``.lfsconfig`` pinning the LFS endpoint.
+    ``.lfsconfig`` is committed, so it travels with the repository through
+    clones and lets a client resolve objects from the LFS server rather than
+    from whichever git remote it was cloned from.
+    """
+    run("git", "-C", str(repo.path), "lfs", "install", "--local")
+    run("git", "-C", str(repo.path), "lfs", "track", LFS_TRACKED_PATTERN)
+    if lfs_url is not None:
+        (repo.path / ".lfsconfig").write_text(f"[lfs]\n\turl = {lfs_url}\n")
+
+
 def get_counting_git_lfs_env(directory: Path, real_git_lfs: str, log: Path) -> dict:
     """Environment whose ``git-lfs`` records every execution in ``log``."""
     directory.mkdir(parents=True, exist_ok=True)
@@ -226,18 +240,44 @@ def get_counting_git_lfs_env(directory: Path, real_git_lfs: str, log: Path) -> d
     }
 
 
-def enable_lfs(repo: GitRepository, lfs_url: Optional[str] = None) -> None:
-    """Install the LFS filters into ``repo`` and track the LFS pattern there.
+def get_lfs_file_content(revision: str) -> bytes:
+    """Deterministic, recognizable payload for the LFS-tracked file.
 
-    When ``lfs_url`` is given, write a ``.lfsconfig`` pinning the LFS endpoint.
-    ``.lfsconfig`` is committed, so it travels with the repository through
-    clones and lets a client resolve objects from the LFS server rather than
-    from whichever git remote it was cloned from.
+    Padded well past a pointer file's length, and distinct per revision so a
+    stale checkout is distinguishable from a missing smudge.
     """
-    run("git", "-C", str(repo.path), "lfs", "install", "--local")
-    run("git", "-C", str(repo.path), "lfs", "track", LFS_TRACKED_PATTERN)
-    if lfs_url is not None:
-        (repo.path / ".lfsconfig").write_text(f"[lfs]\n\turl = {lfs_url}\n")
+    return f"LFS-CONTENT-{revision}-".encode() + revision.encode() * 512
+
+
+def get_path_without_git_lfs(shim_dir: Path) -> str:
+    """``PATH`` with ``git-lfs`` unreachable and ``git`` still installed.
+
+    A package manager puts the two in one directory, so ``git`` is linked into
+    ``shim_dir`` to survive its removal: an uninstalled Git LFS leaves git in
+    place, and reading the repository config needs it.
+    """
+    git = shutil.which("git")
+    shim_dir.mkdir(parents=True, exist_ok=True)
+    if git is not None:
+        link = shim_dir / Path(git).name
+        if not link.exists():
+            try:
+                link.symlink_to(git)
+            except OSError:
+                shutil.copy2(git, link)
+    entries = [str(shim_dir)] + [
+        entry
+        for entry in os.environ["PATH"].split(os.pathsep)
+        if entry and shutil.which("git-lfs", path=entry) is None
+    ]
+    candidate = os.pathsep.join(entries)
+    assert (
+        shutil.which("git-lfs", path=candidate) is None
+    ), "git-lfs is still reachable, so this PATH does not simulate its absence"
+    assert (
+        shutil.which("git", path=candidate) is not None
+    ), "git went missing along with git-lfs, so this PATH describes no real machine"
+    return candidate
 
 
 def get_peak_rss_of_checkout(result: subprocess.CompletedProcess) -> int:
@@ -261,15 +301,6 @@ def is_lfs_pointer(content: bytes) -> bool:
         return True
     except subprocess.CalledProcessError:
         return False
-
-
-def get_lfs_file_content(revision: str) -> bytes:
-    """Deterministic, recognizable payload for the LFS-tracked file.
-
-    Padded well past a pointer file's length, and distinct per revision so a
-    stale checkout is distinguishable from a missing smudge.
-    """
-    return f"LFS-CONTENT-{revision}-".encode() + revision.encode() * 512
 
 
 @pytest.fixture(autouse=True)
@@ -323,37 +354,6 @@ def lfs_server(tmp_path):
     """A real Git LFS endpoint on 127.0.0.1 for the duration of one test."""
     with LFSServer(tmp_path / "lfs-storage") as server:
         yield server
-
-
-def get_path_without_git_lfs(shim_dir: Path) -> str:
-    """``PATH`` with ``git-lfs`` unreachable and ``git`` still installed.
-
-    A package manager puts the two in one directory, so ``git`` is linked into
-    ``shim_dir`` to survive its removal: an uninstalled Git LFS leaves git in
-    place, and reading the repository config needs it.
-    """
-    git = shutil.which("git")
-    shim_dir.mkdir(parents=True, exist_ok=True)
-    if git is not None:
-        link = shim_dir / Path(git).name
-        if not link.exists():
-            try:
-                link.symlink_to(git)
-            except OSError:
-                shutil.copy2(git, link)
-    entries = [str(shim_dir)] + [
-        entry
-        for entry in os.environ["PATH"].split(os.pathsep)
-        if entry and shutil.which("git-lfs", path=entry) is None
-    ]
-    candidate = os.pathsep.join(entries)
-    assert (
-        shutil.which("git-lfs", path=candidate) is None
-    ), "git-lfs is still reachable, so this PATH does not simulate its absence"
-    assert (
-        shutil.which("git", path=candidate) is not None
-    ), "git went missing along with git-lfs, so this PATH describes no real machine"
-    return candidate
 
 
 def publish_lfs_objects(origin_auth_repo, lfs_server) -> None:
