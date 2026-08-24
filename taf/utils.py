@@ -575,14 +575,20 @@ class TempPartition:
 
     def __init__(self, ref_path):
         self.ref_partition = self.get_partition_root(ref_path)
-        temp_dir_partition = self.get_partition_root(Path(tempfile.gettempdir()))
+        configured_dir = os.environ.get("TAF_TMP")
 
-        if temp_dir_partition == self.ref_partition:
-            self.temp_dir = Path(tempfile.mkdtemp())
+        if configured_dir:
+            taf_dir = Path(configured_dir)
+            taf_dir.mkdir(parents=True, exist_ok=True)
+            self.temp_dir = Path(tempfile.mkdtemp(dir=str(taf_dir)))
         else:
-            taf_dir = self.ref_partition / ".taf"
-            taf_dir.mkdir(exist_ok=True)
-            self.temp_dir = tempfile.mkdtemp(dir=str(taf_dir))
+            temp_dir_partition = self.get_partition_root(Path(tempfile.gettempdir()))
+            if temp_dir_partition == self.ref_partition:
+                self.temp_dir = Path(tempfile.mkdtemp())
+            else:
+                taf_dir = self.ref_partition / ".taf"
+                taf_dir.mkdir(exist_ok=True)
+                self.temp_dir = Path(tempfile.mkdtemp(dir=str(taf_dir)))
         self._sweep_stale_trash()
 
     def _sweep_stale_trash(self):
