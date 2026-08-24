@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Allow overriding the temp directory used when cloning repositories via the `TAF_TMP` environment variable, to avoid permission errors when the default location isn't writable ([771])
+
+[771]: https://github.com/openlawlibrary/taf/pull/771
 
 ## [0.39.1]
 
