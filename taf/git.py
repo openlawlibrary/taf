@@ -30,9 +30,12 @@ from taf.exceptions import (
     UpdateFailedError,
     PygitError,
 )
+
+# importing also registers the Git LFS filter with libgit2
+from taf.lfs import filtering
 from taf.log import NOTICE, taf_logger
 from taf.utils import format_command_args, run
-from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 _PyGitRepositoryClass: Any = None
 
@@ -44,18 +47,6 @@ try:
 except ImportError:
     pygit2 = None
     PYGIT2_AVAILABLE = False
-
-if PYGIT2_AVAILABLE:
-    # importing also registers the Git LFS filter with libgit2
-    from taf.lfs import filtering
-else:
-    from contextlib import contextmanager
-
-    @contextmanager
-    def filtering(workdir: str) -> Iterator[None]:
-        """No filter is registered without pygit2, so nothing can have failed."""
-        yield
-
 
 EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 
@@ -1784,11 +1775,8 @@ class GitRepository:
 
             with filtering(str(repo.workdir or "")):
                 repo.merge(oid)
-                try:
-                    self.commit(message)
-                finally:
-                    # a merge left in progress fails every later merge here
-                    repo.state_cleanup()
+                self.commit(message)
+                repo.state_cleanup()
         else:
             self._git("merge {}", branch_name, log_error=True)
 

@@ -29,18 +29,16 @@ import os
 import shutil
 import threading
 from concurrent.futures import ThreadPoolExecutor
-
 from pathlib import Path
 
 import pygit2
 import pytest
 
-from taf.exceptions import GitError, GitLFSError
-from taf.git import GitRepository
 from taf import lfs as lfs_module
 from taf import lfs_process
+from taf.exceptions import GitError, GitLFSError
+from taf.git import GitRepository
 from taf.lfs import filter_through_git_lfs
-from taf.utils import run
 from taf.tests.conftest import run_ignoring_failure
 from taf.tests.test_updater.test_lfs.conftest import (
     LFS_FILE_NAME,
@@ -64,6 +62,7 @@ from taf.tests.test_updater.update_utils import (
     update_invalid_repos_and_check_if_repos_exist,
 )
 from taf.updater.types.update import OperationType
+from taf.utils import run
 
 TARGETS_WITH_LFS = {
     "targets_config": [{"name": "target1"}, {"name": "target2"}],
@@ -134,11 +133,12 @@ def test_a_merge_that_cannot_be_filtered_leaves_no_merge_in_progress(tmp_path):
 
 
 @needs_git_lfs
-def test_a_merge_whose_commit_fails_leaves_no_merge_in_progress(tmp_path):
-    """Committing the merge is what ends it, and committing can fail.
+def test_a_merge_whose_commit_fails_can_still_be_completed(tmp_path):
+    """A commit that fails leaves the merge in progress, as git does.
 
-    The state has to go either way, or no later merge in this repository can
-    succeed. A hook that refuses the commit is one way to get there.
+    Clearing the merge state instead would let the next commit succeed as an
+    ordinary one, recording no second parent: the branch would look merged while
+    history says it never was. A hook that refuses the commit gets there.
     """
     origin = build_lfs_origin(tmp_path / "origin")
     client = GitRepository(path=tmp_path / "client")
@@ -149,12 +149,20 @@ def test_a_merge_whose_commit_fails_leaves_no_merge_in_progress(tmp_path):
     hook.chmod(0o755)
 
     client = GitRepository(path=client.path)
-    with pytest.raises(GitError):
+    with pytest.raises(GitError, match="could not commit"):
         client.merge_branch(client.default_branch, allow_new_commit=True)
 
-    assert not (
-        client.path / ".git" / "MERGE_HEAD"
-    ).exists(), "the repository is still merging, so no later merge can succeed"
+    hook.unlink()
+    run("git", "-C", str(client.path), "commit", "--quiet", "-m", "retried")
+    parents = run(
+        "git", "-C", str(client.path), "rev-list", "--parents", "-1", "HEAD"
+    ).split()[1:]
+    merged = run("git", "-C", str(client.path), "rev-parse", client.default_branch)
+
+    assert merged in parents, (
+        "the retried commit records no second parent, so the merge was lost "
+        f"while its content stayed: parents {parents}"
+    )
 
 
 @needs_git_lfs

@@ -36,21 +36,20 @@ import os
 import shlex
 import shutil
 import subprocess
+from contextlib import contextmanager
 from functools import lru_cache
 from pathlib import Path
 from tempfile import SpooledTemporaryFile
 from typing import IO, Callable, Iterator, List, Optional, Set, Tuple
-
-from contextlib import contextmanager
 
 import pygit2
 
 from taf.exceptions import GitLFSError
 from taf.lfs_process import (
     CHUNK,
+    GitLFSProcessError,
     SESSION,
     SPOOL_LIMIT,
-    GitLFSProcessError,
     get_process_for,
     session,
 )

@@ -11,6 +11,7 @@ import sys
 
 import pytest
 
+import taf.lfs as lfs_module
 from taf.git import GitRepository
 from taf.tests.test_updater.test_lfs.conftest import (
     LFS_FILE_NAME,
@@ -22,7 +23,6 @@ from taf.tests.test_updater.test_lfs.conftest import (
     get_peak_rss_of_checkout,
     needs_git_lfs,
 )
-import taf.lfs as lfs_module
 
 #: Large enough that holding it in memory is unmistakable in the measurement.
 LARGE_FILE_SIZE = 200 * 1024 * 1024
