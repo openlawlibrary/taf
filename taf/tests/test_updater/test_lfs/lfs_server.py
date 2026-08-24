@@ -33,28 +33,6 @@ class _LFSRequestHandler(BaseHTTPRequestHandler):
 
     protocol_version = "HTTP/1.1"
 
-    def _oid_from_storage_path(self) -> Optional[str]:
-        prefix = "/storage/"
-        if prefix not in self.path:
-            return None
-        oid = self.path.rsplit(prefix, 1)[1].strip("/")
-        # oids are hex sha256; refuse anything else so a path can never escape
-        if len(oid) != 64 or not all(c in "0123456789abcdef" for c in oid):
-            return None
-        return oid
-
-    def _read_body(self) -> bytes:
-        length = int(self.headers.get("Content-Length") or 0)
-        return self.rfile.read(length) if length else b""
-
-    def _send_json(self, status: int, payload: dict) -> None:
-        body = json.dumps(payload).encode()
-        self.send_response(status)
-        self.send_header("Content-Type", LFS_CONTENT_TYPE)
-        self.send_header("Content-Length", str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
-
     def do_GET(self) -> None:
         oid = self._oid_from_storage_path()
         if oid is None:
@@ -84,6 +62,7 @@ class _LFSRequestHandler(BaseHTTPRequestHandler):
 
         for requested in request.get("objects", []):
             oid = requested.get("oid", "")
+            server.record_request(oid)
             size = requested.get("size", 0)
             entry: Dict = {"oid": oid, "size": size, "authenticated": True}
             href = f"{server.url}/storage/{oid}"
@@ -100,6 +79,28 @@ class _LFSRequestHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         """Silence the default stderr access log; tests capture what they need."""
 
+    def _oid_from_storage_path(self) -> Optional[str]:
+        prefix = "/storage/"
+        if prefix not in self.path:
+            return None
+        oid = self.path.rsplit(prefix, 1)[1].strip("/")
+        # oids are hex sha256; refuse anything else so a path can never escape
+        if len(oid) != 64 or not all(c in "0123456789abcdef" for c in oid):
+            return None
+        return oid
+
+    def _read_body(self) -> bytes:
+        length = int(self.headers.get("Content-Length") or 0)
+        return self.rfile.read(length) if length else b""
+
+    def _send_json(self, status: int, payload: dict) -> None:
+        body = json.dumps(payload).encode()
+        self.send_response(status)
+        self.send_header("Content-Type", LFS_CONTENT_TYPE)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
 
 class LFSServer:
     """A Git LFS endpoint on 127.0.0.1, backed by a directory of objects."""
@@ -108,6 +109,7 @@ class LFSServer:
         self.storage = Path(storage)
         self.storage.mkdir(parents=True, exist_ok=True)
         self.downloads: List[str] = []
+        self.requests: List[str] = []
         self._lock = threading.Lock()
         self._httpd: Optional[ThreadingHTTPServer] = None
         self._thread: Optional[threading.Thread] = None
@@ -119,9 +121,6 @@ class LFSServer:
     def __exit__(self, *exc_info) -> None:
         self.stop()
 
-    def _path_for(self, oid: str) -> Path:
-        return self.storage / oid
-
     def has_object(self, oid: str) -> bool:
         return self._path_for(oid).is_file()
 
@@ -132,9 +131,15 @@ class LFSServer:
         with self._lock:
             self.downloads.append(oid)
 
+    def record_request(self, oid: str) -> None:
+        """Note that a client asked the Batch API where ``oid`` can be had."""
+        with self._lock:
+            self.requests.append(oid)
+
     def reset_counters(self) -> None:
         with self._lock:
             self.downloads.clear()
+            self.requests.clear()
 
     def start(self) -> "LFSServer":
         handler = type(
@@ -177,3 +182,6 @@ class LFSServer:
         if self._port is None:
             raise RuntimeError("LFS server is not running")
         return f"http://127.0.0.1:{self._port}"
+
+    def _path_for(self, oid: str) -> Path:
+        return self.storage / oid

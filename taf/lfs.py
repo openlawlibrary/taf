@@ -9,19 +9,21 @@ pointer text unless a filter is registered.
 
 The filter pipes the blob through the ``git-lfs`` binary, which handles pointer
 parsing, the object store, Batch API fetches and credentials. One long-running
-``git-lfs filter-process`` serves a whole repository, as git's own does, and
-content is staged - in memory up to a few megabytes, on disk beyond - so
-neither a hundred thousand small files nor a single large one sizes the process.
+``git-lfs filter-process`` serves every file of one operation, as git's own
+does, and content is staged - in memory up to a few megabytes, on disk beyond -
+so neither a hundred thousand small files nor a single large one sizes the
+process.
 
 Both directions are needed: ``clean`` is what makes libgit2 see an LFS file in
 the working tree as unmodified.
 
 When git-lfs cannot do its job the blob is written through unchanged. An
-exception raised from a filter leaves libgit2's destination file truncated, and
-so does forwarding part of a result before the rest fails, so nothing is
-forwarded until the whole result is in hand. A smudge then keeps a readable
-pointer, and a clean yields bytes that differ from the pointer blob, so libgit2
-refuses the checkout as git does.
+exception raised from a filter reaches libgit2 as ``failed to close filter
+stream``, carrying none of the reason, and whatever was already forwarded stays
+in the destination file - so nothing is forwarded until the whole result is in
+hand, and the reason is reported by the caller that started the operation. A
+smudge then keeps a readable pointer, and a clean yields bytes that differ from
+the pointer blob, so libgit2 refuses the checkout as git does.
 
 Two conditions keep the filter out of the way: it runs only for paths
 ``.gitattributes`` routes to LFS (``attributes = "filter=lfs"``), and only in a
@@ -49,23 +51,19 @@ from taf.lfs_process import (
     SESSION,
     SPOOL_LIMIT,
     GitLFSProcessError,
-    process_for,
+    get_process_for,
     session,
 )
 from taf.log import taf_logger
 
 FILTER_NAME = "taf-git-lfs"
 
-#: Seconds a `git config` read may take. Short: it is local and runs per stream.
+#: Seconds a `git config` read may take. Short: the read is local.
 GIT_CONFIG_TIMEOUT = 30
 
 #: Repositories already reported as needing git-lfs, so the warning is not
 #: repeated for every file.
 _reported_missing_binary: Set[str] = set()
-
-#: libgit2 discards an exception raised inside a filter and a partial write
-#: truncates the destination, so failures are recorded on the session and raised
-#: by the caller that started the operation.
 
 
 class GitLFSFilter(pygit2.Filter):
@@ -131,32 +129,85 @@ class GitLFSFilter(pygit2.Filter):
         self._staged.write(data)
 
 
-def _git_lfs_only(command: str) -> str:
-    """``command`` when it invokes this process's git-lfs, "" otherwise.
-
-    A repository can point ``filter.lfs.*`` at any program, including a wrapper
-    whose name merely contains "git-lfs"; running git-lfs for one of those would
-    put bytes in the working tree that git never wrote, so the program is
-    resolved and compared.
-    """
+def filter_through_git_lfs(
+    verb: str, path: str, source: IO[bytes], workdir: str
+) -> IO[bytes]:
+    """Run ``git-lfs <verb>`` over ``source`` and return a rewound result stream."""
     executable = get_git_lfs_executable()
-    if not command or executable is None:
-        return ""
+    if executable is None:
+        message = (
+            f"'{path}' is stored in Git LFS, but Git LFS is not installed. "
+            f"Install it from https://git-lfs.com and try again."
+        )
+        report_failure(workdir, message)
+        raise GitLFSError(message)
+
+    process = get_process_for(executable, workdir)
     try:
-        argv = shlex.split(command, posix=os.name != "nt")
-    except ValueError:
+        return process.filter(verb, path, source)
+    except GitLFSProcessError as error:
+        if verb == "smudge":
+            message = (
+                f"Could not get the Git LFS content for '{path}'. The file is "
+                f"left as a pointer - check that the Git LFS server is reachable "
+                f"and holds this object, then run 'git lfs pull'."
+            )
+        else:
+            message = (
+                f"Git LFS could not store the content of '{path}'. The file is "
+                f"left as it is - check that '.git/lfs' is writable."
+            )
+        report_failure(workdir, message)
+        taf_logger.debug("git-lfs {} failed: {}", verb, error)
+        raise GitLFSError(message) from error
+    finally:
+        if SESSION.depth == 0:
+            process.close()
+
+
+@contextmanager
+def filtering(workdir: str, raise_on_failure: bool = True) -> Iterator[None]:
+    """Scope one libgit2 operation over ``workdir``.
+
+    Holds a filter process open for the operation's files, then closes it and
+    reports anything that could not be filtered - which a filter cannot do
+    itself, since the error it raises reaches libgit2 as a truncated file.
+
+    A query such as a status check passes ``raise_on_failure=False``: it reads
+    the working tree through the same filters but has no result to withhold, and
+    git reports such a failure without failing either.
+    """
+    outermost = SESSION.depth == 0
+    failed: Set[str] = set()
+    with session():
+        try:
+            yield
+        finally:
+            if outermost:
+                failed = take_failures(workdir)
+    if failed and raise_on_failure:
+        raise_for_failed_paths(workdir, failed)
+
+
+def get_git_config(git: str, workdir: str, key: str) -> str:
+    """Value git resolves for ``key`` in ``workdir``, "" when unset or unreadable.
+
+    Absorbs its own failures: an exception raised while a filter is running
+    reaches libgit2 stripped of its reason. Called directly rather than through
+    ``taf.utils.run``, which needs a timeout - one is essential here, inside a
+    checkout - to mean ``git clone --progress``.
+    """
+    try:
+        result = subprocess.run(
+            [git, "-C", workdir, "config", "--get", key],
+            capture_output=True,
+            text=True,
+            timeout=GIT_CONFIG_TIMEOUT,
+        )
+    except (OSError, subprocess.SubprocessError) as error:
+        taf_logger.debug("Could not read {} in {}: {}", key, workdir, error)
         return ""
-    if not argv:
-        return ""
-    resolved = shutil.which(argv[0])
-    if resolved and os.path.realpath(resolved) == os.path.realpath(executable):
-        return command
-    # the `git lfs <verb>` spelling reaches the same binary through git itself
-    if len(argv) > 1 and argv[1] == "lfs":
-        git = shutil.which(argv[0])
-        if git and Path(git).stem == "git":
-            return command
-    return ""
+    return result.stdout.strip() if result.returncode == 0 else ""
 
 
 @lru_cache(maxsize=1)
@@ -177,94 +228,38 @@ def get_lfs_filter_commands(workdir: str) -> Tuple[str, str]:
     if not workdir or git is None or get_git_lfs_executable() is None:
         return "", ""
 
-    # one `git config` launch per file is the very cost the session exists to
-    # remove, so the answer is reused for the operation and no longer
+    # reused for the length of the session, so a configuration change between
+    # operations is seen
     cached = SESSION.commands.get(workdir)
     if cached is not None:
         return cached  # type: ignore[return-value]
 
-    process = read_git_config(git, workdir, "filter.lfs.process")
-    smudge = _git_lfs_only(
-        process or read_git_config(git, workdir, "filter.lfs.smudge")
-    )
-    clean = _git_lfs_only(process or read_git_config(git, workdir, "filter.lfs.clean"))
-    if "--skip" in shlex.split(smudge or "", posix=os.name != "nt"):
+    process = get_git_config(git, workdir, "filter.lfs.process")
+    smudge = _git_lfs_only(process or get_git_config(git, workdir, "filter.lfs.smudge"))
+    clean = _git_lfs_only(process or get_git_config(git, workdir, "filter.lfs.clean"))
+    if "--skip" in split_command(smudge or ""):
         smudge = ""
     if SESSION.depth:
         SESSION.commands[workdir] = (smudge, clean)
     return smudge, clean
 
 
-def filter_through_git_lfs(
-    verb: str, path: str, source: IO[bytes], workdir: str
-) -> IO[bytes]:
-    """Run ``git-lfs <verb>`` over ``source`` and return a rewound result stream."""
-    executable = get_git_lfs_executable()
-    if executable is None:
-        message = (
-            f"'{path}' is stored in Git LFS, but Git LFS is not installed. "
-            f"Install it from https://git-lfs.com and try again."
-        )
-        taf_logger.error(message)
-        raise GitLFSError(message)
-
-    process = process_for(executable, workdir)
-    try:
-        return process.filter(verb, path, source)
-    except GitLFSProcessError as error:
-        if verb == "smudge":
-            message = (
-                f"Could not get the Git LFS content for '{path}'. The file is "
-                f"left as a pointer - check that the Git LFS server is reachable "
-                f"and holds this object, then run 'git lfs pull'."
-            )
-        else:
-            message = (
-                f"Git LFS could not store the content of '{path}'. The file is "
-                f"left as it is - check that '.git/lfs' is writable."
-            )
-        taf_logger.error(message)
-        taf_logger.debug("git-lfs {} failed: {}", verb, error)
-        raise GitLFSError(message) from error
-    finally:
-        if SESSION.depth == 0:
-            process.close()
-
-
-@contextmanager
-def filtering(workdir: str) -> Iterator[None]:
-    """Scope one libgit2 operation over ``workdir``.
-
-    Holds a filter process open for the operation's files, then closes it and
-    reports anything that could not be filtered - which a filter cannot do
-    itself, since libgit2 discards its exception and a partial write truncates
-    the file.
-
-    Records are dropped either way. A record outliving its operation would be
-    raised by the next one, telling the caller that files it had just
-    materialized correctly had failed.
-    """
-    outermost = SESSION.depth == 0
-    failed: Set[str] = set()
-    with session():
-        try:
-            yield
-        finally:
-            if outermost:
-                failed = take_failures(workdir)
-                SESSION.failures.clear()
-    if failed:
-        raise_for_failed_paths(workdir, failed)
+def lfs_filtering_is_required(workdir: str) -> bool:
+    """Whether git would abort rather than accept a failed filter here."""
+    git = shutil.which("git")
+    if not workdir or git is None:
+        return False
+    return get_git_config(git, workdir, "filter.lfs.required").lower() == "true"
 
 
 def raise_for_failed_paths(workdir: str, paths: Set[str]) -> None:
     """Fail the operation because ``paths`` could not be filtered.
 
     git aborts a checkout when a required filter fails; the filter itself
-    cannot, since libgit2 discards its exception and a partial write truncates
-    the file, so it is reported here by the caller that started the operation.
-    The working tree is left holding readable pointers rather than empty or
-    missing files.
+    cannot, since the exception it raises reaches libgit2 stripped of its reason
+    and leaves the destination truncated, so it is reported here by the caller
+    that started the operation. The working tree is left holding readable
+    pointers rather than empty or missing files.
     """
     if not lfs_filtering_is_required(workdir):
         return
@@ -273,47 +268,51 @@ def raise_for_failed_paths(workdir: str, paths: Set[str]) -> None:
     summary = ", ".join(sorted(paths)[:5]) + (" ..." if len(paths) > 5 else "")
     raise GitLFSError(
         f"Git LFS could not process {len(paths)} file(s) in {workdir}: "
-        f"{summary}. Their content is unchanged on disk. Check that the Git LFS "
-        f"server is reachable and that '.git/lfs' is writable, then run "
-        f"'git lfs pull'."
+        f"{summary}. They hold their Git LFS pointer or the bytes that were "
+        f"already there, so nothing was lost. Check that the Git LFS server is "
+        f"reachable and that '.git/lfs' is writable, then run 'git lfs pull'."
     )
 
 
-def lfs_filtering_is_required(workdir: str) -> bool:
-    """Whether git would abort rather than accept a failed filter here."""
-    git = shutil.which("git")
-    if not workdir or git is None:
-        return False
-    return read_git_config(git, workdir, "filter.lfs.required").lower() == "true"
-
-
 def record_failure(workdir: str, path: str) -> None:
-    """Note that ``path`` could not be filtered."""
+    """Note that ``path`` could not be filtered.
+
+    Kept only for the length of the session that hit it. Outside one there is
+    nobody to tell, and a record left behind would be raised by the next
+    operation, against files that operation had materialized correctly.
+    """
+    if SESSION.depth == 0:
+        taf_logger.debug("Git LFS could not process {}, outside an operation", path)
+        return
     SESSION.failures.setdefault(workdir, set()).add(path)
+
+
+def report_failure(workdir: str, message: str) -> None:
+    """Tell the user the first failure in ``workdir``; log the rest.
+
+    An unreachable server fails every file, and an archive holds a hundred
+    thousand of them. How many is in the error that ends the operation.
+    """
+    if SESSION.failures.get(workdir):
+        taf_logger.debug(message)
+    else:
+        taf_logger.error(message)
+
+
+def split_command(command: str) -> List[str]:
+    """The words of a configured filter command, as git would run them.
+
+    A Windows command line keeps the program's quotes inside the token, and a
+    quoted path is how git config spells one containing a space.
+    """
+    if os.name != "nt":
+        return shlex.split(command)
+    return [word.strip('"') for word in shlex.split(command, posix=False)]
 
 
 def take_failures(workdir: str) -> Set[str]:
     """The paths that failed in ``workdir``, clearing them."""
     return SESSION.failures.pop(workdir, set())
-
-
-def read_git_config(git: str, workdir: str, key: str) -> str:
-    """Value git resolves for ``key`` in ``workdir``, "" when unset or unreadable.
-
-    Absorbs its own failures: an exception here reaches libgit2 as a truncated
-    file.
-    """
-    try:
-        result = subprocess.run(
-            [git, "-C", workdir, "config", "--get", key],
-            capture_output=True,
-            text=True,
-            timeout=GIT_CONFIG_TIMEOUT,
-        )
-    except (OSError, subprocess.SubprocessError) as error:
-        taf_logger.debug("Could not read {} in {}: {}", key, workdir, error)
-        return ""
-    return result.stdout.strip() if result.returncode == 0 else ""
 
 
 def warn_once_if_git_lfs_is_missing(workdir: str) -> None:
@@ -327,7 +326,7 @@ def warn_once_if_git_lfs_is_missing(workdir: str) -> None:
         return
     if workdir in _reported_missing_binary:
         return
-    configured = read_git_config(git, workdir, "filter.lfs.process") or read_git_config(
+    configured = get_git_config(git, workdir, "filter.lfs.process") or get_git_config(
         git, workdir, "filter.lfs.smudge"
     )
     if not configured:
@@ -339,6 +338,34 @@ def warn_once_if_git_lfs_is_missing(workdir: str) -> None:
         "and run 'git lfs pull'.",
         workdir,
     )
+
+
+def _git_lfs_only(command: str) -> str:
+    """``command`` when it invokes this process's git-lfs, "" otherwise.
+
+    A repository can point ``filter.lfs.*`` at any program, including a wrapper
+    whose name merely contains "git-lfs"; running git-lfs for one of those would
+    put bytes in the working tree that git never wrote, so the program is
+    resolved and compared.
+    """
+    executable = get_git_lfs_executable()
+    if not command or executable is None:
+        return ""
+    try:
+        argv = split_command(command)
+    except ValueError:
+        return ""
+    if not argv:
+        return ""
+    resolved = shutil.which(argv[0])
+    if resolved and os.path.realpath(resolved) == os.path.realpath(executable):
+        return command
+    # the `git lfs <verb>` spelling reaches the same binary through git itself
+    if len(argv) > 1 and argv[1] == "lfs":
+        git = shutil.which(argv[0])
+        if git and Path(git).stem == "git":
+            return command
+    return ""
 
 
 pygit2.filter_register(FILTER_NAME, GitLFSFilter)

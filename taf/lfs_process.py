@@ -2,11 +2,10 @@
 
 A process belongs to a *session*: opened by the code that starts a libgit2
 operation, used for every file of it, and closed when it ends - the lifetime
-git itself gives a filter process. A shorter one costs a process launch per
-file, and an archive holds a hundred thousand of them; a longer one holds a
-child open per repository and pins the configuration git-lfs read at startup,
-including the repository's committed ``.lfsconfig``, which moves with a
-checkout.
+git itself gives a filter process, and the lifetime of the configuration git-lfs
+reads at startup, which includes the repository's committed ``.lfsconfig``.
+
+Staging a large object needs its size in temporary space, under ``TMPDIR``.
 
 Sessions are thread-local, because a pkt-line connection carries one exchange at
 a time and the updater materializes repositories concurrently.
@@ -76,24 +75,11 @@ class GitLFSProcess:
     def filter(self, verb: str, path: str, source: IO[bytes]) -> IO[bytes]:
         """Run ``verb`` over ``source``; return a rewound stream of the result.
 
-        A connection that was already open and then broke is retried once on a
-        fresh process: one process serves many files, so a crash would otherwise
-        fail every file after it. A process that breaks on its first exchange is
-        not retried - git-lfs exits rather than reporting a per-file error, so
-        retrying would repeat the work, and the network attempts, for a file it
-        has already refused.
+        A broken exchange is this file's answer, not a connection to retry:
+        git-lfs exits rather than reporting that one file failed, so asking again
+        repeats the work, and the network attempts, for something it has already
+        refused. The next file gets a fresh process.
         """
-        reused = self._process is not None and self._process.poll() is None
-        try:
-            return self._exchange(verb, path, source)
-        except _ConnectionLost as error:
-            self.close()
-            if not reused:
-                raise GitLFSProcessError(
-                    f"git-lfs {verb} of '{path}' failed: {error}"
-                ) from error
-            taf_logger.debug("git-lfs connection lost, retrying once: {}", error)
-        source.seek(0)
         try:
             return self._exchange(verb, path, source)
         except _ConnectionLost as error:
@@ -101,6 +87,28 @@ class GitLFSProcess:
             raise GitLFSProcessError(
                 f"git-lfs {verb} of '{path}' failed: {error}"
             ) from error
+
+    def _ensure_started(self) -> subprocess.Popen:
+        if self._process is not None and self._process.poll() is None:
+            return self._process
+        self._process = None
+        try:
+            process = subprocess.Popen(
+                [self.executable, "filter-process"],
+                cwd=self.workdir,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+            )
+        except OSError as error:
+            raise GitLFSProcessError(f"could not start git-lfs: {error}") from error
+        try:
+            self._handshake(process)
+        except (EOFError, OSError) as error:
+            process.kill()
+            process.wait(timeout=SHUTDOWN_TIMEOUT)
+            raise GitLFSProcessError(f"git-lfs did not start: {error}") from error
+        self._process = process
+        return process
 
     def _exchange(self, verb: str, path: str, source: IO[bytes]) -> IO[bytes]:
         try:
@@ -132,28 +140,6 @@ class GitLFSProcess:
             raise _ConnectionLost(str(error)) from error
         staged.seek(0)
         return staged
-
-    def _ensure_started(self) -> subprocess.Popen:
-        if self._process is not None and self._process.poll() is None:
-            return self._process
-        self._process = None
-        try:
-            process = subprocess.Popen(
-                [self.executable, "filter-process"],
-                cwd=self.workdir,
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-            )
-        except OSError as error:
-            raise GitLFSProcessError(f"could not start git-lfs: {error}") from error
-        try:
-            self._handshake(process)
-        except (EOFError, OSError) as error:
-            process.kill()
-            process.wait(timeout=SHUTDOWN_TIMEOUT)
-            raise GitLFSProcessError(f"git-lfs did not start: {error}") from error
-        self._process = process
-        return process
 
     @staticmethod
     def _expect_success(status: List[str], verb: str, path: str) -> None:
@@ -193,6 +179,33 @@ class _Session(threading.local):
 SESSION = _Session()
 
 
+def close_session() -> None:
+    """Close this thread's filter processes and forget what it recorded."""
+    processes, SESSION.processes = SESSION.processes, {}
+    SESSION.commands = {}
+    SESSION.failures = {}
+    for process in processes.values():
+        try:
+            process.close()
+        except Exception as error:  # noqa: BLE001 - shutdown is best effort
+            taf_logger.debug("Could not close a git-lfs process: {}", error)
+
+
+def get_process_for(executable: str, workdir: str) -> GitLFSProcess:
+    """The filter process serving ``workdir`` in this thread.
+
+    Reused for the length of a session, and created per call outside one, since
+    nothing would otherwise close it.
+    """
+    if SESSION.depth == 0:
+        return GitLFSProcess(executable, workdir)
+    process = SESSION.processes.get(workdir)
+    if process is None:
+        process = GitLFSProcess(executable, workdir)
+        SESSION.processes[workdir] = process
+    return process
+
+
 @contextmanager
 def session() -> Iterator[None]:
     """Scope the filter processes and lookups of one libgit2 operation.
@@ -207,29 +220,3 @@ def session() -> Iterator[None]:
         SESSION.depth -= 1
         if SESSION.depth == 0:
             close_session()
-
-
-def close_session() -> None:
-    """Close this thread's filter processes and forget its cached lookups."""
-    processes, SESSION.processes = SESSION.processes, {}
-    SESSION.commands = {}
-    for process in processes.values():
-        try:
-            process.close()
-        except Exception as error:  # noqa: BLE001 - shutdown is best effort
-            taf_logger.debug("Could not close a git-lfs process: {}", error)
-
-
-def process_for(executable: str, workdir: str) -> GitLFSProcess:
-    """The filter process serving ``workdir`` in this thread.
-
-    Reused for the length of a session, and created per call outside one, since
-    nothing would otherwise close it.
-    """
-    if SESSION.depth == 0:
-        return GitLFSProcess(executable, workdir)
-    process = SESSION.processes.get(workdir)
-    if process is None:
-        process = GitLFSProcess(executable, workdir)
-        SESSION.processes[workdir] = process
-    return process

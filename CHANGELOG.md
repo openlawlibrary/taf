@@ -9,13 +9,14 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
-- Git LFS support: pygit2 checkouts now materialize LFS content instead of leaving pointer files, by delegating to a long-running `git-lfs filter-process`, one per repository, with content streamed rather than held in memory. `git-lfs` stays optional - the filter runs only where git itself is configured to run Git LFS, so repositories that do not use it are unaffected, and a smudge that cannot fetch its object leaves the pointer in place instead of an empty file ([766])
+- Git LFS support: pygit2 checkouts now materialize LFS content instead of leaving pointer files, by delegating to a long-running `git-lfs filter-process`, one per checkout, with content streamed rather than held in memory. `git-lfs` stays optional - the filter runs only where git itself is configured to run Git LFS, so repositories that do not use it are unaffected, and a smudge that cannot fetch its object leaves the pointer in place instead of an empty file ([766])
 - Test coverage for cloning and updating Git LFS target repositories, including an in-process Git LFS server ([766])
 - Support choosing a YubiKey PIV slot when setting up signing keys ([759])
 
 ### Changed
 
-- `securesystemslib` is capped below 1.5, which requires `cryptography>=48` while `pyOpenSSL==24.2.*` requires `cryptography<44`. The requirement sits on an extra TAF does not install, so pip accepted the combination and it failed at runtime instead: every key read raised `UnsupportedLibraryError`, and the resulting password prompt turned into 244 test errors ([766])
+- `securesystemslib` is capped below 1.5, which requires `cryptography>=48` while `pyOpenSSL==24.2.*` requires `cryptography<44`. The requirement sits on an extra TAF does not install, so pip accepted the combination and it failed at runtime instead: every key read raised `UnsupportedLibraryError` and TAF asked for a password it could not use ([766])
+- Checking out Git LFS content stages each object in temporary space up to its full size, so a host whose `TMPDIR` is small needs one large enough for the biggest object being checked out ([766])
 - Single `pygit2==1.14.*` requirement for all supported Python versions, replacing the `< 3.11` / `>= 3.11` split ([766])
 - `python_requires` is now `>=3.10`, matching the tested versions; pip will no longer install TAF on 3.8 or 3.9 ([766])
 - Target repositories that store content in Git LFS need a reachable LFS server. TAF stages each target repository through a bare intermediate clone, which carries no LFS objects, so cloning one with no `lfs.url` configured fails ([766])

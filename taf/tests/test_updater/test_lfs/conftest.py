@@ -11,9 +11,10 @@ import os
 import shutil
 import subprocess
 import sys
+from contextlib import contextmanager
 from functools import partial
 from pathlib import Path
-from typing import Callable, List, Optional
+from typing import Callable, Iterator, List, Optional
 
 import pytest
 from loguru import logger
@@ -74,8 +75,7 @@ exec "$GIT_LFS_REAL" "$@"
 
 #: Skips what needs the binary; used by every module in this package.
 needs_git_lfs = pytest.mark.skipif(
-    not shutil.which("git-lfs"),
-    reason="git-lfs is not installed (needs the `git lfs` subcommand on PATH)",
+    not shutil.which("git-lfs"), reason="git-lfs is not installed"
 )
 
 
@@ -193,29 +193,6 @@ def checkout_in_subprocess(
     )
 
 
-def peak_rss_of_checkout(result: subprocess.CompletedProcess) -> int:
-    """The peak RSS in KB that ``checkout_in_subprocess`` reported."""
-    for line in result.stdout.splitlines():
-        if line.startswith("RSS:"):
-            return int(line.split(":", 1)[1])
-    raise AssertionError(f"no RSS in {result.stdout} {result.stderr[-500:]}")
-
-
-def counting_git_lfs(directory: Path, real_git_lfs: str, log: Path) -> dict:
-    """Environment whose ``git-lfs`` records every execution in ``log``."""
-    directory.mkdir(parents=True, exist_ok=True)
-    shim = directory / "git-lfs"
-    shim.write_text(SPAWN_COUNTER)
-    shim.chmod(0o755)
-    log.write_text("")
-    return {
-        **os.environ,
-        "PATH": f"{directory}{os.pathsep}{os.environ['PATH']}",
-        "GIT_LFS_REAL": real_git_lfs,
-        "GIT_LFS_SPAWN_LOG": str(log),
-    }
-
-
 def commit_lfs_content(origin_auth_repo, revision: str, lfs_url: Optional[str] = None):
     """Commit LFS-tracked content to every target repository and sign."""
     setup_manager = SetupManager(origin_auth_repo)
@@ -234,6 +211,21 @@ def commit_lfs_content(origin_auth_repo, revision: str, lfs_url: Optional[str] =
         assert_committed_as_lfs_pointer(target_repo, LFS_FILE_NAME)
 
 
+def counting_git_lfs(directory: Path, real_git_lfs: str, log: Path) -> dict:
+    """Environment whose ``git-lfs`` records every execution in ``log``."""
+    directory.mkdir(parents=True, exist_ok=True)
+    shim = directory / "git-lfs"
+    shim.write_text(SPAWN_COUNTER)
+    shim.chmod(0o755)
+    log.write_text("")
+    return {
+        **os.environ,
+        "PATH": f"{directory}{os.pathsep}{os.environ['PATH']}",
+        "GIT_LFS_REAL": real_git_lfs,
+        "GIT_LFS_SPAWN_LOG": str(log),
+    }
+
+
 def enable_lfs(repo: GitRepository, lfs_url: Optional[str] = None) -> None:
     """Install the LFS filters into ``repo`` and track the LFS pattern there.
 
@@ -248,24 +240,22 @@ def enable_lfs(repo: GitRepository, lfs_url: Optional[str] = None) -> None:
         (repo.path / ".lfsconfig").write_text(f"[lfs]\n\turl = {lfs_url}\n")
 
 
-def get_git_lfs_version() -> str:
-    """The installed ``git lfs`` version, or "" when unavailable.
-
-    Checks the subcommand rather than the binary: a ``git-lfs`` on PATH that git
-    cannot dispatch to is useless here.
-    """
-    from taf.lfs import get_git_lfs_executable
-
-    if get_git_lfs_executable() is None:
-        return ""
-    try:
-        return run("git", "lfs", "version") or ""
-    except subprocess.CalledProcessError:
-        return ""
+def get_peak_rss_of_checkout(result: subprocess.CompletedProcess) -> int:
+    """The peak RSS in KB that ``checkout_in_subprocess`` reported."""
+    for line in result.stdout.splitlines():
+        if line.startswith("RSS:"):
+            return int(line.split(":", 1)[1])
+    raise AssertionError(f"no RSS in {result.stdout} {result.stderr[-500:]}")
 
 
 def is_lfs_pointer(content: bytes) -> bool:
-    """True when git-lfs itself recognizes ``content`` as a pointer file."""
+    """True when git-lfs itself recognizes ``content`` as a pointer file.
+
+    Empty content is not one, and has to be rejected here: ``git lfs pointer
+    --check`` exits 0 for it.
+    """
+    if not content:
+        return False
     try:
         run("git", "lfs", "pointer", "--check", "--stdin", input=content, raw=True)
         return True
@@ -313,9 +303,9 @@ def lfs_global_config(monkeypatch, tmp_path, deterministic_git_environment):
 def lfs_log():
     """Collect what ``taf.lfs`` logs during a test.
 
-    TAF logs through loguru, so pytest's ``caplog`` sees nothing. pygit2
-    discards the exception raised inside a filter, which makes the log the only
-    place the reason survives.
+    TAF logs through loguru, so pytest's ``caplog`` sees nothing. An exception
+    raised inside a filter reaches libgit2 stripped of its reason, which makes
+    the log the only place that reason survives.
     """
     messages: List[str] = []
     handler_id = logger.add(
@@ -379,12 +369,21 @@ def publish_lfs_objects(origin_auth_repo, lfs_server) -> None:
         lfs_server.take_local_objects(target_repo.path)
 
 
-def run_ignoring_failure(*command: str) -> str:
-    """Output of ``command``, or "" when it exits non-zero."""
+@contextmanager
+def unwritable_lfs_store(repo_path: Path) -> Iterator[None]:
+    """Make git-lfs unable to store objects in ``repo_path``, then restore it.
+
+    A regular file where ``.git/lfs`` belongs is what a full disk or a read-only
+    mount looks like to ``git lfs clean``, which exits 2.
+    """
+    store = repo_path / ".git" / "lfs"
+    shutil.rmtree(store, ignore_errors=True)
+    store.write_text("not a directory")
     try:
-        return run(*command) or ""
-    except subprocess.CalledProcessError:
-        return ""
+        yield
+    finally:
+        store.unlink()
+        store.mkdir()
 
 
 def write_lfs_file(

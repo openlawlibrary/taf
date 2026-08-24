@@ -36,10 +36,10 @@ MIRRORS_JSON_PATH = TEST_INIT_DATA_PATH / "mirrors.json"
 TESTS_DEFAULT_BRANCH = "main"
 
 
-def _get_git_config(key: str) -> str:
-    """Value git resolves for ``key`` right now, or "" when it is unset."""
+def run_ignoring_failure(*command: str) -> str:
+    """Output of ``command``, or "" when it exits non-zero."""
     try:
-        return run("git", "config", "--get", key) or ""
+        return run(*command) or ""
     except subprocess.CalledProcessError:
         return ""
 
@@ -64,7 +64,10 @@ def deterministic_git_environment_context():
     the redirect, so it is what git would have used - because committing needs
     it.
     """
-    identity = {key: _get_git_config(f"user.{key}") for key in ("name", "email")}
+    identity = {
+        key: run_ignoring_failure("git", "config", "--get", f"user.{key}")
+        for key in ("name", "email")
+    }
 
     monkeypatch = pytest.MonkeyPatch()
     config_dir = Path(tempfile.mkdtemp(prefix="taf-tests-gitconfig-"))

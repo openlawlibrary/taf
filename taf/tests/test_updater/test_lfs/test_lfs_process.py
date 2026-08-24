@@ -9,7 +9,7 @@ from taf.lfs_process import (
     SESSION,
     GitLFSProcess,
     GitLFSProcessError,
-    process_for,
+    get_process_for,
     session,
 )
 from taf.tests.test_updater.test_lfs.conftest import (
@@ -88,9 +88,11 @@ def test_a_session_reuses_one_process_and_closes_it(lfs_repository):
     """The process lives for the operation, not for the interpreter."""
     workdir, pointer = lfs_repository
     with session():
-        first = process_for(_git_lfs(), workdir)
+        first = get_process_for(_git_lfs(), workdir)
         first.filter("smudge", LFS_FILE_NAME, io.BytesIO(pointer)).close()
-        assert process_for(_git_lfs(), workdir) is first, "the session did not reuse it"
+        assert (
+            get_process_for(_git_lfs(), workdir) is first
+        ), "the session did not reuse it"
         started = first._process
         assert started is not None and started.poll() is None
 
@@ -123,11 +125,11 @@ def test_a_session_does_not_outlive_a_config_change(lfs_repository):
     """git-lfs reads config at startup, so a process must not span operations."""
     workdir, pointer = lfs_repository
     with session():
-        first = process_for(_git_lfs(), workdir)
+        first = get_process_for(_git_lfs(), workdir)
         first.filter("smudge", LFS_FILE_NAME, io.BytesIO(pointer)).close()
         pid = first._process.pid if first._process else None
     with session():
-        second = process_for(_git_lfs(), workdir)
+        second = get_process_for(_git_lfs(), workdir)
         second.filter("smudge", LFS_FILE_NAME, io.BytesIO(pointer)).close()
         assert second._process is not None and second._process.pid != pid
 
@@ -136,8 +138,8 @@ def test_a_session_does_not_outlive_a_config_change(lfs_repository):
 def test_a_process_outside_a_session_is_not_kept(lfs_repository):
     """Nothing would close it, so it must not be pooled."""
     workdir, _ = lfs_repository
-    first = process_for(_git_lfs(), workdir)
-    second = process_for(_git_lfs(), workdir)
+    first = get_process_for(_git_lfs(), workdir)
+    second = get_process_for(_git_lfs(), workdir)
     assert first is not second
     assert not SESSION.processes
 

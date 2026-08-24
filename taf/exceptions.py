@@ -57,9 +57,7 @@ class GitError(TAFError):
 
 
 class GitLFSError(TAFError):
-    """Raised when a Git LFS object cannot be read from or written to storage."""
-
-    pass
+    """Raised when Git LFS content could not be filtered."""
 
 
 class InvalidBranchError(TAFError):

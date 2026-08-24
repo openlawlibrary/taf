@@ -32,7 +32,7 @@ from taf.exceptions import (
 )
 from taf.log import NOTICE, taf_logger
 from taf.utils import format_command_args, run
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple, Union
 
 _PyGitRepositoryClass: Any = None
 
@@ -49,11 +49,12 @@ if PYGIT2_AVAILABLE:
     # importing also registers the Git LFS filter with libgit2
     from taf.lfs import filtering
 else:
-    from contextlib import nullcontext
+    from contextlib import contextmanager
 
-    def filtering(workdir: str):
+    @contextmanager
+    def filtering(workdir: str, raise_on_failure: bool = True) -> Iterator[None]:
         """No filter is registered without pygit2, so nothing can have failed."""
-        return nullcontext()
+        yield
 
 
 EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
@@ -1781,7 +1782,8 @@ class GitRepository:
                 message = commit.message
                 break
 
-            repo.merge(oid)
+            with filtering(str(repo.workdir or "")):
+                repo.merge(oid)
             self.commit(message)
             repo.state_cleanup()
         else:
@@ -2017,8 +2019,9 @@ class GitRepository:
         # (same set `git status --porcelain` reports), so an empty result means
         # the working tree is clean.
         try:
-            if not self.pygit_repo.status():
-                return False
+            with filtering(str(self.pygit_repo.workdir or ""), raise_on_failure=False):
+                if not self.pygit_repo.status():
+                    return False
         except Exception:
             pass
         return bool(self._git("status --porcelain"))

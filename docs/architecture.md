@@ -170,9 +170,11 @@ per repository for the length of one libgit2 operation, streaming content in
 both directions, and `taf/lfs_protocol.py` implements the pkt-line framing that
 conversation uses.
 
-A filter cannot abort a libgit2 operation - the exception is discarded and a
-partial write truncates the destination - so a file that cannot be filtered is
-left unchanged and reported by the caller that started the operation.
+A filter cannot abort a libgit2 operation: the exception it raises reaches
+libgit2 as `failed to close filter stream`, carrying none of the reason, and
+whatever it had already forwarded stays in the destination file. So a file that
+cannot be filtered is left unchanged and reported by the caller that started the
+operation.
 
 ### `taf/git.py`
 

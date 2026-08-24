@@ -35,12 +35,13 @@ from pathlib import Path
 import pygit2
 import pytest
 
-from taf.exceptions import GitLFSError
+from taf.exceptions import GitError, GitLFSError
 from taf.git import GitRepository
 from taf import lfs as lfs_module
 from taf import lfs_process
 from taf.lfs import filter_through_git_lfs
 from taf.utils import run
+from taf.tests.conftest import run_ignoring_failure
 from taf.tests.test_updater.test_lfs.conftest import (
     LFS_FILE_NAME,
     PLAIN_FILE_NAME,
@@ -53,8 +54,8 @@ from taf.tests.test_updater.test_lfs.conftest import (
     is_lfs_pointer,
     lfs_file_content,
     path_without_git_lfs,
+    unwritable_lfs_store,
     publish_lfs_objects,
-    run_ignoring_failure,
 )
 from taf.tests.test_updater.update_utils import (
     clone_repositories,
@@ -64,8 +65,6 @@ from taf.tests.test_updater.update_utils import (
 )
 from taf.updater.types.update import OperationType
 
-#: Applied per test: everything that drives a real LFS repository needs the
-#: binary, but the message a missing binary produces can be checked anywhere.
 TARGETS_WITH_LFS = {
     "targets_config": [{"name": "target1"}, {"name": "target2"}],
 }
@@ -247,9 +246,10 @@ def test_unfetchable_lfs_object_leaves_the_pointer_not_an_empty_file(tmp_path, l
     """An object git-lfs cannot get fails the checkout, leaving a pointer.
 
     git aborts a checkout when a required filter fails. A filter cannot, since
-    libgit2 discards its exception and a partial write truncates the file, so
-    the failure is raised by the caller once the checkout is over - and the file
-    is left as a readable pointer rather than empty or missing.
+    the exception it raises reaches libgit2 stripped of its reason and leaves the
+    destination truncated, so the failure is raised by the caller once the
+    checkout is over - and the file is left as a readable pointer rather than
+    empty or missing.
     """
     origin = build_lfs_origin(tmp_path / "origin")
     client = GitRepository(path=tmp_path / "client")
@@ -279,12 +279,84 @@ def test_unfetchable_lfs_object_leaves_the_pointer_not_an_empty_file(tmp_path, l
 
 
 @needs_git_lfs
+def test_an_unreachable_server_is_reported_once_per_operation(tmp_path, lfs_log):
+    """One line for the checkout, not one per file.
+
+    Every file fails when the server is unreachable, and an archive holds a
+    hundred thousand of them; the count belongs in the error that ends the
+    operation.
+    """
+    origin = build_lfs_origin(tmp_path / "origin", extra_files=2)
+    client = GitRepository(path=tmp_path / "client")
+    client.clone_from_disk(origin.path, keep_remote=True)
+    client.checkout_branch("other", create=True)
+
+    run("git", "-C", str(client.path), "config", "lfs.url", "http://127.0.0.1:1/lfs")
+    for repo_path in (client.path, origin.path):
+        shutil.rmtree(repo_path / ".git" / "lfs" / "objects", ignore_errors=True)
+
+    client = GitRepository(path=client.path)
+    with pytest.raises(GitLFSError, match="3 file"):
+        client.checkout_branch(client.default_branch)
+
+    assert (
+        len(lfs_log) == 1
+    ), f"expected one report for three failed files, got {len(lfs_log)}: {lfs_log}"
+
+
+@needs_git_lfs
+def test_a_quoted_git_lfs_path_is_recognized(tmp_path, monkeypatch):
+    """Windows config quotes the program when its path contains a space.
+
+    Splitting a Windows command line keeps the quotes inside the token, and a
+    program that cannot be resolved makes the filter stand aside - which would
+    put pointer text in the working tree with nothing said about it.
+    """
+    workdir = tmp_path / "repo"
+    workdir.mkdir()
+    run("git", "-C", str(workdir), "init", "-q", ".")
+    quoted = f'"{shutil.which("git-lfs")}" filter-process'
+    run("git", "-C", str(workdir), "config", "--local", "filter.lfs.process", quoted)
+
+    monkeypatch.setattr("os.name", "nt")
+
+    assert lfs_module.get_lfs_filter_commands(str(workdir)) == (quoted, quoted)
+
+
+@needs_git_lfs
+def test_an_unfetchable_object_costs_one_fetch_attempt(tmp_path, lfs_server):
+    """One attempt per object, not two.
+
+    git-lfs exits rather than answering that one file failed, so a broken
+    exchange is its answer for that file: asking again repeats the network work
+    for something it has already refused.
+    """
+    origin = build_lfs_origin(tmp_path / "origin")
+    client = GitRepository(path=tmp_path / "client")
+    client.clone_from_disk(origin.path, keep_remote=True)
+    client.checkout_branch("other", create=True)
+
+    run("git", "-C", str(client.path), "config", "lfs.url", lfs_server.url)
+    for repo_path in (client.path, origin.path):
+        shutil.rmtree(repo_path / ".git" / "lfs" / "objects", ignore_errors=True)
+    lfs_server.reset_counters()
+
+    client = GitRepository(path=client.path)
+    with pytest.raises(GitLFSError, match="could not process"):
+        client.checkout_branch(client.default_branch)
+
+    assert (
+        len(lfs_server.requests) == 1
+    ), f"the object was asked for {len(lfs_server.requests)} times"
+
+
+@needs_git_lfs
 def test_clean_failure_keeps_an_uncommitted_edit(tmp_path):
     """A failing clean must not cost the user their uncommitted work.
 
-    libgit2 discards an exception raised from a filter and then treats the file
-    as filtered, so a checkout would overwrite it. Passing the raw bytes through
-    leaves them different from the pointer blob, and the checkout is refused.
+    Raising from the filter would leave the file holding whatever had been
+    forwarded, so the raw bytes are passed through instead: they differ from the
+    pointer blob, and the checkout is refused.
     """
     origin = build_lfs_origin(tmp_path / "origin")
     client = GitRepository(path=tmp_path / "client")
@@ -294,19 +366,45 @@ def test_clean_failure_keeps_an_uncommitted_edit(tmp_path):
     precious = b"UNCOMMITTED EDIT " * 200
     (client.path / LFS_FILE_NAME).write_bytes(precious)
 
-    # an object store git-lfs cannot write into, which is what a full disk or a
-    # read-only mount looks like to `git lfs clean`
-    store = client.path / ".git" / "lfs"
-    shutil.rmtree(store, ignore_errors=True)
-    store.write_text("not a directory")
+    with unwritable_lfs_store(client.path):
+        client = GitRepository(path=client.path)
+        with pytest.raises(pygit2.GitError, match="conflict prevents checkout"):
+            client.checkout_branch(client.default_branch)
+
+        assert (
+            client.path / LFS_FILE_NAME
+        ).read_bytes() == precious, (
+            "the uncommitted edit was overwritten by the checkout"
+        )
+
+
+@needs_git_lfs
+def test_a_clean_failure_outside_a_checkout_does_not_fail_the_next_one(tmp_path):
+    """A file that could not be filtered belongs to the operation that hit it.
+
+    libgit2 runs the clean filter to answer ``something_to_commit``, which the
+    updater asks of every target repository before it checks anything out. A
+    failure there must not surface as the next checkout's error, since that
+    checkout may well have materialized every file correctly.
+    """
+    origin = build_lfs_origin(tmp_path / "origin")
+    client = GitRepository(path=tmp_path / "client")
+    client.clone_from_disk(origin.path, keep_remote=True)
+
+    content = lfs_file_content("v2")
+    tracked = client.path / LFS_FILE_NAME
+    # same length, so libgit2 cannot tell it apart by size and has to clean it
+    tracked.write_bytes(content.replace(b"v2", b"V2"))
+    with unwritable_lfs_store(client.path):
+        # git cannot answer either, with a store it cannot write to
+        with pytest.raises(GitError):
+            client.something_to_commit()
+    tracked.write_bytes(content)
 
     client = GitRepository(path=client.path)
-    with pytest.raises(pygit2.GitError, match="conflict prevents checkout"):
-        client.checkout_branch(client.default_branch)
+    client.checkout_branch(client.default_branch)
 
-    assert (
-        client.path / LFS_FILE_NAME
-    ).read_bytes() == precious, "the uncommitted edit was overwritten by the checkout"
+    assert_lfs_content_materialized(client.path, "v2")
 
 
 @needs_git_lfs
