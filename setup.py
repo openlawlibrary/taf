@@ -61,7 +61,7 @@ kwargs = {
         "colorama>=0.3.9",
         "tuf==5.*",
         "cryptography==43.0.*",
-        "securesystemslib==1.*",
+        "securesystemslib==1.4.*",
         "loguru==0.7.*",
         'pygit2==1.9.*; python_version < "3.11"',
         'pygit2==1.14.*; python_version >= "3.11"',
