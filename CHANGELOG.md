@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Allow overriding the temp directory used when cloning repositories via an anv var ([771])
 - Sign and discover keys across all YubiKey PIV slots, not just SIGNATURE ([767])
 - Support choosing a YubiKey PIV slot when setting up signing keys ([759])
 
@@ -26,7 +27,6 @@ and this project adheres to [Semantic Versioning][semver].
 - Clone no longer fails when the repository path contains a space (e.g. a Windows home directory with a space in the user name) ([762])
 - Surface the underlying git error when a clone fails, instead of hiding it behind a generic access message ([762])
 - Correct the clone access error that rendered as "Cannot None ..." and stop misattributing a local failure to an access/authentication problem ([762])
-- Allow overriding the temp directory used when cloning repositories via the `TAF_TMP` environment variable, to avoid permission errors when the default location isn't writable ([771])
 
 
 [771]: https://github.com/openlawlibrary/taf/pull/771
