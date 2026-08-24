@@ -17,10 +17,10 @@ from taf.tests.test_updater.test_lfs.conftest import (
     assert_lfs_content_materialized,
     build_lfs_origin,
     checkout_in_subprocess,
-    counting_git_lfs,
-    lfs_file_content,
-    needs_git_lfs,
+    get_counting_git_lfs_env,
+    get_lfs_file_content,
     get_peak_rss_of_checkout,
+    needs_git_lfs,
 )
 import taf.lfs as lfs_module
 
@@ -79,7 +79,7 @@ def test_a_status_check_shares_one_git_lfs_process(tmp_path, monkeypatch):
         path.write_bytes(path.read_bytes().replace(b"LFS-CONTENT", b"lfs-content"))
 
     log = tmp_path / "spawns"
-    env = counting_git_lfs(tmp_path / "shim", shutil.which("git-lfs"), log)
+    env = get_counting_git_lfs_env(tmp_path / "shim", shutil.which("git-lfs"), log)
     for name in ("PATH", "GIT_LFS_REAL", "GIT_LFS_SPAWN_LOG"):
         monkeypatch.setenv(name, env[name])
     lfs_module.get_git_lfs_executable.cache_clear()
@@ -99,7 +99,7 @@ def test_a_status_check_shares_one_git_lfs_process(tmp_path, monkeypatch):
 
 @needs_git_lfs
 def test_many_files_share_one_git_lfs_process(tmp_path):
-    """One git-lfs per repository, not one per file.
+    """One git-lfs per operation, not one per file.
 
     At a hundred thousand documents the difference is the whole cost of the
     checkout: process startup dominates, and it is paid per file.
@@ -110,7 +110,7 @@ def test_many_files_share_one_git_lfs_process(tmp_path):
     client.checkout_branch("other", create=True)
 
     log = tmp_path / "spawns"
-    env = counting_git_lfs(tmp_path / "shim", shutil.which("git-lfs"), log)
+    env = get_counting_git_lfs_env(tmp_path / "shim", shutil.which("git-lfs"), log)
     result = checkout_in_subprocess(
         GitRepository(path=client.path), client.default_branch, LFS_FILE_NAME, env=env
     )
@@ -119,7 +119,7 @@ def test_many_files_share_one_git_lfs_process(tmp_path):
     assert_lfs_content_materialized(client.path, "v2")
     for index in range(MANY_FILES):
         sibling = client.path / f"extra{index}.bin"
-        assert sibling.read_bytes() == lfs_file_content(f"v2-{index}"), (
+        assert sibling.read_bytes() == get_lfs_file_content(f"v2-{index}"), (
             f"{sibling.name} does not hold its content, so counting spawns says "
             f"nothing about the cost of a checkout"
         )

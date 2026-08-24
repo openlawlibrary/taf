@@ -16,6 +16,12 @@ from taf.lfs_protocol import (
 )
 
 
+def test_a_payload_survives_a_round_trip_through_many_packets():
+    payload = bytes(range(256)) * 700
+    framed = b"".join(encode_stream(payload)) + FLUSH
+    assert b"".join(read_section(io.BytesIO(framed))) == payload
+
+
 def test_encode_prefixes_the_length_including_the_header():
     assert encode(b"hi") == b"0006hi"
 
@@ -25,8 +31,8 @@ def test_encode_rejects_a_payload_that_does_not_fit():
         encode(b"x" * (MAX_PAYLOAD + 1))
 
 
-def test_encode_text_terminates_the_line():
-    assert encode_text("version=2") == b"000eversion=2\n"
+def test_encode_stream_emits_nothing_for_empty_input():
+    assert list(encode_stream(b"")) == []
 
 
 def test_encode_stream_splits_at_the_packet_limit():
@@ -36,8 +42,24 @@ def test_encode_stream_splits_at_the_packet_limit():
     assert packets[1] == encode(b"x" * 10)
 
 
-def test_encode_stream_emits_nothing_for_empty_input():
-    assert list(encode_stream(b"")) == []
+def test_encode_text_terminates_the_line():
+    assert encode_text("version=2") == b"000eversion=2\n"
+
+
+def test_read_packet_rejects_a_length_below_the_header():
+    with pytest.raises(EOFError, match="below the header size"):
+        read_packet(io.BytesIO(b"0002"))
+
+
+def test_read_packet_rejects_a_malformed_header():
+    with pytest.raises(EOFError, match="not a pkt-line header"):
+        read_packet(io.BytesIO(b"zzzzbody"))
+
+
+def test_read_packet_reports_a_stream_that_ends_mid_packet():
+    """A filter process that has died looks exactly like this."""
+    with pytest.raises(EOFError, match="short of"):
+        read_packet(io.BytesIO(b"0010abc"))
 
 
 def test_read_packet_returns_none_at_a_flush():
@@ -53,25 +75,3 @@ def test_read_section_stops_at_the_flush():
 def test_read_text_section_strips_the_line_endings():
     stream = io.BytesIO(encode_text("status=success") + FLUSH)
     assert read_text_section(stream) == ["status=success"]
-
-
-def test_read_packet_reports_a_stream_that_ends_mid_packet():
-    """A filter process that has died looks exactly like this."""
-    with pytest.raises(EOFError, match="short of"):
-        read_packet(io.BytesIO(b"0010abc"))
-
-
-def test_read_packet_rejects_a_malformed_header():
-    with pytest.raises(EOFError, match="not a pkt-line header"):
-        read_packet(io.BytesIO(b"zzzzbody"))
-
-
-def test_read_packet_rejects_a_length_below_the_header():
-    with pytest.raises(EOFError, match="below the header size"):
-        read_packet(io.BytesIO(b"0002"))
-
-
-def test_a_payload_survives_a_round_trip_through_many_packets():
-    payload = bytes(range(256)) * 700
-    framed = b"".join(encode_stream(payload)) + FLUSH
-    assert b"".join(read_section(io.BytesIO(framed))) == payload

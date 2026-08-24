@@ -166,16 +166,13 @@ def filter_through_git_lfs(
 
 
 @contextmanager
-def filtering(workdir: str, raise_on_failure: bool = True) -> Iterator[None]:
+def filtering(workdir: str) -> Iterator[None]:
     """Scope one libgit2 operation over ``workdir``.
 
     Holds a filter process open for the operation's files, then closes it and
     reports anything that could not be filtered - which a filter cannot do
     itself, since the error it raises reaches libgit2 as a truncated file.
 
-    A query such as a status check passes ``raise_on_failure=False``: it reads
-    the working tree through the same filters but has no result to withhold, and
-    git reports such a failure without failing either.
     """
     outermost = SESSION.depth == 0
     failed: Set[str] = set()
@@ -185,8 +182,8 @@ def filtering(workdir: str, raise_on_failure: bool = True) -> Iterator[None]:
         finally:
             if outermost:
                 failed = take_failures(workdir)
-    if failed and raise_on_failure:
-        raise_for_failed_paths(workdir, failed)
+    if failed:
+        report_failed_paths(workdir, failed)
 
 
 def get_git_config(git: str, workdir: str, key: str) -> str:
@@ -252,34 +249,37 @@ def lfs_filtering_is_required(workdir: str) -> bool:
     return get_git_config(git, workdir, "filter.lfs.required").lower() == "true"
 
 
-def raise_for_failed_paths(workdir: str, paths: Set[str]) -> None:
-    """Fail the operation because ``paths`` could not be filtered.
+def report_failed_paths(workdir: str, paths: Set[str]) -> None:
+    """Account for the ``paths`` an operation could not filter.
 
     git aborts a checkout when a required filter fails; the filter itself
     cannot, since the exception it raises reaches libgit2 stripped of its reason
-    and leaves the destination truncated, so it is reported here by the caller
-    that started the operation. The working tree is left holding readable
-    pointers rather than empty or missing files.
+    and leaves the destination truncated, so the operation is failed here by the
+    caller that started it. Where the filter is not required the operation
+    stands and the same summary is a warning - one line however many files, so
+    the count survives even though the individual failures went to the debug
+    log.
     """
-    if not lfs_filtering_is_required(workdir):
-        return
     listed = ", ".join(sorted(paths))
     taf_logger.debug("Git LFS could not process, in {}: {}", workdir, listed)
     summary = ", ".join(sorted(paths)[:5]) + (" ..." if len(paths) > 5 else "")
-    raise GitLFSError(
+    message = (
         f"Git LFS could not process {len(paths)} file(s) in {workdir}: "
         f"{summary}. They hold their Git LFS pointer or the bytes that were "
         f"already there, so nothing was lost. Check that the Git LFS server is "
         f"reachable and that '.git/lfs' is writable, then run 'git lfs pull'."
     )
+    if not lfs_filtering_is_required(workdir):
+        taf_logger.warning(message)
+        return
+    raise GitLFSError(message)
 
 
 def record_failure(workdir: str, path: str) -> None:
     """Note that ``path`` could not be filtered.
 
-    Kept only for the length of the session that hit it. Outside one there is
-    nobody to tell, and a record left behind would be raised by the next
-    operation, against files that operation had materialized correctly.
+    Kept for the length of the session that hit it; outside one there is nobody
+    to tell.
     """
     if SESSION.depth == 0:
         taf_logger.debug("Git LFS could not process {}, outside an operation", path)

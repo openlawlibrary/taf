@@ -106,7 +106,7 @@ def assert_lfs_content_materialized(repo_path: Path, revision: str) -> None:
     assert file_path.is_file(), f"{file_path} was never checked out"
 
     content = file_path.read_bytes()
-    expected = lfs_file_content(revision)
+    expected = get_lfs_file_content(revision)
 
     assert not is_lfs_pointer(content), (
         f"{file_path} contains a Git LFS pointer instead of the file's content, "
@@ -136,7 +136,7 @@ def build_lfs_origin(
         write_lfs_file(repo, revision, payload_size=payload_size)
         for index in range(extra_files):
             (repo.path / f"extra{index}.bin").write_bytes(
-                lfs_file_content(f"{revision}-{index}")
+                get_lfs_file_content(f"{revision}-{index}")
             )
 
     repo = build_origin(path, write, other_branch)
@@ -211,7 +211,7 @@ def commit_lfs_content(origin_auth_repo, revision: str, lfs_url: Optional[str] =
         assert_committed_as_lfs_pointer(target_repo, LFS_FILE_NAME)
 
 
-def counting_git_lfs(directory: Path, real_git_lfs: str, log: Path) -> dict:
+def get_counting_git_lfs_env(directory: Path, real_git_lfs: str, log: Path) -> dict:
     """Environment whose ``git-lfs`` records every execution in ``log``."""
     directory.mkdir(parents=True, exist_ok=True)
     shim = directory / "git-lfs"
@@ -263,7 +263,7 @@ def is_lfs_pointer(content: bytes) -> bool:
         return False
 
 
-def lfs_file_content(revision: str) -> bytes:
+def get_lfs_file_content(revision: str) -> bytes:
     """Deterministic, recognizable payload for the LFS-tracked file.
 
     Padded well past a pointer file's length, and distinct per revision so a
@@ -325,15 +325,12 @@ def lfs_server(tmp_path):
         yield server
 
 
-def path_without_git_lfs(shim_dir: Path) -> str:
+def get_path_without_git_lfs(shim_dir: Path) -> str:
     """``PATH`` with ``git-lfs`` unreachable and ``git`` still installed.
 
-    Dropping every directory that provides ``git-lfs`` is not enough on its own:
-    package managers put ``git`` and ``git-lfs`` in the same one, so on such a
-    machine that also removes git, and code that reads the repository config to
-    learn whether LFS is in use then finds nothing to report. ``git`` is linked
-    into ``shim_dir`` to survive the removal, which is what an uninstalled Git
-    LFS actually looks like.
+    A package manager puts the two in one directory, so ``git`` is linked into
+    ``shim_dir`` to survive its removal: an uninstalled Git LFS leaves git in
+    place, and reading the repository config needs it.
     """
     git = shutil.which("git")
     shim_dir.mkdir(parents=True, exist_ok=True)
@@ -394,7 +391,7 @@ def write_lfs_file(
 ) -> None:
     """Enable LFS in ``target_repo`` and write the tracked file for ``revision``."""
     enable_lfs(target_repo, lfs_url=lfs_url)
-    content = lfs_file_content(revision)
+    content = get_lfs_file_content(revision)
     if payload_size is not None:
         content = (content * (payload_size // len(content) + 1))[:payload_size]
     (target_repo.path / LFS_FILE_NAME).write_bytes(content)

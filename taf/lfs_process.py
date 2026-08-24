@@ -40,14 +40,6 @@ CHUNK = 1024 * 1024
 SHUTDOWN_TIMEOUT = 10
 
 
-class GitLFSProcessError(Exception):
-    """The filter process could not be started, or stopped responding."""
-
-
-class _ConnectionLost(Exception):
-    """The exchange broke, as opposed to git-lfs answering with an error."""
-
-
 class GitLFSProcess:
     """One ``git-lfs filter-process``, driven over pkt-line."""
 
@@ -75,10 +67,8 @@ class GitLFSProcess:
     def filter(self, verb: str, path: str, source: IO[bytes]) -> IO[bytes]:
         """Run ``verb`` over ``source``; return a rewound stream of the result.
 
-        A broken exchange is this file's answer, not a connection to retry:
-        git-lfs exits rather than reporting that one file failed, so asking again
-        repeats the work, and the network attempts, for something it has already
-        refused. The next file gets a fresh process.
+        A broken exchange is this file's answer: git-lfs exits rather than
+        reporting that one file failed. The next file gets a fresh process.
         """
         try:
             return self._exchange(verb, path, source)
@@ -164,6 +154,14 @@ class GitLFSProcess:
         process.stdin.write(FLUSH)
         process.stdin.flush()
         read_text_section(process.stdout)
+
+
+class GitLFSProcessError(Exception):
+    """The filter process could not be started, or stopped responding."""
+
+
+class _ConnectionLost(Exception):
+    """The exchange broke, as opposed to git-lfs answering with an error."""
 
 
 class _Session(threading.local):

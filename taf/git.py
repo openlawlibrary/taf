@@ -52,7 +52,7 @@ else:
     from contextlib import contextmanager
 
     @contextmanager
-    def filtering(workdir: str, raise_on_failure: bool = True) -> Iterator[None]:
+    def filtering(workdir: str) -> Iterator[None]:
         """No filter is registered without pygit2, so nothing can have failed."""
         yield
 
@@ -1782,10 +1782,12 @@ class GitRepository:
                 message = commit.message
                 break
 
+            # the merge is over once it is committed and cleaned up, so a
+            # filter failure has to be raised after that, not instead of it
             with filtering(str(repo.workdir or "")):
                 repo.merge(oid)
-            self.commit(message)
-            repo.state_cleanup()
+                self.commit(message)
+                repo.state_cleanup()
         else:
             self._git("merge {}", branch_name, log_error=True)
 
@@ -2019,7 +2021,7 @@ class GitRepository:
         # (same set `git status --porcelain` reports), so an empty result means
         # the working tree is clean.
         try:
-            with filtering(str(self.pygit_repo.workdir or ""), raise_on_failure=False):
+            with filtering(str(self.pygit_repo.workdir or "")):
                 if not self.pygit_repo.status():
                     return False
         except Exception:

@@ -1,22 +1,23 @@
-"""The long-running git-lfs connection: restart, retry and shutdown."""
+"""The long-running git-lfs connection: its lifetime, restart and shutdown."""
 
 import io
 
 import pytest
 
 from taf.git import GitRepository
+from taf.lfs import record_failure, take_failures
 from taf.lfs_process import (
-    SESSION,
     GitLFSProcess,
     GitLFSProcessError,
+    SESSION,
     get_process_for,
     session,
 )
 from taf.tests.test_updater.test_lfs.conftest import (
     LFS_FILE_NAME,
     build_lfs_origin,
+    get_lfs_file_content,
     needs_git_lfs,
-    lfs_file_content,
 )
 
 
@@ -29,31 +30,17 @@ def lfs_repository(tmp_path):
 
 
 @needs_git_lfs
-def test_one_process_serves_many_files(lfs_repository):
-    """The connection is reused rather than reopened per file."""
-    workdir, pointer = lfs_repository
-    process = GitLFSProcess(_git_lfs(), workdir)
-    try:
-        for _ in range(5):
-            with process.filter("smudge", LFS_FILE_NAME, io.BytesIO(pointer)) as out:
-                assert out.read() == lfs_file_content("v2")
-        assert process._process is not None and process._process.poll() is None
-    finally:
-        process.close()
-
-
-@needs_git_lfs
 def test_a_crashed_process_is_restarted(lfs_repository):
     """git-lfs dying must cost the file that provoked it, not the rest.
 
-    One process serves a whole repository, so without a restart every file
+    One process serves every file of one operation, so without a restart every file
     after a crash would fail too.
     """
     workdir, pointer = lfs_repository
     process = GitLFSProcess(_git_lfs(), workdir)
     try:
         with process.filter("smudge", LFS_FILE_NAME, io.BytesIO(pointer)) as out:
-            assert out.read() == lfs_file_content("v2")
+            assert out.read() == get_lfs_file_content("v2")
 
         killed = process._process
         assert killed is not None
@@ -61,10 +48,63 @@ def test_a_crashed_process_is_restarted(lfs_repository):
         killed.wait(timeout=10)
 
         with process.filter("smudge", LFS_FILE_NAME, io.BytesIO(pointer)) as out:
-            assert out.read() == lfs_file_content("v2")
+            assert out.read() == get_lfs_file_content("v2")
         assert process._process is not killed, "the dead process was reused"
     finally:
         process.close()
+
+
+def test_a_failure_recorded_outside_a_session_is_not_kept(tmp_path):
+    """Nothing records what nobody will collect.
+
+    A record kept here would be raised by the next operation, against files that
+    operation had materialized correctly.
+    """
+    workdir = str(tmp_path)
+    record_failure(workdir, "file.bin")
+
+    assert take_failures(workdir) == set()
+
+
+@needs_git_lfs
+def test_a_process_outside_a_session_is_not_kept(lfs_repository):
+    """Nothing would close it, so it must not be pooled."""
+    workdir, _ = lfs_repository
+    first = get_process_for(_git_lfs(), workdir)
+    second = get_process_for(_git_lfs(), workdir)
+    assert first is not second
+    assert not SESSION.processes
+
+
+@needs_git_lfs
+def test_a_session_does_not_outlive_a_config_change(lfs_repository):
+    """git-lfs reads config at startup, so a process must not span operations."""
+    workdir, pointer = lfs_repository
+    with session():
+        first = get_process_for(_git_lfs(), workdir)
+        first.filter("smudge", LFS_FILE_NAME, io.BytesIO(pointer)).close()
+        pid = first._process.pid if first._process else None
+    with session():
+        second = get_process_for(_git_lfs(), workdir)
+        second.filter("smudge", LFS_FILE_NAME, io.BytesIO(pointer)).close()
+        assert second._process is not None and second._process.pid != pid
+
+
+@needs_git_lfs
+def test_a_session_reuses_one_process_and_closes_it(lfs_repository):
+    """The process lives for the operation, not for the interpreter."""
+    workdir, pointer = lfs_repository
+    with session():
+        first = get_process_for(_git_lfs(), workdir)
+        first.filter("smudge", LFS_FILE_NAME, io.BytesIO(pointer)).close()
+        assert (
+            get_process_for(_git_lfs(), workdir) is first
+        ), "the session did not reuse it"
+        started = first._process
+        assert started is not None and started.poll() is None
+
+    assert started.poll() is not None, "git-lfs outlived the operation"
+    assert not SESSION.processes, "the session kept a process"
 
 
 @needs_git_lfs
@@ -83,21 +123,13 @@ def test_an_unusable_executable_is_reported(tmp_path, lfs_repository):
         process.close()
 
 
-@needs_git_lfs
-def test_a_session_reuses_one_process_and_closes_it(lfs_repository):
-    """The process lives for the operation, not for the interpreter."""
-    workdir, pointer = lfs_repository
+def test_closing_a_session_forgets_what_it_recorded(tmp_path):
+    """A record lives no longer than the operation that hit it."""
+    workdir = str(tmp_path)
     with session():
-        first = get_process_for(_git_lfs(), workdir)
-        first.filter("smudge", LFS_FILE_NAME, io.BytesIO(pointer)).close()
-        assert (
-            get_process_for(_git_lfs(), workdir) is first
-        ), "the session did not reuse it"
-        started = first._process
-        assert started is not None and started.poll() is None
+        record_failure(workdir, "file.bin")
 
-    assert started.poll() is not None, "git-lfs outlived the operation"
-    assert not SESSION.processes, "the session kept a process"
+    assert take_failures(workdir) == set()
 
 
 @needs_git_lfs
@@ -121,27 +153,17 @@ def test_no_process_outlives_a_checkout(tmp_path):
 
 
 @needs_git_lfs
-def test_a_session_does_not_outlive_a_config_change(lfs_repository):
-    """git-lfs reads config at startup, so a process must not span operations."""
+def test_one_process_serves_many_files(lfs_repository):
+    """The connection is reused rather than reopened per file."""
     workdir, pointer = lfs_repository
-    with session():
-        first = get_process_for(_git_lfs(), workdir)
-        first.filter("smudge", LFS_FILE_NAME, io.BytesIO(pointer)).close()
-        pid = first._process.pid if first._process else None
-    with session():
-        second = get_process_for(_git_lfs(), workdir)
-        second.filter("smudge", LFS_FILE_NAME, io.BytesIO(pointer)).close()
-        assert second._process is not None and second._process.pid != pid
-
-
-@needs_git_lfs
-def test_a_process_outside_a_session_is_not_kept(lfs_repository):
-    """Nothing would close it, so it must not be pooled."""
-    workdir, _ = lfs_repository
-    first = get_process_for(_git_lfs(), workdir)
-    second = get_process_for(_git_lfs(), workdir)
-    assert first is not second
-    assert not SESSION.processes
+    process = GitLFSProcess(_git_lfs(), workdir)
+    try:
+        for _ in range(5):
+            with process.filter("smudge", LFS_FILE_NAME, io.BytesIO(pointer)) as out:
+                assert out.read() == get_lfs_file_content("v2")
+        assert process._process is not None and process._process.poll() is None
+    finally:
+        process.close()
 
 
 def _git_lfs() -> str:
