@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- `get_commit_date` reads a commit's date in the timezone it was authored in; it added git's minute-valued timezone offset to a second-valued timestamp, so commits made in the evening west of UTC were dated a day late ([766])
 - Detect signing scheme from key material instead of assuming RSA ([757])
 - Clone no longer fails when the repository path contains a space (e.g. a Windows home directory with a space in the user name) ([762])
 - Surface the underlying git error when a clone fails, instead of hiding it behind a generic access message ([762])
