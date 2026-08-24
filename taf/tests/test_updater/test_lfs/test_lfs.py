@@ -248,11 +248,12 @@ def test_filtering_reports_a_missing_binary(monkeypatch, tmp_path):
 
 @needs_git_lfs
 def test_unfetchable_lfs_object_leaves_the_pointer_not_an_empty_file(tmp_path, lfs_log):
-    """An object git-lfs cannot get leaves a pointer, never a truncated file.
+    """An object git-lfs cannot get fails the checkout, leaving a pointer.
 
-    Raising out of a filter leaves libgit2's destination file at zero bytes, so
-    the smudge failure is reported through the log and the pointer is written
-    instead.
+    git aborts a checkout when a required filter fails. A filter cannot, since
+    libgit2 discards its exception and a partial write truncates the file, so
+    the failure is raised by the caller once the checkout is over - and the file
+    is left as a readable pointer rather than empty or missing.
     """
     origin = build_lfs_origin(tmp_path / "origin")
     client = GitRepository(path=tmp_path / "client")
@@ -267,7 +268,8 @@ def test_unfetchable_lfs_object_leaves_the_pointer_not_an_empty_file(tmp_path, l
         shutil.rmtree(repo_path / ".git" / "lfs" / "objects", ignore_errors=True)
 
     client = GitRepository(path=client.path)
-    client.checkout_branch(client.default_branch)
+    with pytest.raises(GitLFSError, match="could not be retrieved"):
+        client.checkout_branch(client.default_branch)
 
     content = (client.path / LFS_FILE_NAME).read_bytes()
     assert content, f"the file was truncated (was {size_before} bytes)"
@@ -478,6 +480,37 @@ def test_skip_smudge_is_honored(tmp_path):
         "the user asked for pointers, but the checkout fetched content: "
         f"{len(content)} bytes"
     )
+
+
+@needs_git_lfs
+def test_an_unfetchable_object_is_tolerated_when_lfs_is_not_required(tmp_path):
+    """``filter.lfs.required=false`` asks git not to fail; do the same.
+
+    git accepts a failed filter in that configuration, so the checkout
+    completes and the pointer is left in place.
+    """
+    origin = build_lfs_origin(tmp_path / "origin")
+    client = GitRepository(path=tmp_path / "client")
+    client.clone_from_disk(origin.path, keep_remote=True)
+    client.checkout_branch("other", create=True)
+    run(
+        "git",
+        "-C",
+        str(client.path),
+        "config",
+        "--local",
+        "filter.lfs.required",
+        "false",
+    )
+
+    run("git", "-C", str(client.path), "config", "lfs.url", "http://127.0.0.1:1/lfs")
+    for repo_path in (client.path, origin.path):
+        shutil.rmtree(repo_path / ".git" / "lfs" / "objects", ignore_errors=True)
+
+    client = GitRepository(path=client.path)
+    client.checkout_branch(client.default_branch)
+
+    assert is_lfs_pointer((client.path / LFS_FILE_NAME).read_bytes())
 
 
 @needs_git_lfs

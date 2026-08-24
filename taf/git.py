@@ -47,6 +47,12 @@ except ImportError:
 if PYGIT2_AVAILABLE:
     # imported for its side effect: registering the Git LFS filter with libgit2
     import taf.lfs  # noqa: F401
+    from taf.lfs import raise_for_failed_filtering
+else:
+
+    def raise_for_failed_filtering(workdir: str) -> None:
+        """No filter is registered without pygit2, so nothing can have failed."""
+
 
 EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 
@@ -705,6 +711,9 @@ class GitRepository:
             if branch is not None:
                 ref = repo.lookup_reference(branch.name)
                 repo.checkout(ref)
+                # a filter cannot abort a checkout, so a Git LFS failure during
+                # one is reported here instead
+                raise_for_failed_filtering(str(repo.workdir or ""))
             else:
                 self._git(
                     "checkout {}",
@@ -1232,11 +1241,13 @@ class GitRepository:
         repo = self.pygit_repo
 
         pygit_commit = repo.get(commit.hash)
-        date = datetime.datetime.utcfromtimestamp(
-            pygit_commit.commit_time + pygit_commit.commit_time_offset
+        # commit_time is a UTC timestamp and commit_time_offset is the author's
+        # offset in minutes, so the date is read in the author's own timezone
+        authored_in = datetime.timezone(
+            datetime.timedelta(minutes=pygit_commit.commit_time_offset)
         )
-        formatted_date = date.strftime("%Y-%m-%d")
-        return formatted_date
+        date = datetime.datetime.fromtimestamp(pygit_commit.commit_time, authored_in)
+        return date.strftime("%Y-%m-%d")
 
     def get_commit_message(self, commit: Commitish) -> str:
         """Returns commit message of the given commit"""

@@ -34,10 +34,12 @@ import os
 import shlex
 import shutil
 import subprocess
+import threading
+from collections import defaultdict
 from functools import lru_cache
 from pathlib import Path
 from tempfile import SpooledTemporaryFile
-from typing import IO, Callable, List, Optional, Set, Tuple
+from typing import IO, Callable, Dict, List, Optional, Set, Tuple
 
 import pygit2
 
@@ -53,6 +55,13 @@ GIT_CONFIG_TIMEOUT = 30
 #: Repositories already reported as needing git-lfs, so the warning is not
 #: repeated for every file.
 _reported_missing_binary: Set[str] = set()
+
+#: workdir -> paths whose filtering failed since the last check. libgit2
+#: discards an exception raised inside a filter and a partial write truncates
+#: the destination, so a failure is recorded here and raised by the caller that
+#: started the operation.
+_failures: Dict[str, Set[str]] = defaultdict(set)
+_failures_lock = threading.Lock()
 
 
 class GitLFSFilter(pygit2.Filter):
@@ -99,6 +108,7 @@ class GitLFSFilter(pygit2.Filter):
             # nothing has been forwarded yet, so the unfiltered blob is still a
             # safe answer: for a smudge that is the pointer, and for a clean it
             # is content libgit2 will not mistake for the pointer blob
+            record_failure(self._workdir, self._path)
             self._staged.seek(0)
             filtered = self._staged
         try:
@@ -206,6 +216,46 @@ def filter_through_git_lfs(
         raise GitLFSError(message) from error
     finally:
         POOL.release(process)
+
+
+def raise_for_failed_filtering(workdir: str) -> None:
+    """Fail the operation if any file could not be filtered.
+
+    git aborts a checkout when a required filter fails; the filter itself
+    cannot, since libgit2 discards its exception and a partial write truncates
+    the file. The failures are collected during the operation and reported here,
+    by the caller that started it, leaving the working tree holding readable
+    pointers rather than empty or missing files.
+    """
+    paths = take_failures(workdir)
+    if not paths or not lfs_filtering_is_required(workdir):
+        return
+    listed = ", ".join(sorted(paths)[:5]) + (" ..." if len(paths) > 5 else "")
+    raise GitLFSError(
+        f"Git LFS content could not be retrieved for {len(paths)} file(s) in "
+        f"{workdir}: {listed}. They are left as pointer files; run "
+        f"'git lfs pull' once the Git LFS server is reachable."
+    )
+
+
+def lfs_filtering_is_required(workdir: str) -> bool:
+    """Whether git would abort rather than accept a failed filter here."""
+    git = shutil.which("git")
+    if not workdir or git is None:
+        return False
+    return read_git_config(git, workdir, "filter.lfs.required").lower() == "true"
+
+
+def record_failure(workdir: str, path: str) -> None:
+    """Note that ``path`` could not be filtered."""
+    with _failures_lock:
+        _failures[workdir].add(path)
+
+
+def take_failures(workdir: str) -> Set[str]:
+    """The paths that failed in ``workdir``, clearing them."""
+    with _failures_lock:
+        return _failures.pop(workdir, set())
 
 
 def read_git_config(git: str, workdir: str, key: str) -> str:

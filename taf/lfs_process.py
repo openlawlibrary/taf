@@ -10,6 +10,7 @@ abandoned mid-file would otherwise leave a truncated working-tree file, and
 libgit2 offers no way to abort.
 """
 
+import atexit
 import subprocess
 import threading
 from tempfile import SpooledTemporaryFile
@@ -34,6 +35,10 @@ CHUNK = 1024 * 1024
 
 class GitLFSProcessError(Exception):
     """The filter process could not be started, or stopped responding."""
+
+
+class _ConnectionLost(Exception):
+    """The exchange broke, as opposed to git-lfs answering with an error."""
 
 
 class GitLFSProcess:
@@ -62,13 +67,35 @@ class GitLFSProcess:
     def filter(self, verb: str, path: str, source: IO[bytes]) -> IO[bytes]:
         """Run ``verb`` over ``source``; return a rewound stream of the result.
 
-        Raises ``GitLFSProcessError`` if git-lfs reports failure or the
-        connection breaks, leaving the caller free to fall back - nothing has
-        been emitted at that point.
+        A broken connection is retried once on a fresh process: one long-running
+        process serves a whole repository, so a crash would otherwise fail every
+        remaining file rather than the one that provoked it. A per-file error
+        from git-lfs is not retried - it has already given its answer.
+
+        Raises ``GitLFSProcessError`` if that retry also fails, leaving the
+        caller free to fall back; nothing has been emitted at that point.
         """
-        process = self._ensure_started()
+        try:
+            return self._exchange(verb, path, source)
+        except _ConnectionLost as error:
+            taf_logger.debug("git-lfs connection lost, restarting: {}", error)
+            self.close()
+        source.seek(0)
+        try:
+            return self._exchange(verb, path, source)
+        except _ConnectionLost as error:
+            self.close()
+            raise GitLFSProcessError(
+                f"git-lfs {verb} of '{path}' failed: {error}"
+            ) from error
+
+    def _exchange(self, verb: str, path: str, source: IO[bytes]) -> IO[bytes]:
+        try:
+            process = self._ensure_started()
+        except GitLFSProcessError as error:
+            raise _ConnectionLost(str(error)) from error
         if process.stdin is None or process.stdout is None:
-            raise GitLFSProcessError("git-lfs was started without pipes")
+            raise _ConnectionLost("git-lfs was started without pipes")
         stdin, stdout = process.stdin, process.stdout
         try:
             stdin.write(encode_text(f"command={verb}"))
@@ -88,10 +115,7 @@ class GitLFSProcess:
                 staged.write(packet)
             self._expect_success(read_text_section(stdout), verb, path)
         except (EOFError, OSError, ValueError) as error:
-            self.close()
-            raise GitLFSProcessError(
-                f"git-lfs {verb} of '{path}' failed: {error}"
-            ) from error
+            raise _ConnectionLost(str(error)) from error
         staged.seek(0)
         return staged
 
@@ -178,3 +202,7 @@ class GitLFSProcessPool:
 
 
 POOL = GitLFSProcessPool()
+
+# the pooled processes outlive the operation that created them, so they are
+# closed with the interpreter rather than left for the OS to reap
+atexit.register(POOL.close_all)

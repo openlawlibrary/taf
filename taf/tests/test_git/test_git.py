@@ -351,6 +351,18 @@ def test_get_commit_date(repository: GitRepository):
     assert repository.get_commit_date(commit1) == str(datetime.date.today())
 
 
+def test_get_commit_date_reads_the_authors_timezone(repository: GitRepository):
+    """The date is the author's, not UTC's - they differ either side of midnight."""
+    commit = repository.commit_empty("authored elsewhere")
+    pygit_commit = repository.pygit_repo.get(commit.hash)
+    authored_in = datetime.timezone(
+        datetime.timedelta(minutes=pygit_commit.commit_time_offset)
+    )
+    expected = datetime.datetime.fromtimestamp(pygit_commit.commit_time, authored_in)
+
+    assert repository.get_commit_date(commit) == expected.strftime("%Y-%m-%d")
+
+
 def test_get_first_commit_on_branch(repository: GitRepository):
     repository.commit_empty("test commit1")
     assert (
