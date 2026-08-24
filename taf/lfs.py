@@ -214,14 +214,14 @@ def filter_through_git_lfs(
     except GitLFSProcessError as error:
         if verb == "smudge":
             message = (
-                f"Could not get the Git LFS content for '{path}'; the file is "
-                f"left as a pointer. Check that the Git LFS server is reachable "
+                f"Could not get the Git LFS content for '{path}'. The file is "
+                f"left as a pointer - check that the Git LFS server is reachable "
                 f"and holds this object, then run 'git lfs pull'."
             )
         else:
             message = (
-                f"Git LFS could not store the content of '{path}'; the file is "
-                f"left as it is. Check that '.git/lfs' is writable."
+                f"Git LFS could not store the content of '{path}'. The file is "
+                f"left as it is - check that '.git/lfs' is writable."
             )
         taf_logger.error(message)
         taf_logger.debug("git-lfs {} failed: {}", verb, error)
@@ -273,7 +273,7 @@ def raise_for_failed_paths(workdir: str, paths: Set[str]) -> None:
     summary = ", ".join(sorted(paths)[:5]) + (" ..." if len(paths) > 5 else "")
     raise GitLFSError(
         f"Git LFS could not process {len(paths)} file(s) in {workdir}: "
-        f"{summary}. Their content is unchanged on disk; check that the Git LFS "
+        f"{summary}. Their content is unchanged on disk. Check that the Git LFS "
         f"server is reachable and that '.git/lfs' is writable, then run "
         f"'git lfs pull'."
     )

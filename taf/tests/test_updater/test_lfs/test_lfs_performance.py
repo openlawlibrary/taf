@@ -52,7 +52,7 @@ def test_a_large_file_is_not_held_in_memory(tmp_path):
     assert (client.path / LFS_FILE_NAME).stat().st_size == LARGE_FILE_SIZE
     assert peak_rss_kb < MEMORY_BUDGET_KB, (
         f"the checkout peaked at {peak_rss_kb / 1024:.0f} MB for a "
-        f"{LARGE_FILE_SIZE / 1024 / 1024:.0f} MB file; it is being buffered "
+        f"{LARGE_FILE_SIZE / 1024 / 1024:.0f} MB file - it is being buffered "
         f"rather than streamed"
     )
 
@@ -77,6 +77,6 @@ def test_many_files_share_one_git_lfs_process(tmp_path):
 
     spawns = len(log.read_text().split())
     assert spawns <= 2, (
-        f"git-lfs was started {spawns} times for {MANY_FILES + 1} files; the "
+        f"git-lfs was started {spawns} times for {MANY_FILES + 1} files - the "
         f"connection is not being reused"
     )

@@ -275,7 +275,7 @@ def test_unfetchable_lfs_object_leaves_the_pointer_not_an_empty_file(tmp_path, l
     )
     assert any(
         "Could not get the Git LFS content" in message for message in lfs_log
-    ), f"the failure was not reported; logged: {lfs_log}"
+    ), f"the failure was not reported, logged: {lfs_log}"
 
 
 @needs_git_lfs
