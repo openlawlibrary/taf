@@ -27,6 +27,7 @@ runs where LFS is not installed; CI installs it (``.github/workflows/ci.yml``).
 import os
 import shutil
 import threading
+import io
 from concurrent.futures import ThreadPoolExecutor
 
 from pathlib import Path
@@ -37,7 +38,7 @@ import pytest
 from taf.exceptions import GitLFSError
 from taf.git import GitRepository
 from taf import lfs as lfs_module
-from taf.lfs import run_git_lfs
+from taf.lfs import filter_through_git_lfs
 from taf.utils import run
 from taf.tests.test_updater.test_lfs.conftest import (
     LFS_FILE_NAME,
@@ -232,13 +233,15 @@ def test_checkout_without_git_lfs_never_truncates_the_file(tmp_path):
     )
 
 
-def test_run_git_lfs_reports_a_missing_binary(monkeypatch, tmp_path):
+def test_filtering_reports_a_missing_binary(monkeypatch, tmp_path):
     """The message a user gets when git-lfs is needed but absent."""
     monkeypatch.setenv("PATH", path_without_git_lfs())
     lfs_module.get_git_lfs_executable.cache_clear()
     try:
         with pytest.raises(GitLFSError, match="Git LFS is not installed"):
-            run_git_lfs("smudge", "some/file.bin", b"pointer", str(tmp_path))
+            filter_through_git_lfs(
+                "smudge", "some/file.bin", io.BytesIO(b"pointer"), str(tmp_path)
+            )
     finally:
         lfs_module.get_git_lfs_executable.cache_clear()
 

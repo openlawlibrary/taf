@@ -92,9 +92,26 @@ def assert_lfs_content_materialized(repo_path: Path, revision: str) -> None:
     )
 
 
-def build_lfs_origin(path: Path, other_branch: str = "other") -> GitRepository:
-    """A standalone origin whose tracked file is stored in Git LFS."""
-    repo = build_origin(path, write_lfs_file, other_branch)
+def build_lfs_origin(
+    path: Path,
+    other_branch: str = "other",
+    payload_size: Optional[int] = None,
+    extra_files: int = 0,
+) -> GitRepository:
+    """A standalone origin whose tracked files are stored in Git LFS.
+
+    ``payload_size`` pads the tracked file, and ``extra_files`` adds siblings -
+    both for measuring what a checkout costs.
+    """
+
+    def write(repo: GitRepository, revision: str) -> None:
+        write_lfs_file(repo, revision, payload_size=payload_size)
+        for index in range(extra_files):
+            (repo.path / f"extra{index}.bin").write_bytes(
+                lfs_file_content(f"{revision}-{index}")
+            )
+
+    repo = build_origin(path, write, other_branch)
     assert_committed_as_lfs_pointer(repo, LFS_FILE_NAME)
     return repo
 
@@ -288,11 +305,17 @@ def run_ignoring_failure(*command: str) -> str:
 
 
 def write_lfs_file(
-    target_repo: GitRepository, revision: str, lfs_url: Optional[str] = None
+    target_repo: GitRepository,
+    revision: str,
+    lfs_url: Optional[str] = None,
+    payload_size: Optional[int] = None,
 ) -> None:
     """Enable LFS in ``target_repo`` and write the tracked file for ``revision``."""
     enable_lfs(target_repo, lfs_url=lfs_url)
-    (target_repo.path / LFS_FILE_NAME).write_bytes(lfs_file_content(revision))
+    content = lfs_file_content(revision)
+    if payload_size is not None:
+        content = (content * (payload_size // len(content) + 1))[:payload_size]
+    (target_repo.path / LFS_FILE_NAME).write_bytes(content)
 
 
 def write_plain_file(target_repo: GitRepository, revision: str) -> None:
