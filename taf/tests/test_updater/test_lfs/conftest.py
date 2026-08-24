@@ -335,16 +335,37 @@ def lfs_server(tmp_path):
         yield server
 
 
-def path_without_git_lfs() -> str:
-    """``PATH`` with every directory that provides ``git-lfs`` removed."""
-    candidate = os.pathsep.join(
+def path_without_git_lfs(shim_dir: Path) -> str:
+    """``PATH`` with ``git-lfs`` unreachable and ``git`` still installed.
+
+    Dropping every directory that provides ``git-lfs`` is not enough on its own:
+    package managers put ``git`` and ``git-lfs`` in the same one, so on such a
+    machine that also removes git, and code that reads the repository config to
+    learn whether LFS is in use then finds nothing to report. ``git`` is linked
+    into ``shim_dir`` to survive the removal, which is what an uninstalled Git
+    LFS actually looks like.
+    """
+    git = shutil.which("git")
+    shim_dir.mkdir(parents=True, exist_ok=True)
+    if git is not None:
+        link = shim_dir / Path(git).name
+        if not link.exists():
+            try:
+                link.symlink_to(git)
+            except OSError:
+                shutil.copy2(git, link)
+    entries = [str(shim_dir)] + [
         entry
         for entry in os.environ["PATH"].split(os.pathsep)
         if entry and shutil.which("git-lfs", path=entry) is None
-    )
+    ]
+    candidate = os.pathsep.join(entries)
     assert (
         shutil.which("git-lfs", path=candidate) is None
     ), "git-lfs is still reachable, so this PATH does not simulate its absence"
+    assert (
+        shutil.which("git", path=candidate) is not None
+    ), "git went missing along with git-lfs, so this PATH describes no real machine"
     return candidate
 
 

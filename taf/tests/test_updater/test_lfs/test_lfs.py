@@ -217,7 +217,7 @@ def test_checkout_without_git_lfs_never_truncates_the_file(tmp_path):
         GitRepository(path=client.path),
         client.default_branch,
         LFS_FILE_NAME,
-        path_without_git_lfs(),
+        path_without_git_lfs(tmp_path / "no-git-lfs"),
     )
 
     assert "RAISED:" in result.stdout, f"the checkout never ran: {result.stderr}"
@@ -231,7 +231,7 @@ def test_checkout_without_git_lfs_never_truncates_the_file(tmp_path):
 
 def test_filtering_reports_a_missing_binary(monkeypatch, tmp_path):
     """The message a user gets when git-lfs is needed but absent."""
-    monkeypatch.setenv("PATH", path_without_git_lfs())
+    monkeypatch.setenv("PATH", path_without_git_lfs(tmp_path / "no-git-lfs"))
     lfs_module.get_git_lfs_executable.cache_clear()
     try:
         with pytest.raises(GitLFSError, match="Git LFS is not installed"):
@@ -437,7 +437,7 @@ def test_missing_git_lfs_is_reported_once_per_repository(
         "filter.lfs.process",
         "git-lfs filter-process",
     )
-    monkeypatch.setenv("PATH", path_without_git_lfs())
+    monkeypatch.setenv("PATH", path_without_git_lfs(tmp_path / "no-git-lfs"))
     lfs_module.get_git_lfs_executable.cache_clear()
     lfs_module._reported_missing_binary.discard(str(workdir))
     try:
