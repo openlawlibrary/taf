@@ -37,9 +37,22 @@ PLAIN_FILE_NAME = "plain_file.txt"
 CHECKOUT_SCRIPT = """
 import os
 import sys
+from pathlib import Path
 from taf.git import GitRepository
 
+
+def peak_rss_kb():
+    for line in Path("/proc/self/status").read_text().splitlines():
+        if line.startswith("VmHWM:"):
+            return int(line.split()[1])
+    return 0
+
+
 client_path, branch, file_name = sys.argv[1:4]
+# Linux carries the peak-RSS watermark across fork and exec, so a child
+# otherwise reports whatever its parent had reached
+if Path("/proc/self/clear_refs").exists():
+    Path("/proc/self/clear_refs").write_text("5")
 client = GitRepository(path=client_path)
 try:
     client.checkout_branch(branch)
@@ -47,15 +60,30 @@ try:
 except Exception as exc:
     print("RAISED:" + type(exc).__name__)
 with open(os.path.join(client_path, file_name), "rb") as handle:
-    print("BYTES:" + repr(handle.read()))
+    # a prefix: enough to recognise a pointer, and reading a large file whole
+    # would be the measured process's biggest allocation
+    print("BYTES:" + repr(handle.read(4096)))
+print("RSS:%d" % peak_rss_kb())
 """
+
+SPAWN_COUNTER = """#!/bin/sh
+echo x >> "$GIT_LFS_SPAWN_LOG"
+exec "$GIT_LFS_REAL" "$@"
+"""
+
+
+#: Skips what needs the binary; used by every module in this package.
+needs_git_lfs = pytest.mark.skipif(
+    not shutil.which("git-lfs"),
+    reason="git-lfs is not installed (needs the `git lfs` subcommand on PATH)",
+)
 
 
 def assert_committed_as_lfs_pointer(repo: GitRepository, file_name: str) -> None:
     """Assert ``file_name`` is stored in ``repo``'s HEAD commit as an LFS pointer.
 
-    Without this a misconfigured ``.gitattributes`` would commit the payload as
-    an ordinary blob, and tests would pass while exercising no LFS at all.
+    A misconfigured ``.gitattributes`` would commit the payload as an ordinary
+    blob, exercising no LFS at all.
     """
     head_commit = repo.head_commit()
     assert head_commit is not None, f"{repo.name} has no commits"
@@ -143,15 +171,49 @@ def build_plain_origin(path: Path, other_branch: str = "other") -> GitRepository
 
 
 def checkout_in_subprocess(
-    client: GitRepository, branch: str, file_name: str, path_env: str
+    client: GitRepository,
+    branch: str,
+    file_name: str,
+    path_env: Optional[str] = None,
+    env: Optional[dict] = None,
 ) -> subprocess.CompletedProcess:
-    """Check ``branch`` out in a fresh interpreter with ``path_env`` as ``PATH``."""
+    """Check ``branch`` out in a fresh interpreter.
+
+    Fresh because peak memory is a process high-water mark and the process count
+    needs an environment the parent does not share.
+    """
+    environment = dict(env or os.environ)
+    if path_env is not None:
+        environment["PATH"] = path_env
     return subprocess.run(
         [sys.executable, "-c", CHECKOUT_SCRIPT, str(client.path), branch, file_name],
         capture_output=True,
         text=True,
-        env={**os.environ, "PATH": path_env},
+        env=environment,
     )
+
+
+def peak_rss_of_checkout(result: subprocess.CompletedProcess) -> int:
+    """The peak RSS in KB that ``checkout_in_subprocess`` reported."""
+    for line in result.stdout.splitlines():
+        if line.startswith("RSS:"):
+            return int(line.split(":", 1)[1])
+    raise AssertionError(f"no RSS in {result.stdout} {result.stderr[-500:]}")
+
+
+def counting_git_lfs(directory: Path, real_git_lfs: str, log: Path) -> dict:
+    """Environment whose ``git-lfs`` records every execution in ``log``."""
+    directory.mkdir(parents=True, exist_ok=True)
+    shim = directory / "git-lfs"
+    shim.write_text(SPAWN_COUNTER)
+    shim.chmod(0o755)
+    log.write_text("")
+    return {
+        **os.environ,
+        "PATH": f"{directory}{os.pathsep}{os.environ['PATH']}",
+        "GIT_LFS_REAL": real_git_lfs,
+        "GIT_LFS_SPAWN_LOG": str(log),
+    }
 
 
 def commit_lfs_content(origin_auth_repo, revision: str, lfs_url: Optional[str] = None):

@@ -1,22 +1,22 @@
 """The long-running git-lfs connection: restart, retry and shutdown."""
 
 import io
-import subprocess
-import sys
 
 import pytest
 
-from taf.lfs_process import POOL, GitLFSProcess, GitLFSProcessError
+from taf.git import GitRepository
+from taf.lfs_process import (
+    SESSION,
+    GitLFSProcess,
+    GitLFSProcessError,
+    process_for,
+    session,
+)
 from taf.tests.test_updater.test_lfs.conftest import (
     LFS_FILE_NAME,
     build_lfs_origin,
-    get_git_lfs_version,
+    needs_git_lfs,
     lfs_file_content,
-)
-
-needs_git_lfs = pytest.mark.skipif(
-    not get_git_lfs_version(),
-    reason="git-lfs is not installed (needs the `git lfs` subcommand on PATH)",
 )
 
 
@@ -84,56 +84,62 @@ def test_an_unusable_executable_is_reported(tmp_path, lfs_repository):
 
 
 @needs_git_lfs
-def test_the_pool_hands_out_one_process_at_a_time(lfs_repository):
-    """Two callers must not share a connection: it carries one exchange."""
-    workdir, _ = lfs_repository
-    first = POOL.acquire(_git_lfs(), workdir)
-    second = POOL.acquire(_git_lfs(), workdir)
-    assert first is not second
-
-    POOL.release(first)
-    assert (
-        POOL.acquire(_git_lfs(), workdir) is first
-    ), "a released process was not reused"
-    POOL.close_all()
-
-
-@needs_git_lfs
-def test_close_all_terminates_pooled_processes(lfs_repository):
-    """Nothing is left running once the pool is closed."""
+def test_a_session_reuses_one_process_and_closes_it(lfs_repository):
+    """The process lives for the operation, not for the interpreter."""
     workdir, pointer = lfs_repository
-    process = POOL.acquire(_git_lfs(), workdir)
-    process.filter("smudge", LFS_FILE_NAME, io.BytesIO(pointer)).close()
-    started = process._process
-    assert started is not None and started.poll() is None
-    POOL.release(process)
+    with session():
+        first = process_for(_git_lfs(), workdir)
+        first.filter("smudge", LFS_FILE_NAME, io.BytesIO(pointer)).close()
+        assert process_for(_git_lfs(), workdir) is first, "the session did not reuse it"
+        started = first._process
+        assert started is not None and started.poll() is None
 
-    POOL.close_all()
-
-    assert started.poll() is not None, "git-lfs is still running after close_all()"
+    assert started.poll() is not None, "git-lfs outlived the operation"
+    assert not SESSION.processes, "the session kept a process"
 
 
 @needs_git_lfs
-def test_the_interpreter_exits_cleanly_with_a_live_connection(tmp_path, lfs_repository):
-    """A pooled process must not keep the interpreter from exiting.
+def test_no_process_outlives_a_checkout(tmp_path):
+    """Many repositories must not mean many resident git-lfs children."""
+    clients = []
+    for index in range(4):
+        origin = build_lfs_origin(tmp_path / f"origin{index}")
+        client = GitRepository(path=tmp_path / f"client{index}")
+        client.clone_from_disk(origin.path, keep_remote=True)
+        client.checkout_branch("other", create=True)
+        clients.append(GitRepository(path=client.path))
 
-    The pool outlives the operation that filled it, so it is closed by an
-    atexit hook; without one this either leaks or hangs on shutdown.
-    """
+    for client in clients:
+        client.checkout_branch(client.default_branch)
+
+    assert not SESSION.processes, (
+        f"{len(SESSION.processes)} git-lfs processes are still held after "
+        f"{len(clients)} checkouts"
+    )
+
+
+@needs_git_lfs
+def test_a_session_does_not_outlive_a_config_change(lfs_repository):
+    """git-lfs reads config at startup, so a process must not span operations."""
+    workdir, pointer = lfs_repository
+    with session():
+        first = process_for(_git_lfs(), workdir)
+        first.filter("smudge", LFS_FILE_NAME, io.BytesIO(pointer)).close()
+        pid = first._process.pid if first._process else None
+    with session():
+        second = process_for(_git_lfs(), workdir)
+        second.filter("smudge", LFS_FILE_NAME, io.BytesIO(pointer)).close()
+        assert second._process is not None and second._process.pid != pid
+
+
+@needs_git_lfs
+def test_a_process_outside_a_session_is_not_kept(lfs_repository):
+    """Nothing would close it, so it must not be pooled."""
     workdir, _ = lfs_repository
-    script = (
-        "from taf.lfs_process import POOL\n"
-        f"process = POOL.acquire({_git_lfs()!r}, {workdir!r})\n"
-        "process._ensure_started()\n"
-        "POOL.release(process)\n"
-        "print('acquired')\n"
-    )
-    result = subprocess.run(
-        [sys.executable, "-c", script], capture_output=True, text=True, timeout=60
-    )
-
-    assert result.returncode == 0, result.stderr
-    assert "acquired" in result.stdout
+    first = process_for(_git_lfs(), workdir)
+    second = process_for(_git_lfs(), workdir)
+    assert first is not second
+    assert not SESSION.processes
 
 
 def _git_lfs() -> str:

@@ -38,6 +38,7 @@ import pytest
 from taf.exceptions import GitLFSError
 from taf.git import GitRepository
 from taf import lfs as lfs_module
+from taf import lfs_process
 from taf.lfs import filter_through_git_lfs
 from taf.utils import run
 from taf.tests.test_updater.test_lfs.conftest import (
@@ -48,7 +49,7 @@ from taf.tests.test_updater.test_lfs.conftest import (
     build_plain_origin,
     checkout_in_subprocess,
     commit_lfs_content,
-    get_git_lfs_version,
+    needs_git_lfs,
     is_lfs_pointer,
     lfs_file_content,
     path_without_git_lfs,
@@ -65,11 +66,6 @@ from taf.updater.types.update import OperationType
 
 #: Applied per test: everything that drives a real LFS repository needs the
 #: binary, but the message a missing binary produces can be checked anywhere.
-needs_git_lfs = pytest.mark.skipif(
-    not get_git_lfs_version(),
-    reason="git-lfs is not installed (needs the `git lfs` subcommand on PATH)",
-)
-
 TARGETS_WITH_LFS = {
     "targets_config": [{"name": "target1"}, {"name": "target2"}],
 }
@@ -268,7 +264,7 @@ def test_unfetchable_lfs_object_leaves_the_pointer_not_an_empty_file(tmp_path, l
         shutil.rmtree(repo_path / ".git" / "lfs" / "objects", ignore_errors=True)
 
     client = GitRepository(path=client.path)
-    with pytest.raises(GitLFSError, match="could not be retrieved"):
+    with pytest.raises(GitLFSError, match="could not process"):
         client.checkout_branch(client.default_branch)
 
     content = (client.path / LFS_FILE_NAME).read_bytes()
@@ -511,6 +507,66 @@ def test_an_unfetchable_object_is_tolerated_when_lfs_is_not_required(tmp_path):
     client.checkout_branch(client.default_branch)
 
     assert is_lfs_pointer((client.path / LFS_FILE_NAME).read_bytes())
+
+
+@needs_git_lfs
+def test_the_filter_configuration_is_read_once_per_operation(tmp_path):
+    """Reading it per file is the launch-per-file cost the session removes.
+
+    Bounded to the operation, so a change between operations is still seen -
+    which matters because ``.lfsconfig`` is committed and moves with a checkout.
+    """
+    origin = build_lfs_origin(tmp_path / "origin")
+    client = GitRepository(path=tmp_path / "client")
+    client.clone_from_disk(origin.path, keep_remote=True)
+    workdir = str(client.path)
+
+    with lfs_process.session():
+        before = lfs_module.get_lfs_filter_commands(workdir)
+        run(
+            "git",
+            "-C",
+            workdir,
+            "config",
+            "--local",
+            "filter.lfs.process",
+            "some-other-program",
+        )
+        assert (
+            lfs_module.get_lfs_filter_commands(workdir) == before
+        ), "the lookup was repeated inside one operation"
+
+    assert lfs_module.get_lfs_filter_commands(workdir) == (
+        "",
+        "",
+    ), "the answer outlived the operation that cached it"
+
+
+@needs_git_lfs
+def test_checkout_paths_reports_its_own_failures(tmp_path):
+    """Every checkout path reports its failures, and leaves none behind.
+
+    A failure left in place would be raised by the next unrelated checkout,
+    which would then report an error for files it materialized correctly.
+    """
+    origin = build_lfs_origin(tmp_path / "origin")
+    client = GitRepository(path=tmp_path / "client")
+    client.clone_from_disk(origin.path, keep_remote=True)
+    client.checkout_branch("other", create=True)
+
+    run("git", "-C", str(client.path), "config", "lfs.url", "http://127.0.0.1:1/lfs")
+    for repo_path in (client.path, origin.path):
+        shutil.rmtree(repo_path / ".git" / "lfs" / "objects", ignore_errors=True)
+
+    failing = GitRepository(path=client.path)
+    other_revision = failing.top_commit_of_branch(failing.default_branch)
+    with pytest.raises(GitLFSError, match="Git LFS"):
+        failing.checkout_paths(other_revision, LFS_FILE_NAME)
+
+    assert not lfs_process.SESSION.failures, (
+        "a failure was left behind for the next operation to raise: "
+        f"{lfs_process.SESSION.failures}"
+    )
 
 
 @needs_git_lfs

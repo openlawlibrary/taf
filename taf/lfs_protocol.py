@@ -3,8 +3,7 @@
 A packet is a four-digit hexadecimal length - counting the four digits
 themselves - followed by that many bytes minus four. ``0000`` is a flush,
 which ends a section. ``git-lfs filter-process`` speaks this on stdin and
-stdout, so one process can serve every file of a checkout instead of one
-process per file.
+stdout, so one process can serve every file of a checkout.
 
 Reference: https://git-scm.com/docs/protocol-common#_pkt_line_format
 """

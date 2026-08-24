@@ -18,6 +18,7 @@ from taf.models.types import Commitish
 import taf.settings as settings
 from taf.exceptions import (
     GitAccessDeniedException,
+    GitLFSError,
     NoRemoteError,
     NothingToCommitError,
     PushFailedError,
@@ -45,13 +46,14 @@ except ImportError:
     PYGIT2_AVAILABLE = False
 
 if PYGIT2_AVAILABLE:
-    # imported for its side effect: registering the Git LFS filter with libgit2
-    import taf.lfs  # noqa: F401
-    from taf.lfs import raise_for_failed_filtering
+    # importing also registers the Git LFS filter with libgit2
+    from taf.lfs import filtering
 else:
+    from contextlib import nullcontext
 
-    def raise_for_failed_filtering(workdir: str) -> None:
+    def filtering(workdir: str):
         """No filter is registered without pygit2, so nothing can have failed."""
+        return nullcontext()
 
 
 EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
@@ -678,7 +680,8 @@ class GitRepository:
             repo.branches.local.create(branch_name, pygit2_commit)
             branch = repo.lookup_branch(branch_name)
             ref = repo.lookup_reference(branch.name)
-            repo.checkout(ref)
+            with filtering(str(repo.workdir or "")):
+                repo.checkout(ref)
         except Exception as e:
             self._log_error(str(e))
             raise
@@ -710,16 +713,16 @@ class GitRepository:
             branch = repo.lookup_branch(branch_name)
             if branch is not None:
                 ref = repo.lookup_reference(branch.name)
-                repo.checkout(ref)
-                # a filter cannot abort a checkout, so a Git LFS failure during
-                # one is reported here instead
-                raise_for_failed_filtering(str(repo.workdir or ""))
+                with filtering(str(repo.workdir or "")):
+                    repo.checkout(ref)
             else:
                 self._git(
                     "checkout {}",
                     branch_name,
                     log_success_msg=f"Repo {self.name}: checked out branch {branch_name}",
                 )
+        except GitLFSError:
+            raise
         except Exception as e:
             if raise_anyway:
                 raise GitError(repo=self, message=str(e))
@@ -752,9 +755,10 @@ class GitRepository:
         repo = self.pygit_repo
 
         pygit_commit = repo.get(commit.hash)
-        repo.checkout_tree(
-            pygit_commit, paths=list(args), strategy=pygit2.GIT_CHECKOUT_FORCE
-        )
+        with filtering(str(repo.workdir or "")):
+            repo.checkout_tree(
+                pygit_commit, paths=list(args), strategy=pygit2.GIT_CHECKOUT_FORCE
+            )
 
     def checkout_orphan_branch(self, branch_name: str) -> None:
         """Creates orphan branch"""
@@ -1024,7 +1028,8 @@ class GitRepository:
                 repo.branches.local.create(branch_name, commit)
                 branch = repo.lookup_branch(branch_name)
                 ref = repo.lookup_reference(branch.name)
-                repo.checkout(ref)
+                with filtering(str(repo.workdir or "")):
+                    repo.checkout(ref)
             except KeyError:
                 # this will be execute if there is no HEAD pointer
                 flag = "-b" if raise_error_if_exists else "-B"

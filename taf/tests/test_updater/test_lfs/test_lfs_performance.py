@@ -6,7 +6,6 @@ the process; and git-lfs is spoken to over one long-running connection, so a
 hundred thousand documents do not mean a hundred thousand processes.
 """
 
-import os
 import shutil
 import sys
 
@@ -16,16 +15,10 @@ from taf.git import GitRepository
 from taf.tests.test_updater.test_lfs.conftest import (
     LFS_FILE_NAME,
     build_lfs_origin,
-    get_git_lfs_version,
-)
-from taf.tests.test_updater.test_lfs.perf_utils import (
+    checkout_in_subprocess,
     counting_git_lfs,
-    measure_checkout,
-)
-
-needs_git_lfs = pytest.mark.skipif(
-    not get_git_lfs_version(),
-    reason="git-lfs is not installed (needs the `git lfs` subcommand on PATH)",
+    needs_git_lfs,
+    peak_rss_of_checkout,
 )
 
 #: Large enough that holding it in memory is unmistakable in the measurement.
@@ -50,8 +43,10 @@ def test_a_large_file_is_not_held_in_memory(tmp_path):
     client.clone_from_disk(origin.path, keep_remote=True)
     client.checkout_branch("other", create=True)
 
-    peak_rss_kb, _ = measure_checkout(
-        GitRepository(path=client.path), client.default_branch, dict(os.environ)
+    peak_rss_kb = peak_rss_of_checkout(
+        checkout_in_subprocess(
+            GitRepository(path=client.path), client.default_branch, LFS_FILE_NAME
+        )
     )
 
     assert (client.path / LFS_FILE_NAME).stat().st_size == LARGE_FILE_SIZE
@@ -76,7 +71,9 @@ def test_many_files_share_one_git_lfs_process(tmp_path):
 
     log = tmp_path / "spawns"
     env = counting_git_lfs(tmp_path / "shim", shutil.which("git-lfs"), log)
-    measure_checkout(GitRepository(path=client.path), client.default_branch, env)
+    checkout_in_subprocess(
+        GitRepository(path=client.path), client.default_branch, LFS_FILE_NAME, env=env
+    )
 
     spawns = len(log.read_text().split())
     assert spawns <= 2, (
