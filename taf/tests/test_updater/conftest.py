@@ -26,7 +26,6 @@ from taf.exceptions import GitError
 from taf.utils import on_rm_error
 from taf.log import disable_console_logging
 from taf.tests.test_updater.update_utils import load_target_repositories
-from taf.api.repository import create_repository
 from taf.api.targets import (
     register_target_files,
     update_target_repos_from_repositories_json,
@@ -41,6 +40,7 @@ from taf.tests.conftest import (
     TEST_DATA_ORIGIN_PATH,
     KEYSTORE_PATH,
     TEST_INIT_DATA_PATH,
+    create_authentication_repository,
 )
 from taf.yubikey.yubikey_manager import PinManager
 
@@ -314,24 +314,6 @@ def create_mirrors_json(library_dir: Path, repo_name: str):
     mirrors = {"mirrors": [f"{library_dir}/{{org_name}}/{{repo_name}}"]}
     mirrors_path = targets_dir_path / MIRRORS_JSON_NAME
     mirrors_path.write_text(json.dumps(mirrors))
-
-
-def create_authentication_repository(
-    library_dir: Path,
-    pin_manager: PinManager,
-    repo_name: str,
-    keys_description: str,
-    is_test_repo: bool = False,
-):
-    repo_path = Path(library_dir, repo_name)
-    create_repository(
-        str(repo_path),
-        pin_manager,
-        str(KEYSTORE_PATH),
-        keys_description,
-        commit=True,
-        test=is_test_repo,
-    )
 
 
 def sign_target_files(library_dir, repo_name, keystore, pin_manager):

@@ -4,7 +4,10 @@ import json
 import re
 import shutil
 from pathlib import Path
+from typing import Optional
 
+from taf.api.repository import create_repository
+from taf.auth_repo import AuthenticationRepository
 from taf.tuf.keys import load_signer_from_file
 
 # from taf.tests import TEST_WITH_REAL_YK
@@ -23,6 +26,9 @@ HANDLERS_DATA_INPUT_DIR = TEST_DATA_PATH / "handler_inputs"
 TEST_INIT_DATA_PATH = Path(__file__).parent / "init_data"
 REPOSITORY_DESCRIPTION_INPUT_DIR = TEST_DATA_PATH / "repository_description_inputs"
 NO_YUBIKEYS_INPUT = REPOSITORY_DESCRIPTION_INPUT_DIR / "no_yubikeys.json"
+KEYSTORE_NO_YUBIKEYS_INPUT = (
+    REPOSITORY_DESCRIPTION_INPUT_DIR / "keystore_no_yubikeys.json"
+)
 WITH_DELEGATIONS_NO_YUBIKEY = (
     REPOSITORY_DESCRIPTION_INPUT_DIR / "with_delegations_no_yubikeys.json"
 )
@@ -60,6 +66,11 @@ def mirrors_json_path():
 @pytest.fixture(scope="session")
 def no_yubikeys_input():
     return json.loads(NO_YUBIKEYS_INPUT.read_text())
+
+
+@pytest.fixture(scope="session")
+def keystore_no_yubikeys_path():
+    return str(KEYSTORE_NO_YUBIKEYS_INPUT)
 
 
 @pytest.fixture(scope="session")
@@ -143,6 +154,26 @@ def output_path():
 @pytest.fixture(scope="session")
 def pin_manager():
     return PinManager()
+
+
+def create_authentication_repository(
+    library_dir: Path,
+    pin_manager: PinManager,
+    repo_name: str,
+    keys_description: str,
+    is_test_repo: bool = False,
+    keystore: Optional[Path] = None,
+) -> AuthenticationRepository:
+    repo_path = Path(library_dir, repo_name)
+    create_repository(
+        str(repo_path),
+        pin_manager,
+        str(keystore) if keystore is not None else str(KEYSTORE_PATH),
+        keys_description,
+        commit=True,
+        test=is_test_repo,
+    )
+    return AuthenticationRepository(library_dir, repo_name, pin_manager=pin_manager)
 
 
 @pytest.fixture(scope="session")

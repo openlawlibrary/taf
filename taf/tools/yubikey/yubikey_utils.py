@@ -13,7 +13,8 @@ from yubikit.piv import DEFAULT_MANAGEMENT_KEY, SLOT, InvalidPinError
 VALID_PIN = "123456"
 WRONG_PIN = "111111"
 
-INSERTED_YUBIKEY = None
+# serial -> FakeYubiKey, supports multiple inserted at once
+INSERTED_YUBIKEYS: dict = {}
 
 
 class FakeYubiKey:
@@ -44,6 +45,7 @@ class FakeYubiKey:
         self.data_objects: dict = {}
         self.pin_verified = False
         self.management_key = DEFAULT_MANAGEMENT_KEY
+        self.pin_attempts_remaining = 3
 
     @property
     def driver(self):
@@ -63,19 +65,16 @@ class FakeYubiKey:
 
     def insert(self):
         """Insert YubiKey in USB slot."""
-        global INSERTED_YUBIKEY
-        INSERTED_YUBIKEY = self
+        INSERTED_YUBIKEYS[self.serial] = self
 
     def is_inserted(self):
         """Check if YubiKey is in USB slot."""
-        global INSERTED_YUBIKEY
-        return INSERTED_YUBIKEY is self
+        return INSERTED_YUBIKEYS.get(self.serial) is self
 
     def remove(self):
         """Removes YubiKey from USB slot."""
-        global INSERTED_YUBIKEY
-        if INSERTED_YUBIKEY is self:
-            INSERTED_YUBIKEY = None
+        if INSERTED_YUBIKEYS.get(self.serial) is self:
+            del INSERTED_YUBIKEYS[self.serial]
 
 
 class FakePivController:
@@ -139,8 +138,8 @@ class FakePivController:
     def generate_self_signed_certificate(self, *args, **kwargs):
         pass
 
-    def get_pin_tries(self):
-        return 1
+    def get_pin_attempts(self):
+        return self._driver.pin_attempts_remaining
 
     def put_key(self, slot, private_key, pin_policy=None, touch_policy=None):
         self._slots[slot] = {
@@ -172,6 +171,7 @@ class FakePivController:
         self._driver.pin_verified = False
         self._driver.management_key = DEFAULT_MANAGEMENT_KEY
         self._driver.pin = VALID_PIN
+        self._driver.pin_attempts_remaining = 3
 
     def get_object(self, object_id):
         if (
@@ -209,7 +209,9 @@ class FakePivController:
 
     def verify_pin(self, pin):
         if self._driver.pin != pin:
+            self._driver.pin_attempts_remaining -= 1
             raise InvalidPinError(0)
+        self._driver.pin_attempts_remaining = 3
         self._driver.pin_verified = True
 
 
@@ -237,9 +239,16 @@ class Root3YubiKey(FakeYubiKey):
 
 @contextmanager
 def _yk_piv_ctrl_mock(serial=None):
-    global INSERTED_YUBIKEY
-
-    if INSERTED_YUBIKEY is None:
+    if not INSERTED_YUBIKEYS:
         raise ValueError("No YubiKey found with the given interface(s)")
 
-    yield [(FakePivController(INSERTED_YUBIKEY), INSERTED_YUBIKEY.serial)]
+    if serial is not None:
+        driver = INSERTED_YUBIKEYS.get(serial)
+        if driver is None:
+            raise ValueError("No YubiKey found with the given interface(s)")
+        yield [(FakePivController(driver), driver.serial)]
+    else:
+        yield [
+            (FakePivController(driver), driver.serial)
+            for driver in INSERTED_YUBIKEYS.values()
+        ]

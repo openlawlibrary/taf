@@ -8,7 +8,7 @@ from taf.api.yubikey import (
     setup_signing_yubikey,
     setup_test_yubikey,
 )
-from taf.exceptions import YubikeyError
+from taf.exceptions import KeystoreError, YubikeyError
 from taf.repository_utils import find_valid_repository
 from taf.tools.cli import catch_cli_exception
 from taf.tools.repo import pin_managed
@@ -127,7 +127,8 @@ def setup_signing_key_command():
     @click.command(
         help="""Generate a new key on the yubikey and copy it to the given PIV slot.
         Export the generated certificate to the specified directory.
-        WARNING - --reset will factory-reset the card, deleting everything on it first."""
+        Refuses to touch a slot that already has a key in it - reset the
+        YubiKey's PIV application outside of taf first if you need to redo it."""
     )
     @click.option(
         "--certs-dir",
@@ -139,24 +140,10 @@ def setup_signing_key_command():
         default="SIGNATURE",
         help="PIV slot to set the key up in. Defaults to SIGNATURE.",
     )
-    @click.option(
-        "--force",
-        is_flag=True,
-        default=False,
-        help="Overwrite the target slot if it's already occupied. Has no effect if "
-        "resetting, since that always leaves every slot empty regardless",
-    )
-    @click.option(
-        "--reset/--no-reset",
-        default=False,
-        help="Whether to factory-reset the card first. Defaults to False.",
-    )
     @catch_cli_exception(handle=YubikeyError)
     @pin_managed
-    def setup_signing_key(certs_dir, slot, force, reset, pin_manager):
-        setup_signing_yubikey(
-            pin_manager, certs_dir, key_size=2048, slot=slot, force=force, reset=reset
-        )
+    def setup_signing_key(certs_dir, slot, pin_manager):
+        setup_signing_yubikey(pin_manager, certs_dir, key_size=2048, slot=slot)
 
     return setup_signing_key
 
@@ -164,7 +151,8 @@ def setup_signing_key_command():
 def setup_test_key_command():
     @click.command(
         help="""Copies the specified key onto the given PIV slot of the inserted YubiKey.
-        WARNING - --reset will factory-reset the card, deleting everything on it first."""
+        Refuses to touch a slot that already has a key in it - reset the
+        YubiKey's PIV application outside of taf first if you need to redo it."""
     )
     @click.argument("key-path")
     @click.option(
@@ -173,22 +161,10 @@ def setup_test_key_command():
         default="SIGNATURE",
         help="PIV slot to copy the key into. Defaults to SIGNATURE.",
     )
-    @click.option(
-        "--force",
-        is_flag=True,
-        default=False,
-        help="Overwrite the target slot if it's already occupied. Has no effect if "
-        "resetting, since that always leaves every slot empty regardless",
-    )
-    @click.option(
-        "--reset/--no-reset",
-        default=False,
-        help="Whether to factory-reset the card first. Defaults to False.",
-    )
-    @catch_cli_exception(handle=YubikeyError)
+    @catch_cli_exception(handle=(YubikeyError, KeystoreError))
     @pin_managed
-    def setup_test_key(key_path, slot, force, reset, pin_manager):
-        setup_test_yubikey(pin_manager, key_path, slot=slot, force=force, reset=reset)
+    def setup_test_key(key_path, slot, pin_manager):
+        setup_test_yubikey(pin_manager, key_path, slot=slot)
 
     return setup_test_key
 

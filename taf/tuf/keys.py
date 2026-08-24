@@ -217,12 +217,17 @@ class YkSigner(Signer):
         serial_num: str,
         pin_handler: SecretsHandler,
         key_name: str,
+        slot=None,
     ):
 
         self._public_key = public_key
         self._pin_handler = pin_handler
         self._serial_num = serial_num
         self._key_name = key_name
+        # the PIV slot holding this key; None defaults to SLOT.SIGNATURE in
+        # sign() - kept untyped here so this module stays importable without
+        # yubikey-manager installed (an optional extra)
+        self._slot = slot
 
     @property
     def public_key(self) -> SSlibKey:
@@ -236,6 +241,10 @@ class YkSigner(Signer):
     def key_name(self) -> str:
         return self._key_name
 
+    @property
+    def slot(self):
+        return self._slot
+
     @classmethod
     def import_(cls) -> SSlibKey:
         """Import rsa public key from Yubikey.
@@ -246,6 +255,10 @@ class YkSigner(Signer):
         TODO: Consider returning priv key uri along with public key.
         See e.g. `self.from_priv_key_uri` and other `import_` methods on
         securesystemslib signers, e.g. `HSMSigner.import_`.
+
+        TODO: only checks SLOT.SIGNATURE, same as export_piv_pub_key -
+        test-only helper per the comment below, so not extended to other
+        slots for now.
         """
         # if multiple keys are inserted, we need to know from which key should be imported
         # TODO
@@ -261,9 +274,11 @@ class YkSigner(Signer):
     def sign(self, payload: bytes) -> Signature:
         pin = self._pin_handler(self._SECRET_PROMPT)
         from taf.yubikey.yubikey import sign_piv_rsa_pkcs1v15, verify_yk_inserted
+        from yubikit.piv import SLOT
 
         verify_yk_inserted(self.serial_num, self.key_name)
-        sig = sign_piv_rsa_pkcs1v15(payload, pin, serial=self.serial_num)
+        slot = self._slot if self._slot is not None else SLOT.SIGNATURE
+        sig = sign_piv_rsa_pkcs1v15(payload, pin, serial=self.serial_num, slot=slot)
         return Signature(self.public_key.keyid, sig.hex())
 
     @classmethod

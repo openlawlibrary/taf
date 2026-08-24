@@ -1,65 +1,59 @@
 from logging import DEBUG, ERROR
 from typing import Dict, Optional, Tuple
-import click
 
 from pathlib import Path
 from cryptography import x509
 from logdecorator import log_on_end, log_on_error, log_on_start
+from taf.api.utils._conf import find_taf_directory
 from taf.auth_repo import AuthenticationRepository
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
-from taf.exceptions import TAFError, YubikeyError
+from taf.exceptions import KeystoreError, TAFError, YubikeyError
 
 # from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.log import taf_logger
 from taf.tuf.keys import get_sslib_key_from_value
 from taf.tuf.repository import MAIN_ROLES
-from taf.utils import get_pin_for
 import taf.yubikey.yubikey as yk
+from taf.yubikey.yubikey import SETUP_SLOTS
 from taf.yubikey.yubikey_manager import PinManager
 from yubikit.piv import SLOT
 
-# Retired slots (RETIRED1-RETIRED20) are reserved for key history/decryption, not signing.
-SETUP_SLOTS = {SLOT.SIGNATURE, SLOT.AUTHENTICATION, SLOT.KEY_MANAGEMENT, SLOT.CARD_AUTH}
+
+def _ensure_slot_free(serial: str, piv_slot: SLOT) -> None:
+    """Raise a clear error if the target slot is already occupied."""
+    if yk.is_slot_occupied(serial, piv_slot):
+        raise YubikeyError(
+            f"The {piv_slot.name} slot on YubiKey {serial} already has a key. "
+            "taf will not overwrite or reset it. Use another slot with --slot "
+            "or reset the YubiKey's PIV application outside of taf and try again."
+        )
+    print(f"Setting up a new key in the {piv_slot.name} slot.")
 
 
-def _check_if_slot_overwrite_allowed(serial: str, piv_slot: SLOT, force: bool) -> bool:
-    """Check whether the target slot is already occupied and, if so, confirm
-    before overwriting it. Returns whether to proceed."""
-    occupied = yk.is_slot_occupied(serial, piv_slot)
-    if occupied and not force:
-        if not click.confirm(
-            f"WARNING - the {piv_slot.name} slot already has a key. "
-            "This will overwrite it. Proceed?"
-        ):
-            return False
-    elif occupied:
-        print(f"Overwriting the existing key in the {piv_slot.name} slot.")
-    else:
-        print(f"Setting up a new key in the {piv_slot.name} slot.")
-    return True
-
-
-def _prepare_non_reset_setup(
+def _prepare_setup(
     pin_manager: PinManager,
     piv_slot: SLOT,
-    force: bool,
     serial: Optional[str] = None,
     insert_prompt: Optional[str] = None,
-) -> Tuple[bool, str, str]:
-    """Resolve which YubiKey to use, get its PIN, and confirm before
-    touching an occupied slot."""
+) -> Tuple[str, str]:
+    """Resolve which YubiKey to use, confirm the target slot is free, and get
+    its PIN."""
     if serial is None:
         serial = _resolve_single_serial(insert_prompt)
 
-    # needed to unlock the card's stored, PIN-protected management key
-    pin = pin_manager.get_pin(serial)
-    if pin is None:
-        name = f"YubiKey {serial}" if len(yk.get_serial_nums()) > 1 else "YubiKey"
-        pin = get_pin_for(name, confirm=False, repeat=False)
-        pin_manager.add_pin(serial, pin)
+    # an unauthenticated PIV read, so check it before ever asking for a PIN
+    _ensure_slot_free(serial, piv_slot)
 
-    proceed = _check_if_slot_overwrite_allowed(serial, piv_slot, force)
-    return proceed, serial, pin
+    # needed to unlock the card's stored, PIN-protected management key -
+    # reuse the same resolve-from-env-then-validate flow used everywhere
+    # else a PIN is entered, instead of a partial reimplementation
+    name = f"YubiKey {serial}" if len(yk.get_serial_nums()) > 1 else "YubiKey"
+    taf_dir = find_taf_directory(Path.cwd())
+    yk._resolve_and_cache_pin(
+        pin_manager, serial, None, taf_dir, name, True, True, None
+    )
+
+    return serial, pin_manager.get_pin(serial)
 
 
 def _resolve_single_serial(prompt: Optional[str] = None) -> str:
@@ -287,8 +281,6 @@ def setup_signing_yubikey(
     certs_dir: Optional[str] = None,
     key_size: int = 2048,
     slot: str = "SIGNATURE",
-    force: bool = False,
-    reset: bool = False,
 ) -> None:
     """
     Generate a new key and copy it to the given PIV slot of the inserted YubiKey.
@@ -298,11 +290,6 @@ def setup_signing_yubikey(
         certs_dir (optional): Path to a directory where the exported certificate should be stored.
         slot (optional): Name of the PIV slot to set the key up in ("SIGNATURE",
             "AUTHENTICATION", "KEY_MANAGEMENT", or "CARD_AUTH"). Defaults to "SIGNATURE".
-        force (optional): Whether to overwrite the target slot if it already
-            has a key in it. Has no effect when reset is True, since resetting
-            always leaves every slot empty first, so there's nothing to
-            overwrite in that case.
-        reset (optional): Whether to factory-reset the card first. Defaults to False.
 
     Side Effects:
        None
@@ -312,47 +299,19 @@ def setup_signing_yubikey(
     """
     piv_slot = _resolve_slot(slot)
 
-    if reset:
-        if not click.confirm(
-            "WARNING - this will delete everything from the inserted key. Proceed?"
-        ):
-            return
-        # resetting wipes the PIN too, so a new one is chosen here
-        yubikeys = yk.yubikey_prompt(
-            ["new Yubikey"],
-            pin_manager=pin_manager,
-            creating_new_key=True,
-            pin_confirm=True,
-            pin_repeat=True,
-            prompt_message="Please insert the new Yubikey and press ENTER",
-        )
-        if not yubikeys:
-            raise YubikeyError("Could not generate a new key")
-        _, serial_num, _ = yubikeys[0]
-    else:
-        # not resetting, so the PIN itself is untouched - it's only needed
-        # here to unlock the card's stored management key
-        proceed, serial_num, _ = _prepare_non_reset_setup(
-            pin_manager,
-            piv_slot,
-            force,
-            insert_prompt="Insert the YubiKey you want to set up and press ENTER",
-        )
-        if not proceed:
-            return
-        # proceed=True means any occupied-slot warning was already
-        # confirmed, so overwriting is now always allowed
-        force = True
+    serial_num, _ = _prepare_setup(
+        pin_manager,
+        piv_slot,
+        insert_prompt="Insert the YubiKey you want to set up and press ENTER",
+    )
 
     key = yk.setup_new_yubikey(
         pin_manager,
         serial_num,
         key_size=key_size,
         slot=piv_slot,
-        force=force,
-        reset=reset,
     )
-    yk.export_yk_certificate(certs_dir, key, serial_num)
+    yk.export_yk_certificate(certs_dir, key, serial_num, slot=piv_slot)
 
 
 @log_on_start(DEBUG, "Setting up a new test YubiKey", logger=taf_logger)
@@ -369,8 +328,6 @@ def setup_test_yubikey(
     key_size: Optional[int] = 2048,
     serial: Optional[str] = None,
     slot: str = "SIGNATURE",
-    force: bool = False,
-    reset: bool = False,
 ) -> None:
     """
     Copy the specified key to the inserted YubiKey's given PIV slot.
@@ -379,9 +336,6 @@ def setup_test_yubikey(
         key_path: Path to a key which should be copied to a YubiKey.
         slot (optional): Name of the PIV slot to copy the key into ("SIGNATURE",
             "AUTHENTICATION", "KEY_MANAGEMENT", or "CARD_AUTH"). Defaults to "SIGNATURE".
-        force (optional): Whether to overwrite the target slot if it already
-            has a key in it. Has no effect when reset is True.
-        reset (optional): Whether to factory-reset the card first. Defaults to False.
 
     Side Effects:
        None
@@ -389,32 +343,15 @@ def setup_test_yubikey(
     Returns:
         None
     """
-    piv_slot = _resolve_slot(slot)
-
-    if reset:
-        if serial is None:
-            serial = _resolve_single_serial()
-        if not click.confirm("WARNING - this will reset the inserted key. Proceed?"):
-            return
-    else:
-        proceed, serial, pin = _prepare_non_reset_setup(
-            pin_manager, piv_slot, force, serial=serial
-        )
-        if not proceed:
-            return
-        # proceed=True means any occupied-slot warning was already
-        # confirmed, so overwriting is now always allowed
-        force = True
-
     key_pem_path = Path(key_path)
+    if not key_pem_path.is_file():
+        raise KeystoreError(f"{key_pem_path} does not exist")
     key_pem = key_pem_path.read_bytes()
 
-    print(f"Importing RSA private key from {key_path} to Yubikey...")
-    if reset:
-        # resetting wipes the PIN too, so it's reset to the default here
-        pin = yk.DEFAULT_PIN
-        pin_manager.add_pin(serial, pin)
+    piv_slot = _resolve_slot(slot)
+    serial, pin = _prepare_setup(pin_manager, piv_slot, serial=serial)
 
+    print(f"Importing RSA private key from {key_path} to Yubikey...")
     pub_key = yk.setup(
         pin,
         serial,
@@ -422,10 +359,6 @@ def setup_test_yubikey(
         private_key_pem=key_pem,
         key_size=key_size,
         slot=piv_slot,
-        force=force,
-        reset=reset,
     )
     print("\nPrivate key successfully imported.\n")
     print("\nPublic key (PEM): \n{}".format(pub_key.decode("utf-8")))
-    if reset:
-        print("Pin: {}\n".format(pin))

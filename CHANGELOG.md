@@ -9,11 +9,16 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Sign and discover keys across all YubiKey PIV slots, not just SIGNATURE ([767])
 - Support choosing a YubiKey PIV slot when setting up signing keys ([759])
 
 ### Changed
 
 - Remove unused `scheme` parameters ([757])
+
+### Removed
+
+- `--reset`/`--force` from `taf yubikey setup-signing-key`/`setup-test-key` - an occupied PIV slot is refused instead of being overwritten ([767])
 
 ### Fixed
 
@@ -25,6 +30,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 
 [771]: https://github.com/openlawlibrary/taf/pull/771
+[767]: https://github.com/openlawlibrary/taf/pull/767
 [762]: https://github.com/openlawlibrary/taf/pull/762
 [759]: https://github.com/openlawlibrary/taf/pull/759
 [757]: https://github.com/openlawlibrary/taf/pull/757
