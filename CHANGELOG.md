@@ -9,11 +9,22 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+### Changed
+
+### Fixed
+
+
+## [0.39.2]
+
+### Added
+
 - Allow overriding the temp directory used when cloning repositories via the `TAF_TMP` environment variable ([771])
 
 ### Changed
 
 ### Fixed
+
+- Pin `securesystemslib` to `1.4.*` to unbreak key loading, which securesystemslib 1.5.0 broke ([771])
 
 [771]: https://github.com/openlawlibrary/taf/pull/771
 
@@ -1876,7 +1887,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
-[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.39.1...HEAD
+[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.39.2...HEAD
+[0.39.2]: https://github.com/openlawlibrary/taf/compare/v0.39.1...v0.39.2
 [0.39.1]: https://github.com/openlawlibrary/taf/compare/v0.39.0...v0.39.1
 [0.39.0]: https://github.com/openlawlibrary/taf/compare/v0.38.4...v0.39.0
 [0.38.4]: https://github.com/openlawlibrary/taf/compare/v0.38.3...v0.38.4
