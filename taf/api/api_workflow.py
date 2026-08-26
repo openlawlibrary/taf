@@ -198,12 +198,12 @@ def _resolve_key_id_pins(
     Given a single --key-pin and the roles about to be loaded, figure out which
     of the currently inserted YubiKeys the pin belongs to.
 
-    A YubiKey is a candidate if it is a valid signing key for at least one of
-    `all_roles`. If exactly one candidate is found, the pin is bound to its
-    keyid. Otherwise (no candidates, or more than one), the pin is not bound
-    to anything and a warning is logged - the caller falls back to the normal
-    interactive PIN prompt (or PIN_<serial>/PIN_<key_name> env vars) instead
-    of erroring out.
+    A YubiKey is a candidate if any of its occupied PIV slots holds a valid
+    signing key for at least one of `all_roles`. If exactly one candidate is
+    found, the pin is bound to its keyid. Otherwise (no candidates, or more
+    than one), the pin is not bound to anything and a warning is logged - the
+    caller falls back to the normal interactive PIN prompt (or
+    PIN_<serial>/PIN_<key_name> env vars) instead of erroring out.
     """
     import taf.yubikey.yubikey as yk
 
@@ -214,34 +214,35 @@ def _resolve_key_id_pins(
             "Passed in a --key-pin but no YubiKeys inserted. Please insert a YubiKey and try again."
         )
 
+    roles_of_interest = set(all_roles)
     candidates = []
     for serial_num in serial_nums:
         try:
-            public_key = yk.get_piv_public_key_tuf(serial=serial_num)
+            slot_keys = yk.get_piv_public_keys_tuf(serial=serial_num).get(
+                serial_num, {}
+            )
         except Exception as e:
             taf_logger.debug(
-                f"Could not read public key of YubiKey serial={serial_num}: {e}"
+                f"Could not read public keys of YubiKey serial={serial_num}: {e}"
             )
             continue
 
-        for role in all_roles:
-            try:
-                if auth_repo.is_valid_metadata_yubikey(role, public_key):
-                    candidates.append((serial_num, public_key))
-                    break
-            except TAFError:
-                continue
+        for public_key in slot_keys.values():
+            associated_roles = auth_repo.find_associated_roles_of_key(public_key)
+            if roles_of_interest.intersection(associated_roles):
+                candidates.append((serial_num, public_key))
 
     if len(candidates) == 1:
-        serial_num, public_key = candidates[0]
+        _, public_key = candidates[0]
         keyid = _get_legacy_keyid(public_key)
         return {keyid: key_pin}
 
-    candidate_serials = [serial_num for serial_num, _ in candidates]
+    serial_nums_str = [str(serial_num) for serial_num in serial_nums]
+    candidate_serials = [str(serial_num) for serial_num, _ in candidates]
     if not candidates:
         taf_logger.warning(
             f"Passed in a --key-pin, but none of the inserted YubiKeys "
-            f"({', '.join(serial_nums)}) are valid signing keys for "
+            f"({', '.join(serial_nums_str)}) are valid signing keys for "
             f"{', '.join(all_roles)}. Ignoring --key-pin."
         )
     else:
