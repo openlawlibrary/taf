@@ -24,7 +24,8 @@ and this project adheres to [Semantic Versioning][semver].
 ### Fixed
 
 - Disallowing unauthenticated commits no longer invalidates already-signed history ([774])
-- - Allow `--key-pin` with multiple YubiKeys inserted ([770])
+- Fix YubiKey caching bugs that could skip a valid signing key for a delegated role
+- Allow `--key-pin` with multiple YubiKeys inserted ([770])
 - Detect signing scheme from key material instead of assuming RSA ([757])
 - Clone no longer fails when the repository path contains a space (e.g. a Windows home directory with a space in the user name) ([762])
 - Surface the underlying git error when a clone fails, instead of hiding it behind a generic access message ([762])

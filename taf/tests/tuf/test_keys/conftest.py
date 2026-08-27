@@ -42,13 +42,19 @@ def make_fake_yubikey(monkeypatch, keystore):
         device = make_fake_yubikey(
             "snapshot", extra_slots={SLOT.AUTHENTICATION: "timestamp"}
         )
+        # flash from a different keystore directory (e.g. one that has
+        # delegated roles' keys):
+        device = make_fake_yubikey("delegated_role1", keystore_path=keystore_delegations)
     """
     monkeypatch.setattr(yk, "_yk_piv_ctrl", _yk_piv_ctrl_mock)
     created = []
 
-    def _make(key_name, extra_slots=None):
+    def _make(key_name, extra_slots=None, keystore_path=None):
+        source_keystore = keystore_path if keystore_path is not None else keystore
         device = FakeYubiKey(
-            keystore / key_name, keystore / f"{key_name}.pub", scheme=None
+            source_keystore / key_name,
+            source_keystore / f"{key_name}.pub",
+            scheme=None,
         )
         device.insert()
         for slot, other_key_name in (extra_slots or {}).items():
@@ -56,7 +62,7 @@ def make_fake_yubikey(monkeypatch, keystore):
                 pin=device.pin,
                 serial=device.serial,
                 cert_cn=f"{other_key_name} key",
-                private_key_pem=(keystore / other_key_name).read_bytes(),
+                private_key_pem=(source_keystore / other_key_name).read_bytes(),
                 slot=slot,
             )
         created.append(device)
@@ -84,6 +90,30 @@ def create_auth_repo(repo_path, keystore, keystore_no_yubikeys_path):
             keystore_no_yubikeys_path,
             is_test_repo=True,
             keystore=keystore,
+        )
+
+    return _create
+
+
+@pytest.fixture
+def create_delegated_auth_repo(
+    repo_path, keystore_delegations, with_delegations_no_yubikeys_path
+):
+    """Factory wrapping create_authentication_repository: builds a repo with
+    delegations (targets -> delegated_role -> inner_role), signed entirely
+    with keys already present in the keystore_delegations fixture, so
+    nothing needs generating or writing. Built under the test's own
+    repo_path, cleaned up with it.
+    """
+
+    def _create(pin_manager=None):
+        return create_authentication_repository(
+            repo_path,
+            pin_manager if pin_manager is not None else PinManager(),
+            "test/auth",
+            with_delegations_no_yubikeys_path,
+            is_test_repo=True,
+            keystore=keystore_delegations,
         )
 
     return _create
