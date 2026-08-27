@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Disallowing unauthenticated commits no longer invalidates already-signed history ([774])
+
+[774]: https://github.com/openlawlibrary/taf/pull/774
 
 ## [0.39.2]
 
