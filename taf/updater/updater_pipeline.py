@@ -1857,6 +1857,21 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
 
+    def _is_unauthenticated_allowed_at(
+        self, repository, auth_commit: Commitish
+    ) -> bool:
+        target_custom = (
+            self.state.targets_data_by_auth_commits.get(repository.name, {})
+            .get(auth_commit, {})
+            .get("custom")
+        )
+        custom = repositoriesdb.get_repository_custom_at(
+            self.state.users_auth_repo, repository.name, auth_commit, target_custom
+        )
+        if custom is None:
+            return _is_unauthenticated_allowed(repository)
+        return custom.get("allow-unauthenticated-commits", False)
+
     def _validate_current_repo_commit(
         self,
         repository,
@@ -1894,7 +1909,7 @@ but commit not on branch {current_branch}"
 
         if current_commit == current_target_commit:
             return current_target_commit
-        if not _is_unauthenticated_allowed(repository):
+        if not self._is_unauthenticated_allowed_at(repository, current_auth_commit):
             commit_date = users_auth_repo.get_commit_date(current_auth_commit)
             raise UpdateFailedError(
                 f"Failure to validate {users_auth_repo.name} commit {current_auth_commit} committed on {commit_date}: \

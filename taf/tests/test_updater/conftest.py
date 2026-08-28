@@ -596,6 +596,63 @@ def add_unauthenticated_commit_to_target_repo(target_repos: list, target_name: s
             update_target_repository(target_repo, "Update target files")
 
 
+def set_allow_unauthenticated_commits(
+    auth_repo: AuthenticationRepository,
+    pin_manager: PinManager,
+    target_repos: list,
+    allow: Optional[bool],
+    target_name: Optional[str] = None,
+    sign_target_pointers: bool = False,
+):
+    """Rewrite targets/repositories.json of the authentication repository, setting
+    allow-unauthenticated-commits of the matching target repositories to `allow`,
+    then sign and commit the change. If `allow` is None, the key is removed from
+    custom instead of being set, so that its absence (defaulting to False) can be
+    tested the same way as an explicit False.
+
+    If sign_target_pointers is False (the default), sign_target_files is used. It
+    signs the targets directory as-is, so the resulting authentication commit only
+    changes repositories.json and leaves every per-repo target file (its commit and
+    branch pointer) untouched.
+    If sign_target_pointers is True, sign_target_repositories is used instead. It
+    also regenerates the per-repo target files based on the current target HEADs,
+    meaning that the flag change and a target repository advance are recorded in
+    the same authentication commit.
+    """
+    repositories_json_path = (
+        auth_repo.path / TARGETS_DIRECTORY_NAME / REPOSITORIES_JSON_NAME
+    )
+    repositories_json = json.loads(repositories_json_path.read_text())
+    for name, repo_data in repositories_json["repositories"].items():
+        if target_name is None or target_name in name:
+            custom = repo_data.setdefault("custom", {})
+            if allow is None:
+                custom.pop("allow-unauthenticated-commits", None)
+            else:
+                custom["allow-unauthenticated-commits"] = allow
+    repositories_json_path.write_text(json.dumps(repositories_json, indent=4))
+
+    for target_repo in target_repos:
+        if target_name is None or target_name in target_repo.name:
+            if allow is None:
+                target_repo.custom.pop("allow-unauthenticated-commits", None)
+            else:
+                target_repo.custom["allow-unauthenticated-commits"] = allow
+
+    if sign_target_pointers:
+        update_target_repos_from_repositories_json(
+            str(Path(TEST_DATA_ORIGIN_PATH, auth_repo.name)),
+            pin_manager,
+            str(TEST_DATA_ORIGIN_PATH),
+            str(KEYSTORE_PATH),
+            skip_clean_check=True,
+        )
+    else:
+        sign_target_files(
+            TEST_DATA_ORIGIN_PATH, auth_repo.name, KEYSTORE_PATH, pin_manager
+        )
+
+
 def create_new_target_orphan_branches(
     auth_repo: AuthenticationRepository,
     target_repos: list,

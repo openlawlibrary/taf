@@ -23,13 +23,15 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
-- Allow `--key-pin` with multiple YubiKeys inserted ([770])
+- Disallowing unauthenticated commits no longer invalidates already-signed history ([774])
+- - Allow `--key-pin` with multiple YubiKeys inserted ([770])
 - Detect signing scheme from key material instead of assuming RSA ([757])
 - Clone no longer fails when the repository path contains a space (e.g. a Windows home directory with a space in the user name) ([762])
 - Surface the underlying git error when a clone fails, instead of hiding it behind a generic access message ([762])
 - Correct the clone access error that rendered as "Cannot None ..." and stop misattributing a local failure to an access/authentication problem ([762])
 
 
+[774]: https://github.com/openlawlibrary/taf/pull/774
 [771]: https://github.com/openlawlibrary/taf/pull/771
 [770]: https://github.com/openlawlibrary/taf/pull/770
 [767]: https://github.com/openlawlibrary/taf/pull/767
