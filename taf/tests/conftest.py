@@ -59,6 +59,16 @@ def keystore_delegations():
 
 
 @pytest.fixture(scope="session")
+def real_public_key(keystore_delegations):
+    """Factory returning the real public key of a named key file in keystore_delegations."""
+
+    def _real_public_key(key_name):
+        return load_signer_from_file(keystore_delegations / key_name).public_key
+
+    return _real_public_key
+
+
+@pytest.fixture(scope="session")
 def mirrors_json_path():
     return MIRRORS_JSON_PATH
 
