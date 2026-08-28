@@ -7,6 +7,7 @@ from taf.tests.test_updater.conftest import (
     add_valid_unauthenticated_commits,
     clone_client_repo,
     create_new_target_orphan_branches,
+    set_allow_unauthenticated_commits,
     update_and_sign_metadata_without_clean_check,
     update_expiration_dates,
     update_role_metadata_without_signing,
@@ -105,6 +106,74 @@ def test_clone_valid_with_unauthenticated_commits(origin_auth_repo, client_dir):
     setup_manager.add_task(add_valid_unauthenticated_commits)
     setup_manager.add_task(add_valid_target_commits)
     setup_manager.add_task(add_valid_unauthenticated_commits)
+    setup_manager.execute_tasks()
+
+    update_and_check_commit_shas(
+        OperationType.CLONE,
+        origin_auth_repo,
+        client_dir,
+        expected_repo_type=UpdateType.OFFICIAL,
+    )
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [
+                {"name": "target1", "allow_unauthenticated_commits": True},
+                {"name": "target2"},
+            ],
+        },
+    ],
+    indirect=True,
+)
+def test_clone_valid_after_disallowing_unauthenticated_commits(
+    origin_auth_repo, client_dir
+):
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(add_valid_target_commits)
+    setup_manager.add_task(add_valid_unauthenticated_commits)
+    setup_manager.add_task(add_valid_target_commits)
+    setup_manager.add_task(
+        set_allow_unauthenticated_commits,
+        kwargs={"allow": False, "target_name": "target1"},
+    )
+    setup_manager.add_task(add_valid_target_commits)
+    setup_manager.execute_tasks()
+
+    update_and_check_commit_shas(
+        OperationType.CLONE,
+        origin_auth_repo,
+        client_dir,
+        expected_repo_type=UpdateType.OFFICIAL,
+    )
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [
+                {"name": "target1", "allow_unauthenticated_commits": True},
+                {"name": "target2"},
+            ],
+        },
+    ],
+    indirect=True,
+)
+def test_clone_valid_after_removing_allow_unauthenticated_commits_key(
+    origin_auth_repo, client_dir
+):
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(add_valid_target_commits)
+    setup_manager.add_task(add_valid_unauthenticated_commits)
+    setup_manager.add_task(add_valid_target_commits)
+    setup_manager.add_task(
+        set_allow_unauthenticated_commits,
+        kwargs={"allow": None, "target_name": "target1"},
+    )
+    setup_manager.add_task(add_valid_target_commits)
     setup_manager.execute_tasks()
 
     update_and_check_commit_shas(

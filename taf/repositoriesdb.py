@@ -1,6 +1,6 @@
 import ast
 import json
-from typing import Callable, Dict, List, Optional, Type
+from typing import Any, Callable, Dict, List, Optional, Type
 from pathlib import Path
 from taf.auth_repo import AuthenticationRepository
 from taf.constants import TARGETS_DIRECTORY_NAME
@@ -940,6 +940,22 @@ def load_repositories_json(
             return None
         else:
             raise
+
+
+def get_repository_custom_at(
+    auth_repo: AuthenticationRepository,
+    repo_name: str,
+    commit: Commitish,
+    target_custom: Optional[Dict[str, Any]] = None,
+) -> Optional[Dict[str, Any]]:
+    repositories_json = load_repositories_json(auth_repo, commit)
+    if repositories_json is None:
+        return None
+    repo_data = (repositories_json.get("repositories") or {}).get(repo_name)
+    if repo_data is None:
+        return None
+    target = {"custom": target_custom} if target_custom is not None else None
+    return _get_custom_data(repo_data, target)
 
 
 def load_mirrors_json(
