@@ -459,7 +459,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         self._output = None
         self.local_repos_consistent = True
         self.repos_synced_with_remote = False
-        self._repositories_json_cache: Dict[Commitish, Optional[Dict]] = {}
 
     @property
     def output(self):
@@ -1858,46 +1857,19 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
 
-    def _get_repositories_json_at(
-        self, auth_commit: Commitish
-    ) -> Optional[Dict[str, Any]]:
-        if auth_commit not in self._repositories_json_cache:
-            self._repositories_json_cache[auth_commit] = (
-                repositoriesdb.load_repositories_json(
-                    self.state.users_auth_repo, auth_commit
-                )
-            )
-        return self._repositories_json_cache[auth_commit]
-
     def _is_unauthenticated_allowed_at(
         self, repository, auth_commit: Commitish
     ) -> bool:
-        """
-        Resolve allow-unauthenticated-commits as declared in repositories.json
-        at `auth_commit`, the authentication commit whose target file is being
-        validated, instead of using the newest repositories.json in the
-        validated range. This ensures that flipping the flag to False does not
-        retroactively invalidate unauthenticated commits that were made, and
-        signed over, while it was still True.
-        """
-        repositories_json = self._get_repositories_json_at(auth_commit)
-        if repositories_json is None:
-            return _is_unauthenticated_allowed(repository)
-
-        repositories = repositories_json.get("repositories") or {}
-        repo_data = repositories.get(repository.name)
-        if repo_data is None:
-            return _is_unauthenticated_allowed(repository)
-
-        custom = dict(repo_data.get("custom") or {})
         target_custom = (
             self.state.targets_data_by_auth_commits.get(repository.name, {})
             .get(auth_commit, {})
             .get("custom")
         )
-        if target_custom:
-            custom.update(target_custom)
-
+        custom = repositoriesdb.get_repository_custom_at(
+            self.state.users_auth_repo, repository.name, auth_commit, target_custom
+        )
+        if custom is None:
+            return _is_unauthenticated_allowed(repository)
         return custom.get("allow-unauthenticated-commits", False)
 
     def _validate_current_repo_commit(
