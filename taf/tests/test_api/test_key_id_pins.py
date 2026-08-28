@@ -60,8 +60,6 @@ def test_multiple_yubikeys_only_one_valid_binds_pin_no_error(
 def test_multiple_yubikeys_multiple_valid_returns_empty_and_warns(
     monkeypatch, auth_repo, real_public_key
 ):
-    # targets' threshold is 1 out of 2 keys, so both targets1 and targets2
-    # are independently valid signing keys for "targets" -> ambiguous
     targets1_key = real_public_key("targets1")
     targets2_key = real_public_key("targets2")
     serial_to_keys = {
@@ -112,6 +110,32 @@ def test_unreadable_yubikey_is_skipped_others_still_resolved(
     result = api_workflow._resolve_key_id_pins(auth_repo, ["targets"], "555555")
 
     assert result == {_get_legacy_keyid(targets_key): "555555"}
+
+
+def test_single_yubikey_two_valid_slots_binds_pin_to_both_not_ambiguous(
+    monkeypatch, auth_repo, real_public_key
+):
+    """A single physical YubiKey uses one PIN for every PIV slot, so finding
+    two valid signing keys on it (one per slot) must not be treated as
+    ambiguous - the pin is bound to both keyids."""
+    root1_key = real_public_key("root1")
+    root2_key = real_public_key("root2")
+
+    monkeypatch.setattr(yk, "get_serial_nums", lambda: [1])
+    monkeypatch.setattr(
+        yk,
+        "get_piv_public_keys_tuf",
+        lambda serial: {
+            serial: {SLOT.SIGNATURE: root1_key, SLOT.AUTHENTICATION: root2_key}
+        },
+    )
+
+    result = api_workflow._resolve_key_id_pins(auth_repo, ["root"], "777777")
+
+    assert result == {
+        _get_legacy_keyid(root1_key): "777777",
+        _get_legacy_keyid(root2_key): "777777",
+    }
 
 
 def test_key_on_non_signature_slot_still_resolved(

@@ -170,8 +170,6 @@ def _setup_auth_repo_and_signers(
     if key_pin is not None:
         key_id_pins = _resolve_key_id_pins(auth_repo, all_roles, key_pin)
 
-    # a supplied key pin still means "sign using YubiKeys", even if that pin
-    # could not be bound to a specific key
     use_yubikeys_to_sign = key_pin is not None
     sorted_roles = sorted(all_roles, key=role_priority)
     auth_repo.pin_manager.auto_continue = True
@@ -199,10 +197,14 @@ def _resolve_key_id_pins(
     of the currently inserted YubiKeys the pin belongs to.
 
     A YubiKey is a candidate if any of its occupied PIV slots holds a valid
-    signing key for at least one of `all_roles`. If exactly one candidate is
-    found, the pin is bound to its keyid. Otherwise (no candidates, or more
-    than one), the pin is not bound to anything and a warning is logged - the
-    caller falls back to the normal interactive PIN prompt (or
+    signing key for at least one of `all_roles`. A single physical YubiKey
+    uses one PIN across all of its PIV slots, so if every candidate key comes
+    from the same device, the pin is bound to all of their keyids - that is
+    not ambiguous, even if more than one of its slots matched. It is only
+    ambiguous when candidate keys come from more than one distinct device. If
+    the pin can't be bound to a single device (no candidates, or candidates on
+    more than one device), it is not bound to anything and a warning is
+    logged - the caller falls back to the normal interactive PIN prompt (or
     PIN_<serial>/PIN_<key_name> env vars) instead of erroring out.
     """
     import taf.yubikey.yubikey as yk
@@ -232,13 +234,11 @@ def _resolve_key_id_pins(
             if roles_of_interest.intersection(associated_roles):
                 candidates.append((serial_num, public_key))
 
-    if len(candidates) == 1:
-        _, public_key = candidates[0]
-        keyid = _get_legacy_keyid(public_key)
-        return {keyid: key_pin}
+    candidate_serials = {serial_num for serial_num, _ in candidates}
+    if len(candidate_serials) == 1:
+        return {_get_legacy_keyid(public_key): key_pin for _, public_key in candidates}
 
     serial_nums_str = [str(serial_num) for serial_num in serial_nums]
-    candidate_serials = [str(serial_num) for serial_num, _ in candidates]
     if not candidates:
         taf_logger.warning(
             f"Passed in a --key-pin, but none of the inserted YubiKeys "
@@ -248,8 +248,9 @@ def _resolve_key_id_pins(
     else:
         taf_logger.warning(
             f"Passed in a --key-pin, but multiple inserted YubiKeys "
-            f"({', '.join(candidate_serials)}) are valid signing keys for "
-            f"{', '.join(all_roles)}. --key-pin is ambiguous and will be ignored."
+            f"({', '.join(str(s) for s in candidate_serials)}) are valid signing "
+            f"keys for {', '.join(all_roles)}. --key-pin is ambiguous and will be "
+            "ignored."
         )
     return {}
 
