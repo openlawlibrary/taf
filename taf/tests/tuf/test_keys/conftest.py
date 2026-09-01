@@ -1,6 +1,8 @@
 import pytest
 import shutil
 
+from yubikit.piv import SLOT
+
 import taf.yubikey.yubikey as yk
 from taf.tests.conftest import create_authentication_repository
 from taf.tools.yubikey.yubikey_utils import FakeYubiKey, _yk_piv_ctrl_mock
@@ -128,3 +130,61 @@ def tuf_repo(
     repo.create(roles_keys_data, signers_with_delegations)
     yield repo
     shutil.rmtree(tuf_repo_path, onerror=on_rm_error)
+
+
+@pytest.fixture
+def delegated_role_device(make_fake_yubikey, keystore_delegations):
+    """A fake YubiKey holding both of delegated_role's keys (SIGNATURE +
+    AUTHENTICATION), from keystore_delegations."""
+    return make_fake_yubikey(
+        "delegated_role1",
+        extra_slots={SLOT.AUTHENTICATION: "delegated_role2"},
+        keystore_path=keystore_delegations,
+    )
+
+
+@pytest.fixture
+def unauthorized_device(make_fake_yubikey, keystore_delegations):
+    """A fake YubiKey valid for 'targets', not for 'delegated_role'."""
+    return make_fake_yubikey("targets1", keystore_path=keystore_delegations)
+
+
+@pytest.fixture
+def block_reprompt(monkeypatch):
+    """Fail loudly instead of hanging if yubikey_prompt retries - guards
+    against yubikey_prompt's unbounded retry loop turning a real bug into a
+    hang instead of a clean assertion failure."""
+
+    def _unexpected_reprompt(*_args, **_kwargs):
+        raise AssertionError(
+            "unexpected re-prompt: yubikey_prompt retried instead of finding "
+            "the authorized YubiKey among the inserted devices"
+        )
+
+    monkeypatch.setattr(yk, "getpass", _unexpected_reprompt)
+
+
+def insert_in_order(*devices):
+    """Remove and re-insert devices in the given order, so get_serial_nums()
+    (which reflects INSERTED_YUBIKEYS' insertion order) enumerates them in
+    that order."""
+    for device in devices:
+        device.remove()
+    for device in devices:
+        device.insert()
+
+
+def write_target(path, text="hello"):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text)
+
+
+def write_signing_keystore(tmp_path, source_keystore, names=("snapshot", "timestamp")):
+    signing_keystore = tmp_path / "signing_keystore"
+    signing_keystore.mkdir()
+    for name in names:
+        (signing_keystore / name).write_bytes((source_keystore / name).read_bytes())
+        (signing_keystore / f"{name}.pub").write_bytes(
+            (source_keystore / f"{name}.pub").read_bytes()
+        )
+    return signing_keystore

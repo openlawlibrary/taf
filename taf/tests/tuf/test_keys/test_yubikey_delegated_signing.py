@@ -5,10 +5,14 @@ checked first."""
 
 import pytest
 from tuf.api.metadata import Metadata
-from yubikit.piv import SLOT
 
 from taf.api.targets import register_target_files
 from taf.auth_repo import AuthenticationRepository
+from taf.tests.tuf.test_keys.conftest import (
+    insert_in_order,
+    write_signing_keystore,
+    write_target,
+)
 from taf.tuf.keys import load_signer_from_file
 from taf.yubikey.yubikey_manager import PinManager
 import taf.yubikey.yubikey as yk
@@ -21,69 +25,23 @@ def _pin_manager(*devices) -> PinManager:
     return pin_manager
 
 
-def _block_reprompt(monkeypatch):
-    def _unexpected_reprompt(*_args, **_kwargs):
-        raise AssertionError(
-            "unexpected re-prompt: yubikey_prompt retried instead of finding "
-            "the authorized YubiKey among the inserted devices"
-        )
-
-    monkeypatch.setattr(yk, "getpass", _unexpected_reprompt)
-
-
-def _make_delegated_role_device(make_fake_yubikey, keystore_delegations):
-    return make_fake_yubikey(
-        "delegated_role1",
-        extra_slots={SLOT.AUTHENTICATION: "delegated_role2"},
-        keystore_path=keystore_delegations,
-    )
-
-
-def _make_unauthorized_device(make_fake_yubikey, keystore_delegations):
-    return make_fake_yubikey("targets1", keystore_path=keystore_delegations)
-
-
-def _insert_in_order(*devices):
-    for device in devices:
-        device.remove()
-    for device in devices:
-        device.insert()
-
-
-def _write_target(path, text="hello"):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(text)
-
-
-def _write_signing_keystore(tmp_path, source_keystore, names=("snapshot", "timestamp")):
-    signing_keystore = tmp_path / "signing_keystore"
-    signing_keystore.mkdir()
-    for name in names:
-        (signing_keystore / name).write_bytes((source_keystore / name).read_bytes())
-        (signing_keystore / f"{name}.pub").write_bytes(
-            (source_keystore / f"{name}.pub").read_bytes()
-        )
-    return signing_keystore
-
-
 @pytest.mark.parametrize("authorized_inserted_first", [True, False])
 def test_read_and_check_yubikeys_skips_unauthorized_device_for_delegated_role(
-    make_fake_yubikey,
+    delegated_role_device,
+    unauthorized_device,
     keystore_delegations,
     create_delegated_auth_repo,
     authorized_inserted_first,
 ):
-    authorized = _make_delegated_role_device(make_fake_yubikey, keystore_delegations)
-    unauthorized = _make_unauthorized_device(make_fake_yubikey, keystore_delegations)
     if not authorized_inserted_first:
-        _insert_in_order(unauthorized, authorized)
+        insert_in_order(unauthorized_device, delegated_role_device)
 
     taf_repo = create_delegated_auth_repo()
 
     result = yk._read_and_check_yubikeys(
         role="delegated_role",
         taf_repo=taf_repo,
-        pin_manager=_pin_manager(authorized, unauthorized),
+        pin_manager=_pin_manager(delegated_role_device, unauthorized_device),
         pin_confirm=False,
         pin_repeat=False,
         prompt_message=None,
@@ -103,34 +61,31 @@ def test_read_and_check_yubikeys_skips_unauthorized_device_for_delegated_role(
     ).public_key
     found_keyids = {entry[0].keyid for entry in result}
     assert found_keyids == {role1_key.keyid, role2_key.keyid}
-    assert all(entry[1] == authorized.serial for entry in result)
+    assert all(entry[1] == delegated_role_device.serial for entry in result)
 
 
 @pytest.mark.parametrize("authorized_inserted_first", [True, False])
 def test_sign_delegated_role_with_unauthorized_yubikey_inserted(
-    make_fake_yubikey,
+    delegated_role_device,
+    unauthorized_device,
     keystore_delegations,
     create_delegated_auth_repo,
     tmp_path,
-    monkeypatch,
+    block_reprompt,
     authorized_inserted_first,
 ):
-    _block_reprompt(monkeypatch)
-
-    authorized = _make_delegated_role_device(make_fake_yubikey, keystore_delegations)
-    unauthorized = _make_unauthorized_device(make_fake_yubikey, keystore_delegations)
     if not authorized_inserted_first:
-        _insert_in_order(unauthorized, authorized)
+        insert_in_order(unauthorized_device, delegated_role_device)
 
-    pin_manager = _pin_manager(authorized, unauthorized)
+    pin_manager = _pin_manager(delegated_role_device, unauthorized_device)
     taf_repo = create_delegated_auth_repo(pin_manager)
 
     metadata_path = taf_repo.path / "metadata"
     delegated_md_before = Metadata.from_file(str(metadata_path / "delegated_role.json"))
     version_before = delegated_md_before.signed.version
 
-    _write_target(taf_repo.targets_path / "dir1" / "a-new-target.txt")
-    signing_keystore = _write_signing_keystore(tmp_path, keystore_delegations)
+    write_target(taf_repo.targets_path / "dir1" / "a-new-target.txt")
+    signing_keystore = write_signing_keystore(tmp_path, keystore_delegations)
 
     auth_repo = AuthenticationRepository(
         path=str(taf_repo.path), pin_manager=pin_manager
@@ -154,23 +109,19 @@ def test_sign_delegated_role_with_unauthorized_yubikey_inserted(
 
 @pytest.mark.parametrize("device_a_inserted_first", [True, False])
 def test_sign_two_delegated_roles_each_with_its_own_yubikey_in_one_command(
+    delegated_role_device,
     make_fake_yubikey,
     keystore_delegations,
     create_delegated_auth_repo,
     tmp_path,
-    monkeypatch,
+    block_reprompt,
     device_a_inserted_first,
 ):
-    _block_reprompt(monkeypatch)
-
-    device_delegated = _make_delegated_role_device(
-        make_fake_yubikey, keystore_delegations
-    )
     device_inner = make_fake_yubikey("inner_role", keystore_path=keystore_delegations)
     if not device_a_inserted_first:
-        _insert_in_order(device_inner, device_delegated)
+        insert_in_order(device_inner, delegated_role_device)
 
-    pin_manager = _pin_manager(device_delegated, device_inner)
+    pin_manager = _pin_manager(delegated_role_device, device_inner)
     taf_repo = create_delegated_auth_repo(pin_manager)
 
     metadata_path = taf_repo.path / "metadata"
@@ -179,9 +130,9 @@ def test_sign_two_delegated_roles_each_with_its_own_yubikey_in_one_command(
         for role in ("delegated_role", "inner_role")
     }
 
-    _write_target(taf_repo.targets_path / "dir1" / "a-new-target.txt")
-    _write_target(taf_repo.targets_path / "dir2" / "path2")
-    signing_keystore = _write_signing_keystore(tmp_path, keystore_delegations)
+    write_target(taf_repo.targets_path / "dir1" / "a-new-target.txt")
+    write_target(taf_repo.targets_path / "dir2" / "path2")
+    signing_keystore = write_signing_keystore(tmp_path, keystore_delegations)
 
     auth_repo = AuthenticationRepository(
         path=str(taf_repo.path), pin_manager=pin_manager
