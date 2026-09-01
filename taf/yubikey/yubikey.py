@@ -732,7 +732,8 @@ def _read_and_check_yubikeys(
         taf_logger.log(
             "NOTICE",
             f"YubiKey(s) with serial(s) {', '.join(str(s) for s in invalid_keys)} "
-            f"are not valid signing keys for role '{role}' and were skipped.",
+            f"do not hold a signing key for role '{role}' and were skipped for this "
+            "role - they may still be used to sign other roles in this run.",
         )
 
     return yubikeys
