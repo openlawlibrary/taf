@@ -693,7 +693,10 @@ def _read_and_check_yubikeys(
                 slot = candidate_slot
                 found_valid_key = True
 
-                key_name = taf_repo.keys_name_mappings.get(public_key.keyid)
+                key_name = (
+                    taf_repo.keys_name_mappings.get(public_key.keyid)
+                    or f"{serial_num}-{slot.name}"
+                )
                 taf_logger.debug(
                     f"Potential YubiKey with serial={serial_num}, associated key_name='{key_name}', slot={slot}."
                 )
@@ -723,6 +726,14 @@ def _read_and_check_yubikeys(
         print("All inserted YubiKeys already loaded")
         taf_logger.debug(
             f"All YubiKeys inserted were already loaded for role='{role}'."
+        )
+
+    if invalid_keys:
+        taf_logger.log(
+            "NOTICE",
+            f"YubiKey(s) with serial(s) {', '.join(str(s) for s in invalid_keys)} "
+            f"do not hold a signing key for role '{role}' and were skipped for this "
+            "role - they may still be used to sign other roles in this run.",
         )
 
     return yubikeys
