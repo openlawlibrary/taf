@@ -18,7 +18,6 @@ from taf.log import taf_logger
 from taf.repository_utils import find_valid_repository
 from taf.git import GitRepository
 from taf.utils import is_run_from_python_executable, on_rm_error
-from taf.updater.lifecycle_handlers import Event
 
 
 def catch_cli_exception(
@@ -164,30 +163,23 @@ def common_repo_edit_options(func):
 
 def safe_cleanup(method):
     """
-    Decorator that handles gracefull shutdown (SIGINT and SIGTERM)
-    applicable for:
-    Pipeline
-    any with cleanup()
+    Decorator that handles gracefull shutdown and cleanup (SIGINT and SIGTERM)
+    applicable for objects with any: `cleanup`, `on_interrupt` and `after_interrupt` functions defined
     """
 
     @functools.wraps(method)
     def wrapper(self, *args, **kwargs):
 
-        is_pipeline = "Pipeline" in self.__class__.__name__
-
         has_cleanup = hasattr(self, "cleanup") and callable(self.cleanup)
+        has_on_interrupt = hasattr(self, "on_interrupt") and callable(self.on_interrupt)
+        has_after_interrupt = hasattr(self, "after_interrupt") and callable(
+            self.after_interrupt
+        )
 
         # Signal handler only mutates state; deletion is delegated to finally.
         def _signal_handler(signum, frame):
-            if is_pipeline:
-                if (
-                    not self.only_validate
-                    and not self.state.existing_repo
-                    and self.state.users_auth_repo is not None
-                ):
-                    self.state.event = Event.FAILED
-            elif True:
-                pass  # Expand Here
+            if has_on_interrupt:
+                self.on_interrupt()
             raise KeyboardInterrupt(f"Received signal {signum}")
 
         original_sigint = None
@@ -214,18 +206,9 @@ def safe_cleanup(method):
             return method(self, *args, **kwargs)
 
         except KeyboardInterrupt:
-            # Set state for non-KeyboardInterrupt exceptions (ValueError, SystemExit, etc.)
-            if is_pipeline:
-                if (
-                    not self.only_validate
-                    and not self.state.existing_repo
-                    and self.state.users_auth_repo is not None
-                ):
-                    self.state.event = Event.FAILED
-            elif True:
-                pass  # Expand Here
+            if has_after_interrupt:
+                self.after_interrupt()
             raise
-
         finally:
             # Restore original handlers if changed
             if threading.current_thread() is threading.main_thread():
@@ -240,13 +223,7 @@ def safe_cleanup(method):
                     except Exception:
                         pass
 
-            # Cleanup lives here (and ONLY here)
-            if is_pipeline:
-                self.remove_temp_repositories(final_cleanup=True)
-            elif has_cleanup:
-                self.cleanup()  # Expand Here
-
-            # Add other object types here if needed
-            # elif hasattr(self, 'cleanup'): self.cleanup()
+            if has_cleanup:
+                self.cleanup()
 
     return wrapper
