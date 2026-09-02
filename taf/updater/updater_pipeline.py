@@ -216,35 +216,30 @@ class Pipeline:
     def run(self):
         self.state.errors = []
         self.state.warnings = []
-        try:
-            for step, step_run_mode, should_run_fn in self.steps:
-                try:
-                    if (
-                        step_run_mode == RunMode.ALL or step_run_mode == self.run_mode
-                    ) and (
-                        should_run_fn()
-                    ):  # runs method like object
-                        self.current_step = step
-                        update_status = step()
-                        combined_status = combine_statuses(
-                            self.state.update_status, update_status
-                        )
-                        self.state.update_status = combined_status
+        for step, step_run_mode, should_run_fn in self.steps:
+            try:
+                if (
+                    step_run_mode == RunMode.ALL or step_run_mode == self.run_mode
+                ) and (
+                    should_run_fn()
+                ):  # runs method like object
+                    self.current_step = step
+                    update_status = step()
+                    combined_status = combine_statuses(
+                        self.state.update_status, update_status
+                    )
+                    self.state.update_status = combined_status
 
-                        if combined_status == UpdateStatus.FAILED:
-                            message = "\n".join(
-                                str(error) for error in self.state.errors
-                            )
-                            raise UpdateFailedError(message)
+                    if combined_status == UpdateStatus.FAILED:
+                        message = "\n".join(str(error) for error in self.state.errors)
+                        raise UpdateFailedError(message)
 
-                except Exception as e:
-                    self.handle_error(e)
-                    break
-                except KeyboardInterrupt as e:
-                    self.handle_error(e)
-                    raise
-        finally:
-            self.set_output()
+            except Exception as e:
+                self.handle_error(e)
+                break
+            except KeyboardInterrupt as e:
+                self.handle_error(e)
+                raise
 
     def handle_error(self, e):
         self.state.event = Event.FAILED
@@ -264,6 +259,9 @@ class Pipeline:
 
     def set_output(self):
         pass
+
+    def cleanup(self):
+        self.set_output()
 
 
 class AuthenticationRepositoryUpdatePipeline(Pipeline):
@@ -2066,7 +2064,7 @@ but commit not on branch {current_branch}"
             for repo in self.state.temp_target_repositories.values():
                 repo.cleanup()
             if self.state.update_handler is not None:
-                self.state.update_handler.cleanup() # TODO: This should not be None.
+                self.state.update_handler.cleanup()  # TODO: This should not be None.
 
             # finally clean temps
             self.state.temp_root.cleanup_async()
@@ -2447,6 +2445,19 @@ but commit not on branch {current_branch}"
             self.state.errors.append(e)
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
+
+    def cleanup(self):
+        self.set_output()
+        self.remove_temp_repositories(final_cleanup=True)
+        pass
+
+    def on_interrupt(self):
+        if (
+            not self.only_validate
+            and not self.state.existing_repo
+            and self.state.users_auth_repo is not None
+        ):
+            self.state.event = Event.FAILED
 
 
 def _get_repository_name_raise_error_if_not_defined(validation_repo, commit):
