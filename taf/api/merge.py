@@ -304,12 +304,19 @@ def _mirrored_repos(source_branch, merge_plan, repos_by_name, qualifying_steps, 
     left to the post-merge repository validation instead. Otherwise an uneven
     count is left in and surfaces as a validation error - the ordinary signal
     that a repo's branch lost commits to a force push.
+
+    Materializes a local `source_branch` for each mirrored repo (mirroring
+    `create_local_branch_from_remote_tracking` already used for `destination`)
+    so downstream git operations that only look at local branches - a caller's
+    own tooling, not anything this function needs itself - see it too.
     """
     mirrored = [
         (name, destination)
         for name, (destination, _) in merge_plan.items()
         if repos_by_name[name].branch_exists(source_branch)
     ]
+    for name, _ in mirrored:
+        repos_by_name[name].create_local_branch_from_remote_tracking(source_branch)
     if not policy.allow_uneven_branch_lengths:
         return mirrored
     return [
