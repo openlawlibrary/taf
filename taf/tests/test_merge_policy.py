@@ -25,6 +25,25 @@ def test_group_by_matching_a_real_group_is_accepted():
     assert policy.group_by == "role"
 
 
+def test_allow_uneven_branch_lengths_defaults_to_false():
+    policy = build_policy(branch_pattern=r"^rdf/publication/.*$")
+    assert policy.allow_uneven_branch_lengths is False
+
+
+def test_allow_uneven_branch_lengths_kebab_case_key():
+    policies = MergePolicies.from_mapping(
+        {
+            "policies": {
+                "rdf": {
+                    "branch-pattern": r"^rdf/publication/.*$",
+                    "allow-uneven-branch-lengths": True,
+                }
+            }
+        }
+    )
+    assert policies.resolve("rdf").allow_uneven_branch_lengths is True
+
+
 def test_from_mapping_converts_kebab_case_keys():
     policies = MergePolicies.from_mapping(
         {

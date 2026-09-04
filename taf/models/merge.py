@@ -52,6 +52,13 @@ class MergePolicy:
     set_default_branch
         If a repository's destination branch changed, set it as that repository's
         default branch on its git hosting provider.
+    allow_uneven_branch_lengths
+        Allow a participating repository's commit count on the source branch to
+        differ from the number of qualifying auth commits (e.g. an rdf repo carrying
+        one extra rebuild commit). Such a repository is excluded from the commit-by-
+        commit `validate_branch` check and left to the post-merge repository
+        validation instead. If not set, an uneven count is an error - the ordinary
+        signal that a repository's branch lost commits to a force push.
     """
 
     branch_pattern: str
@@ -61,6 +68,7 @@ class MergePolicy:
     check_branch_id_roles: List[str] = attrs.field(factory=list)
     rename_merged: bool = False
     set_default_branch: bool = False
+    allow_uneven_branch_lengths: bool = False
 
     def __attrs_post_init__(self):
         if self.group_by and not _pattern_has_group(self.branch_pattern, self.group_by):

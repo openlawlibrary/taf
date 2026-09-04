@@ -54,6 +54,37 @@ class MergeStep:
         self.targets: Dict[str, Dict] = targets if targets is not None else {}
 
 
+class MergeResult:
+    """
+    What `merge_branch_commits` did.
+
+    merged_branches
+        Names of the source branches that had at least one commit merged.
+    moved_repos
+        Names of the target repositories whose destination branch moved.
+    signed_commits
+        Total number of auth repo commits re-signed onto the default branch.
+    """
+
+    def __init__(
+        self,
+        merged_branches: Optional[List[str]] = None,
+        moved_repos: Optional[List[str]] = None,
+        signed_commits: int = 0,
+    ):
+        self.merged_branches: List[str] = (
+            list(merged_branches) if merged_branches else []
+        )
+        self.moved_repos: List[str] = list(moved_repos) if moved_repos else []
+        self.signed_commits: int = signed_commits
+
+    def __repr__(self) -> str:
+        return (
+            f"MergeResult(merged_branches={self.merged_branches!r}, "
+            f"moved_repos={self.moved_repos!r}, signed_commits={self.signed_commits})"
+        )
+
+
 def _sign_and_merge_commit(
     auth_repo: AuthenticationRepository,
     commit: Commitish,
@@ -179,6 +210,37 @@ def _check_no_force_push(source_branch, merge_plan, repos_by_name) -> None:
             )
 
 
+def _mirrored_repos(source_branch, merge_plan, repos_by_name, qualifying_steps, policy):
+    """
+    Repos whose local branch history actually mirrors `source_branch` -
+    `validate_branch` walks them commit-for-commit against the auth branch, which
+    only makes sense for a repo that carries one commit per qualifying step.
+
+    If `policy.allow_uneven_branch_lengths`, a repo whose count differs from the
+    step count (e.g. rdf carrying one extra rebuild commit) is excluded here and
+    left to the post-merge repository validation instead. Otherwise an uneven
+    count is left in and surfaces as a validation error - the ordinary signal
+    that a repo's branch lost commits to a force push.
+    """
+    mirrored = [
+        (name, destination)
+        for name, (destination, _) in merge_plan.items()
+        if repos_by_name[name].branch_exists(source_branch)
+    ]
+    if not policy.allow_uneven_branch_lengths:
+        return mirrored
+    return [
+        (name, destination)
+        for name, destination in mirrored
+        if len(
+            repos_by_name[name].commits_on_branch_and_not_other(
+                source_branch, destination
+            )
+        )
+        == len(qualifying_steps)
+    ]
+
+
 def _validate_fully_participating_repos(
     auth_repo,
     source_branch,
@@ -188,20 +250,13 @@ def _validate_fully_participating_repos(
     repos_by_name,
     qualifying_steps,
 ) -> None:
-    fully_participating = [
-        repos_by_name[name]
-        for name, (destination, _) in merge_plan.items()
-        if repos_by_name[name].branch_exists(source_branch)
-        and len(
-            repos_by_name[name].commits_on_branch_and_not_other(
-                source_branch, destination
-            )
-        )
-        == len(qualifying_steps)
-    ]
-    if not fully_participating:
+    mirrored = _mirrored_repos(
+        source_branch, merge_plan, repos_by_name, qualifying_steps, policy
+    )
+    if not mirrored:
         return
 
+    fully_participating = [repos_by_name[name] for name, _ in mirrored]
     updated_roles = sorted(
         {
             r
@@ -216,8 +271,13 @@ def _validate_fully_participating_repos(
     check_branch_roles = {
         r: r in check_branch_id_role_set for r in check_capstone_roles
     }
-    merge_branches = {repo: merge_plan[repo.name][0] for repo in fully_participating}
+    merge_branches = {
+        repos_by_name[name]: destination for name, destination in mirrored
+    }
     merge_branches[auth_repo] = default_branch
+    check_branch_lengths_fun = (
+        (lambda *_a, **_k: None) if policy.allow_uneven_branch_lengths else None
+    )
     try:
         validate_branch(
             auth_repo,
@@ -227,7 +287,7 @@ def _validate_fully_participating_repos(
             updated_roles,
             check_capstone_roles,
             check_branch_roles,
-            check_branch_lengths_fun=lambda *_a, **_k: None,
+            check_branch_lengths_fun=check_branch_lengths_fun,
         )
     except InvalidBranchError as e:
         raise MergeError(f"{source_branch}: validation error: {e}")
@@ -270,7 +330,9 @@ def _merge_one_branch(
     library_dir: Optional[str],
     keystore: Optional[str],
     git_access_token: Optional[str],
-) -> Tuple[bool, Set]:
+) -> Tuple[int, Set[GitRepository]]:
+    """Returns the number of auth commits signed (0 if nothing was merged) and
+    the set of target repositories whose destination branch moved."""
     auth_repo.checkout_branch(default_branch)
     auth_repo.checkout_branch(source_branch)
 
@@ -280,11 +342,11 @@ def _merge_one_branch(
         )
     except RoleMetadataNotSameError as e:
         taf_logger.error(str(e))
-        return False, set()
+        return 0, set()
 
     if not unmerged_auth_commits:
         taf_logger.info(f"{source_branch}: all commits already merged")
-        return False, set()
+        return 0, set()
 
     repos_by_name = _load_non_archived_repos(
         auth_repo, library_dir, unmerged_auth_commits[-1]
@@ -294,7 +356,7 @@ def _merge_one_branch(
     last_index = _last_qualifying_step_index(steps, policy.gate)
     if last_index < 0:
         taf_logger.info(f"{source_branch}: no commits ready to merge yet")
-        return False, set()
+        return 0, set()
 
     qualifying_steps = steps[: last_index + 1]
     final_step = qualifying_steps[-1]
@@ -331,7 +393,7 @@ def _merge_one_branch(
             merge_plan, repos_by_name, old_destinations, git_access_token
         )
 
-    return True, {repos_by_name[name] for name in merge_plan}
+    return len(qualifying_steps), {repos_by_name[name] for name in merge_plan}
 
 
 def _rename_merged_branch(auth_repo: AuthenticationRepository, branch: str) -> None:
@@ -362,14 +424,15 @@ def _rename_merged_branch(auth_repo: AuthenticationRepository, branch: str) -> N
 )
 def merge_branch_commits(
     path: str,
-    pin_manager: PinManager,
+    *,
     policy: MergePolicy,
+    pin_manager: Optional[PinManager] = None,
     library_dir: Optional[str] = None,
     pushed_branch: Optional[str] = None,
     keystore: Optional[str] = None,
     deploy: bool = False,
     git_access_token: Optional[str] = None,
-) -> None:
+) -> MergeResult:
     """
     Merge commits of the branch(es) matching `policy.branch_pattern` - the
     newest overall, or the newest per `policy.group_by` group - into each
@@ -379,6 +442,8 @@ def merge_branch_commits(
     Arguments:
         path: Path to the authentication repository.
         policy: The merge policy to apply - see `taf.models.merge.MergePolicy`.
+        pin_manager (optional): Reused across calls if the caller already has one (e.g.
+            `auth_repo.pin_manager`); a fresh one is created if not given.
         library_dir (optional): Directory containing the target repositories.
         pushed_branch (optional): If given, this call is a no-op unless it matches
             `policy.branch_pattern` (used to filter which CI trigger should act).
@@ -397,7 +462,7 @@ def merge_branch_commits(
         MergeError, RoleMetadataNotSameError
 
     Returns:
-        None
+        A `MergeResult` describing what was merged - empty if there was nothing to do.
     """
     pattern = BranchPattern(policy.branch_pattern)
     if pushed_branch is not None and not pattern.matches(pushed_branch):
@@ -405,7 +470,10 @@ def merge_branch_commits(
             f"Pushed branch {pushed_branch} does not match pattern "
             f"'{policy.branch_pattern}', nothing to merge"
         )
-        return
+        return MergeResult()
+
+    if pin_manager is None:
+        pin_manager = PinManager()
 
     auth_repo = AuthenticationRepository(path=path, pin_manager=pin_manager)
     default_branch = auth_repo.default_branch
@@ -420,12 +488,13 @@ def merge_branch_commits(
     source_branches = select_branches(auth_repo, pattern, group_by=policy.group_by)
     if not source_branches:
         taf_logger.info(f"No branch matching pattern '{policy.branch_pattern}' found")
-        return
+        return MergeResult()
 
-    merged_branches = []
-    touched_repos: Set = set()
+    merged_branches: List[str] = []
+    touched_repos: Set[GitRepository] = set()
+    signed_commits = 0
     for source_branch in source_branches:
-        signed, repos = _merge_one_branch(
+        branch_signed_commits, repos = _merge_one_branch(
             auth_repo,
             source_branch,
             policy,
@@ -434,12 +503,13 @@ def merge_branch_commits(
             keystore,
             git_access_token,
         )
-        if signed:
+        if branch_signed_commits:
             merged_branches.append(source_branch)
+            signed_commits += branch_signed_commits
             touched_repos.update(repos)
 
     if not merged_branches:
-        return
+        return MergeResult()
 
     try:
         validate_repository(
@@ -457,9 +527,15 @@ def merge_branch_commits(
             f"there is a problem with the TAF updater.\n{e}"
         )
 
+    result = MergeResult(
+        merged_branches=merged_branches,
+        moved_repos=sorted(repo.name for repo in touched_repos),
+        signed_commits=signed_commits,
+    )
+
     if not deploy:
         taf_logger.info("deploy=False; skipping push")
-        return
+        return result
 
     taf_logger.info(f"Pushing {len(touched_repos)} target repo(s) and auth repo")
     for repo in touched_repos:
@@ -469,3 +545,5 @@ def merge_branch_commits(
     if policy.rename_merged:
         for branch in merged_branches:
             _rename_merged_branch(auth_repo, branch)
+
+    return result

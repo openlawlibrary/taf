@@ -15,6 +15,11 @@ GATED_POLICY = build_policy(
 UNGATED_POLICY = build_policy(
     branch_pattern=BRANCH_PATTERN, no_capstone_roles=["targets"]
 )
+UNEVEN_LENGTHS_POLICY = build_policy(
+    branch_pattern=BRANCH_PATTERN,
+    no_capstone_roles=["targets"],
+    allow_uneven_branch_lengths=True,
+)
 
 
 def _write_target(auth_repo, name, repo, gate_date=None, destination=None):
@@ -233,7 +238,7 @@ def test_merge_branch_commits_repo_not_touched_drops_out(
         merge_branch_commits(
             path=str(merge_auth_repo.path),
             pin_manager=pin_manager,
-            policy=UNGATED_POLICY,
+            policy=UNEVEN_LENGTHS_POLICY,
             library_dir=str(merge_root),
             keystore=keystore_delegations,
             deploy=False,
@@ -248,6 +253,57 @@ def test_merge_branch_commits_repo_not_touched_drops_out(
             len(target2_repo.all_commits_on_branch(branch=target2_repo.default_branch))
             == 2
         )
+
+
+def test_merge_branch_commits_uneven_lengths_raises_by_default(
+    merge_auth_repo,
+    target1_repo,
+    target2_repo,
+    keystore_delegations,
+    pin_manager,
+    merge_root,
+):
+    """Without allow_uneven_branch_lengths, a repo whose commit count on the
+    source branch differs from the others is an error, not a silent drop-out -
+    the ordinary force-push signal that allow_uneven_branch_lengths is meant to
+    bypass only for a deliberately uneven case (e.g. rdf's rebuild commit)."""
+    default_branch = merge_auth_repo.default_branch
+    merge_auth_repo.checkout_branch(default_branch)
+    merge_auth_repo.create_and_checkout_branch(SOURCE_BRANCH)
+
+    target1_repo.checkout_branch(target1_repo.default_branch)
+    target1_repo.create_and_checkout_branch(SOURCE_BRANCH)
+    target2_repo.checkout_branch(target2_repo.default_branch)
+    target2_repo.create_and_checkout_branch(SOURCE_BRANCH)
+
+    with freeze_time("2024-01-05"):
+        target1_repo.commit_empty("target1 commit 0")
+        target2_repo.commit_empty("target2 commit 0")
+        _write_target(merge_auth_repo, "target1", target1_repo)
+        _write_target(merge_auth_repo, "target2", target2_repo)
+        _sign(merge_auth_repo, keystore_delegations, pin_manager)
+
+        target1_repo.commit_empty("target1 commit 1")
+        _write_target(merge_auth_repo, "target1", target1_repo)
+        _sign(merge_auth_repo, keystore_delegations, pin_manager)
+
+        merge_auth_repo.checkout_branch(default_branch)
+        head_before = merge_auth_repo.top_commit_of_branch(default_branch)
+
+        try:
+            merge_branch_commits(
+                path=str(merge_auth_repo.path),
+                pin_manager=pin_manager,
+                policy=UNGATED_POLICY,
+                library_dir=str(merge_root),
+                keystore=keystore_delegations,
+                deploy=False,
+            )
+            assert False, "expected MergeError"
+        except MergeError:
+            pass
+
+        assert merge_auth_repo.top_commit_of_branch(default_branch) == head_before
 
 
 def test_merge_branch_commits_force_pushed_commit_raises(
