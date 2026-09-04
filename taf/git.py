@@ -1186,6 +1186,7 @@ class GitRepository:
                 # Create a new local branch from the remote branch
                 target_commit = repo[remote_branch.target]
                 repo.create_branch(branch, target_commit)
+                self.set_tracking_branch(branch, remote=remote)
 
     def delete_local_branch(self, branch_name: str) -> None:
         """Deletes local branch."""

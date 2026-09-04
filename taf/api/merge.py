@@ -266,6 +266,13 @@ def _verify_previously_merged_repos_intact(
     still be caught the next time this runs rather than only when new work for that
     repo happens to line up. Silently re-merging over a regressed destination would
     paper over the loss, so it is raised instead of healed.
+
+    Only a positively established regression is raised. If the declared commit is
+    not in the repo at all, or the destination branch is not there to compare
+    against, the ancestor check cannot answer the question - the target repo may
+    simply be one whose branch another system pushes and rewinds, as with a
+    single-commit update branch. Those are left to the post-merge repository
+    validation rather than reported as corruption here.
     """
     top_commit = auth_repo.top_commit_of_branch(default_branch)
     if top_commit is None:
@@ -281,6 +288,10 @@ def _verify_previously_merged_repos_intact(
         if destination is None:
             continue
         repo.create_local_branch_from_remote_tracking(destination)
+        if not repo.commit_exists(declared_commit):
+            continue
+        if not repo.branch_exists(destination, include_remotes=False):
+            continue
         if not repo.is_commit_an_ancestor_of_a_commit_or_branch(
             declared_commit, destination
         ):
@@ -422,7 +433,38 @@ def _merge_one_branch(
     git_access_token: Optional[str],
 ) -> Tuple[int, Set[GitRepository]]:
     """Returns the number of auth commits signed (0 if nothing was merged) and
-    the set of target repositories whose destination branch moved."""
+    the set of target repositories whose destination branch moved.
+
+    Leaves the authentication repository on its default branch when it returns, so
+    a branch that turns out to have nothing to merge does not leave the repo parked
+    on that source branch. A failure is left where it happened, for the caller to
+    inspect or repair.
+    """
+    result = _merge_source_branch(
+        auth_repo,
+        source_branch,
+        policy,
+        default_branch,
+        library_dir,
+        keystore,
+        git_access_token,
+    )
+    try:
+        auth_repo.checkout_branch(default_branch)
+    except GitError:
+        taf_logger.warning(f"Could not check out {default_branch} of {auth_repo.name}")
+    return result
+
+
+def _merge_source_branch(
+    auth_repo: AuthenticationRepository,
+    source_branch: str,
+    policy: MergePolicy,
+    default_branch: str,
+    library_dir: Optional[str],
+    keystore: Optional[str],
+    git_access_token: Optional[str],
+) -> Tuple[int, Set[GitRepository]]:
     auth_repo.checkout_branch(default_branch)
     auth_repo.checkout_branch(source_branch)
 
@@ -584,7 +626,8 @@ def merge_branch_commits(
     except GitError:
         validate_from_commit = None
 
-    _verify_previously_merged_repos_intact(auth_repo, default_branch, library_dir)
+    if policy.verify_merged_destinations:
+        _verify_previously_merged_repos_intact(auth_repo, default_branch, library_dir)
 
     source_branches = select_branches(auth_repo, pattern, group_by=policy.group_by)
     if not source_branches:

@@ -59,6 +59,13 @@ class MergePolicy:
         commit `validate_branch` check and left to the post-merge repository
         validation instead. If not set, an uneven count is an error - the ordinary
         signal that a repository's branch lost commits to a force push.
+    verify_merged_destinations
+        Before merging anything, check that every repository's destination branch
+        still descends from the commit the last merge declared for it, and refuse
+        to merge if one has been rewound. Turn this off for a policy whose target
+        repositories are pushed - and legitimately rewound - by another system
+        rather than moved by this merge, as with single-commit update branches;
+        the post-merge repository validation still reports the mismatch there.
     """
 
     branch_pattern: str
@@ -69,6 +76,7 @@ class MergePolicy:
     rename_merged: bool = False
     set_default_branch: bool = False
     allow_uneven_branch_lengths: bool = False
+    verify_merged_destinations: bool = True
 
     def __attrs_post_init__(self):
         if self.group_by and not _pattern_has_group(self.branch_pattern, self.group_by):
