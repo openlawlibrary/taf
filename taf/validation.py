@@ -104,13 +104,21 @@ def validate_branch(
                     and commit_index == len(auth_commits) - 1,
                 )
 
-            for target, target_commits in targets_and_commits.items():
+            # targets' commits match the target commits specified in the authentication
+            # repository - checked for every target repo, in a fixed order, so that a
+            # step with multiple mismatching repos is reported deterministically and in full
+            mismatches = []
+            for target, target_commits in sorted(
+                targets_and_commits.items(), key=lambda item: item[0].name
+            ):
                 target_commit = target_commits[commit_index]
-
-                # targets' commits match the target commits specified in the authentication repository
-                _compare_commit_with_targets_metadata(
+                mismatch = _compare_commit_with_targets_metadata(
                     auth_repo, auth_commit, target, target_commit
                 )
+                if mismatch:
+                    mismatches.append(mismatch)
+            if mismatches:
+                raise InvalidBranchError("\n".join(mismatches))
 
 
 def _check_lengths_of_branches(targets_and_commits, branch_name):
@@ -216,23 +224,23 @@ def _compare_commit_with_targets_metadata(
 ):
     """
     Check if commit sha of a repository's speculative branch commit matches the
-    specified target value in its target file.
+    specified target value in its target file. Returns an error message describing
+    the mismatch, or None if the commit matches.
     """
     repo_name = f"{TARGETS_DIRECTORY_NAME}/{target_repo.name}"
     try:
         targets_head_sha = tuf_repo.get_json(tuf_commit, repo_name)["commit"]
     except GitError:
         if target_repo_commit is not None:
-            raise InvalidBranchError(
-                f"Target file {repo_name} does not exist in revision {tuf_commit}"
-            )
+            return f"Target file {repo_name} does not exist in revision {tuf_commit}"
         targets_head_sha = None
 
     if target_repo_commit != targets_head_sha:
-        raise InvalidBranchError(
+        return (
             f"Commit {target_repo_commit} of repository {target_repo.name} does "
             "not match the commit sha specified in its target file!"
         )
+    return None
 
 
 def _get_unchanged_targets_metadata(auth_repo, updated_roles):
