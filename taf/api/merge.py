@@ -146,6 +146,28 @@ def _load_non_archived_repos(
     }
 
 
+def _load_non_archived_repos_uncached(
+    auth_repo, library_dir, commit
+) -> Dict[str, GitRepository]:
+    """
+    Like `_load_non_archived_repos`, but bypasses repositoriesdb's process-wide cache.
+    That cache is keyed only by (auth repo path, commit): whichever caller loads a
+    commit first fixes the repo class for every later caller of that same commit, even
+    one that needs a different `repo_classes`. Used for a check that runs on every
+    `merge_branch_commits` call regardless of new work, so it must not be the one to
+    win that race against a caller (e.g. platform's own repo-class loading) that needs
+    a specific subclass for the same commit.
+    """
+    repos = repositoriesdb._load_repositories(
+        auth_repo, library_dir=library_dir, commits=[commit], only_load_targets=False
+    )
+    return {
+        name: repo
+        for name, repo in repos.get(commit, {}).items()
+        if not repo.custom.get("archived")
+    }
+
+
 def _build_steps(auth_repo, unmerged_auth_commits, repo_names) -> List[MergeStep]:
     steps = []
     for commit in unmerged_auth_commits:
@@ -200,14 +222,75 @@ def _plan_merge(
     return plan
 
 
-def _check_no_force_push(source_branch, merge_plan, repos_by_name) -> None:
-    for name, (_, declared_commit) in merge_plan.items():
+def _drop_or_reject_missing_commits(
+    source_branch, merge_plan, repos_by_name
+) -> Dict[str, Tuple[str, Commitish]]:
+    """
+    A repo whose local branch mirrors `source_branch` (speculative, rdf) moves in
+    lockstep with the auth branch, so a declared commit missing from all of its
+    branches is a corruption signal - typically a force push - and an error.
+
+    A repo that does not mirror it (a single-commit update branch, whose commit is
+    expected to already exist from a separate push) is not required to have that
+    commit yet; if it does not, the repo is just not ready to merge, so it is
+    dropped from the plan instead of raised.
+    """
+    filtered = {}
+    for name, (destination, declared_commit) in merge_plan.items():
         repo = repos_by_name[name]
-        if not repo.branches_containing_commit(declared_commit):
+        if repo.branches_containing_commit(declared_commit):
+            filtered[name] = (destination, declared_commit)
+            continue
+        if repo.branch_exists(source_branch):
             raise MergeError(
                 f"{source_branch}: declared commit {declared_commit} for {name} no "
                 "longer exists on any branch of that repository - check for a force push"
             )
+        taf_logger.warning(
+            f"{source_branch}: declared commit {declared_commit} for {name} not yet "
+            "found on any branch of that repository - skipping"
+        )
+    return filtered
+
+
+def _verify_previously_merged_repos_intact(
+    auth_repo: AuthenticationRepository, default_branch: str, library_dir: Optional[str]
+) -> None:
+    """
+    Every target repo already merged by a previous call must still contain, on its
+    declared destination branch, the commit the auth repo's current default-branch
+    state declares for it. This runs on every call, regardless of whether there is
+    any new work to merge: a target repo's destination branch can be rewritten
+    (a manual reset, or a force push straight to the destination rather than through
+    a batch branch) at a time when no new batch touches that repo, and it should
+    still be caught the next time this runs rather than only when new work for that
+    repo happens to line up. Silently re-merging over a regressed destination would
+    paper over the loss, so it is raised instead of healed.
+    """
+    top_commit = auth_repo.top_commit_of_branch(default_branch)
+    if top_commit is None:
+        return
+    repos = _load_non_archived_repos_uncached(auth_repo, library_dir, top_commit)
+    corrupted = []
+    for name, repo in sorted(repos.items()):
+        target = auth_repo.get_target(name, top_commit)
+        if target is None:
+            continue
+        declared_commit = Commitish.from_hash(target["commit"])
+        destination = target.get("branch") or repo.default_branch
+        if destination is None:
+            continue
+        repo.create_local_branch_from_remote_tracking(destination)
+        if not repo.is_commit_an_ancestor_of_a_commit_or_branch(
+            declared_commit, destination
+        ):
+            corrupted.append(
+                f"{name}: previously merged commit {declared_commit} is no longer an "
+                f"ancestor of {destination} - that branch may have been rewritten "
+                "since the last merge"
+            )
+    if corrupted:
+        raise MergeError("\n".join(corrupted))
 
 
 def _mirrored_repos(source_branch, merge_plan, repos_by_name, qualifying_steps, policy):
@@ -360,7 +443,17 @@ def _merge_one_branch(
 
     qualifying_steps = steps[: last_index + 1]
     final_step = qualifying_steps[-1]
-    merge_plan = _plan_merge(repos_by_name, final_step)
+    planned_merge_plan = _plan_merge(repos_by_name, final_step)
+    merge_plan = _drop_or_reject_missing_commits(
+        source_branch, planned_merge_plan, repos_by_name
+    )
+    if planned_merge_plan and not merge_plan:
+        # Every repo that had new work was not actually ready for it (the
+        # update-branch case) - unlike an empty `planned_merge_plan`, which just
+        # means all target repos already sit at their declared commit and the
+        # auth commit is signed on its own, this is nothing to merge at all.
+        taf_logger.info(f"{source_branch}: no target repository ready to merge yet")
+        return 0, set()
 
     old_destinations = {
         name: (
@@ -371,7 +464,6 @@ def _merge_one_branch(
         for name in merge_plan
     }
 
-    _check_no_force_push(source_branch, merge_plan, repos_by_name)
     _validate_fully_participating_repos(
         auth_repo,
         source_branch,
@@ -484,6 +576,8 @@ def merge_branch_commits(
         validate_from_commit = auth_repo.top_commit_of_branch(default_branch)
     except GitError:
         validate_from_commit = None
+
+    _verify_previously_merged_repos_intact(auth_repo, default_branch, library_dir)
 
     source_branches = select_branches(auth_repo, pattern, group_by=policy.group_by)
     if not source_branches:
