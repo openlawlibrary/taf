@@ -75,3 +75,14 @@ def check_new_role(
     assert auth_repo.find_delegated_roles_parent(role_name) == parent_name
     roles_paths = auth_repo.get_role_paths(role_name)
     assert roles_paths == paths
+
+
+def check_role_scheme(
+    auth_repo: AuthenticationRepository,
+    role_name: str,
+    expected_scheme: str,
+    parent_name: str = "targets",
+):
+    keyid = auth_repo.get_keyids_of_role(role_name)[0]
+    _, _, scheme = auth_repo.get_key_length_and_scheme_from_metadata(parent_name, keyid)
+    assert scheme == expected_scheme

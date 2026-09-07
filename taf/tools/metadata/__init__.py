@@ -5,7 +5,6 @@ from taf.api.metadata import (
     check_expiration_dates,
     add_key_names,
 )
-from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import TAFError
 from taf.tools.cli import catch_cli_exception, common_repo_edit_options, find_repository
 from taf.tools.repo import pin_managed
@@ -135,11 +134,6 @@ def update_expiration_dates_command():
         help="Number of days added to the start date",
     )
     @click.option(
-        "--scheme",
-        default=DEFAULT_RSA_SIGNATURE_SCHEME,
-        help="A signature scheme used for signing",
-    )
-    @click.option(
         "--start-date",
         default=datetime.datetime.now(),
         type=ISO_DATE,
@@ -152,7 +146,6 @@ def update_expiration_dates_command():
         role,
         interval,
         keystore,
-        scheme,
         start_date,
         no_commit,
         prompt_for_keys,
@@ -170,7 +163,6 @@ def update_expiration_dates_command():
             roles=role,
             interval=interval,
             keystore=keystore,
-            scheme=scheme,
             start_date=start_date,
             commit=not no_commit,
             prompt_for_keys=prompt_for_keys,

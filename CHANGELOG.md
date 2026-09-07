@@ -9,10 +9,34 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Allow overriding the temp directory used when cloning repositories via an anv var ([771])
+- Sign and discover keys across all YubiKey PIV slots, not just SIGNATURE ([767])
+- Support choosing a YubiKey PIV slot when setting up signing keys ([759])
+
 ### Changed
+
+- Remove unused `scheme` parameters ([757])
+
+### Removed
+
+- `--reset`/`--force` from `taf yubikey setup-signing-key`/`setup-test-key` - an occupied PIV slot is refused instead of being overwritten ([767])
 
 ### Fixed
 
+- Allow `--key-pin` with multiple YubiKeys inserted ([770])
+- Detect signing scheme from key material instead of assuming RSA ([757])
+- Clone no longer fails when the repository path contains a space (e.g. a Windows home directory with a space in the user name) ([762])
+- Surface the underlying git error when a clone fails, instead of hiding it behind a generic access message ([762])
+- Correct the clone access error that rendered as "Cannot None ..." and stop misattributing a local failure to an access/authentication problem ([762])
+
+
+[774]: https://github.com/openlawlibrary/taf/pull/774
+[771]: https://github.com/openlawlibrary/taf/pull/771
+[770]: https://github.com/openlawlibrary/taf/pull/770
+[767]: https://github.com/openlawlibrary/taf/pull/767
+[762]: https://github.com/openlawlibrary/taf/pull/762
+[759]: https://github.com/openlawlibrary/taf/pull/759
+[757]: https://github.com/openlawlibrary/taf/pull/757
 
 ## [0.39.3]
 

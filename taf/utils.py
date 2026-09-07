@@ -70,8 +70,8 @@ def extract_x509(cert_pem):
         "country": _get_attr(x509.OID_COUNTRY_NAME),
         "state": _get_attr(x509.OID_STATE_OR_PROVINCE_NAME),
         "locality": _get_attr(x509.OID_LOCALITY_NAME),
-        "valid_from": cert.not_valid_before.strftime("%Y-%m-%d"),
-        "valid_to": cert.not_valid_after.strftime("%Y-%m-%d"),
+        "valid_from": cert.not_valid_before_utc.strftime("%Y-%m-%d"),
+        "valid_to": cert.not_valid_after_utc.strftime("%Y-%m-%d"),
     }
 
 
@@ -169,6 +169,23 @@ def read_input_dict(value):
                 return {}
 
     return value
+
+
+def format_command_args(cmd: str, *args) -> List[str]:
+    """Split a whitespace-separated command template into argv tokens, filling
+    each `{}` placeholder with the next arg so a substituted value stays a
+    single token even if it contains spaces. Empty args (e.g. an optional
+    flag passed as "") are dropped.
+    """
+    args_iter = iter(args)
+    tokens = []
+    for token in cmd.split():
+        placeholders = token.count("{}")
+        if placeholders:
+            token = token.format(*[next(args_iter) for _ in range(placeholders)])
+        if token != "":  # nosec B105
+            tokens.append(token)
+    return tokens
 
 
 def run(*command, **kwargs):

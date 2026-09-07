@@ -9,7 +9,6 @@ from tuf.api.metadata import Snapshot, Timestamp
 from taf.api.utils._git import check_if_clean_and_synced
 from taf.api.api_workflow import manage_repo_and_signers
 from taf.exceptions import TAFError
-from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.messages import git_commit_message
 from taf.tuf.repository import MetadataRepository as TUFRepository
 from taf.log import Path, taf_logger
@@ -28,7 +27,6 @@ def add_key_names(
     path: str,
     keys_description: Path,
     pin_manager: PinManager,
-    scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
     keystore: Optional[str] = None,
     commit: Optional[bool] = True,
     commit_msg: Optional[str] = None,
@@ -69,10 +67,9 @@ def add_key_names(
 
     with manage_repo_and_signers(
         auth_repo,
-        list(parent_roles),
-        keystore,
-        scheme,
-        prompt_for_keys,
+        roles=list(parent_roles),
+        keystore=keystore,
+        prompt_for_keys=prompt_for_keys,
         load_snapshot_and_timestamp=update_snapshot_and_timestamp,
         commit=commit,
         commit_msg=commit_msg,
@@ -161,7 +158,6 @@ def update_metadata_expiration_date(
     roles: List[str],
     interval: Optional[int] = None,
     keystore: Optional[str] = None,
-    scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
     start_date: Optional[datetime] = None,
     commit: Optional[bool] = True,
     commit_msg: Optional[str] = None,
@@ -181,7 +177,6 @@ def update_metadata_expiration_date(
         interval: Number of days added to the start date in order to calculate the
             expiration date.
         keystore (optional): Keystore directory's path
-        scheme (optional): Signature scheme.
         start_date (optional): Date to which expiration interval is added.
             Set to today if not specified.
         commit (optional): Indicates if the changes should be committed and pushed automatically.
@@ -216,10 +211,9 @@ def update_metadata_expiration_date(
 
     with manage_repo_and_signers(
         auth_repo,
-        roles,
-        keystore,
-        scheme,
-        prompt_for_keys,
+        roles=roles,
+        keystore=keystore,
+        prompt_for_keys=prompt_for_keys,
         load_snapshot_and_timestamp=update_snapshot_and_timestamp,
         commit=commit,
         commit_msg=commit_msg,
@@ -254,7 +248,6 @@ def update_snapshot_and_timestamp(
     pin_manager: PinManager,
     keystore: Optional[str] = None,
     roles_to_sync: Optional[List[str]] = None,
-    scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
     commit: Optional[bool] = True,
     commit_msg: Optional[str] = None,
     prompt_for_keys: Optional[bool] = False,
@@ -268,7 +261,6 @@ def update_snapshot_and_timestamp(
     Arguments:
         path: Authentication repository's location.
         keystore (optional): Keystore directory's path
-        scheme (optional): Signature scheme.
         commit (optional): Indicates if the changes should be committed and pushed automatically.
         commit_msg (optional): Custom commit messages.
         prompt_for_keys (optional): Whether to ask the user to enter their key if it is not located inside the keystore directory.
@@ -289,10 +281,9 @@ def update_snapshot_and_timestamp(
 
     with manage_repo_and_signers(
         auth_repo,
-        [],
-        keystore,
-        scheme,
-        prompt_for_keys,
+        roles=[],
+        keystore=keystore,
+        prompt_for_keys=prompt_for_keys,
         load_snapshot_and_timestamp=True,
         commit=commit,
         commit_msg=commit_msg,
