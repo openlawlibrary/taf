@@ -23,8 +23,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
-- Disallowing unauthenticated commits no longer invalidates already-signed history ([774])
-- - Allow `--key-pin` with multiple YubiKeys inserted ([770])
+- Allow `--key-pin` with multiple YubiKeys inserted ([770])
 - Detect signing scheme from key material instead of assuming RSA ([757])
 - Clone no longer fails when the repository path contains a space (e.g. a Windows home directory with a space in the user name) ([762])
 - Surface the underlying git error when a clone fails, instead of hiding it behind a generic access message ([762])
@@ -38,6 +37,18 @@ and this project adheres to [Semantic Versioning][semver].
 [762]: https://github.com/openlawlibrary/taf/pull/762
 [759]: https://github.com/openlawlibrary/taf/pull/759
 [757]: https://github.com/openlawlibrary/taf/pull/757
+
+## [0.39.3]
+
+### Added
+
+### Changed
+
+### Fixed
+
+- Disallowing unauthenticated commits no longer invalidates already-signed history ([774])
+
+[774]: https://github.com/openlawlibrary/taf/pull/774
 
 ## [0.39.2]
 
@@ -1912,7 +1923,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
-[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.39.2...HEAD
+[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.39.3...HEAD
+[0.39.3]: https://github.com/openlawlibrary/taf/compare/v0.39.2...v0.39.3
 [0.39.2]: https://github.com/openlawlibrary/taf/compare/v0.39.1...v0.39.2
 [0.39.1]: https://github.com/openlawlibrary/taf/compare/v0.39.0...v0.39.1
 [0.39.0]: https://github.com/openlawlibrary/taf/compare/v0.38.4...v0.39.0
