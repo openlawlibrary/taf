@@ -1,6 +1,9 @@
 import shutil
 import sys
 import click
+import signal
+import threading
+import functools
 from functools import partial, wraps
 from logging import ERROR
 from logdecorator import log_on_error
@@ -156,3 +159,71 @@ def common_repo_edit_options(func):
         help="Whether to skip the check if there are any remote changes. Can be used when the SSH key requires a passphrase",
     )(func)
     return func
+
+
+def safe_cleanup(method):
+    """
+    Decorator that handles gracefull shutdown and cleanup (SIGINT and SIGTERM)
+    applicable for objects with any: `cleanup`, `on_interrupt` and `after_interrupt` functions defined
+    """
+
+    @functools.wraps(method)
+    def wrapper(self, *args, **kwargs):
+
+        has_cleanup = hasattr(self, "cleanup") and callable(self.cleanup)
+        has_on_interrupt = hasattr(self, "on_interrupt") and callable(self.on_interrupt)
+        has_after_interrupt = hasattr(self, "after_interrupt") and callable(
+            self.after_interrupt
+        )
+
+        # Signal handler only mutates state; deletion is delegated to finally.
+        def _signal_handler(signum, frame):
+            if has_on_interrupt:
+                self.on_interrupt()
+            raise KeyboardInterrupt(f"Received signal {signum}")
+
+        original_sigint = None
+        original_sigterm = None
+
+        if threading.current_thread() is threading.main_thread():
+            # Save and override handlers
+            original_sigint = signal.getsignal(signal.SIGINT)
+            try:
+                original_sigterm = signal.getsignal(signal.SIGTERM)
+            except Exception:
+                original_sigterm = None
+
+            try:
+                signal.signal(signal.SIGINT, _signal_handler)
+            except (OSError, ValueError):
+                pass  # Not allowed to set signal handler (e.g., in embedded interpreter)
+            try:
+                signal.signal(signal.SIGTERM, _signal_handler)
+            except (OSError, ValueError):
+                pass  # Windows: SIGTERM cannot be caught
+
+        try:
+            return method(self, *args, **kwargs)
+
+        except KeyboardInterrupt:
+            if has_after_interrupt:
+                self.after_interrupt()
+            raise
+        finally:
+            # Restore original handlers if changed
+            if threading.current_thread() is threading.main_thread():
+                if original_sigint is not None:
+                    try:
+                        signal.signal(signal.SIGINT, original_sigint)
+                    except Exception:
+                        pass
+                if original_sigterm is not None:
+                    try:
+                        signal.signal(signal.SIGTERM, original_sigterm)
+                    except Exception:
+                        pass
+
+            if has_cleanup:
+                self.cleanup()
+
+    return wrapper
