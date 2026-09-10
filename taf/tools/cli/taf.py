@@ -12,6 +12,7 @@ def taf_command_loader(name):
             "metadata",
             "roles",
             "repo",
+            "branch",
         ):
             return f"taf.tools.{name}.attach_to_group"
         else:
@@ -31,6 +32,7 @@ def taf_command_loader(name):
         "keystore": lambda: taf_command_loader("keystore"),
         "conf": lambda: taf_command_loader("conf"),
         "repo": lambda: taf_command_loader("repo"),
+        "branch": lambda: taf_command_loader("branch"),
         "targets": lambda: taf_command_loader("targets"),
         "metadata": lambda: taf_command_loader("metadata"),
         "roles": lambda: taf_command_loader("roles"),

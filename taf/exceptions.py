@@ -234,6 +234,14 @@ class NoSpeculativeBranchError(TAFError):
     pass
 
 
+class MergeError(TAFError):
+    pass
+
+
+class RoleMetadataNotSameError(TAFError):
+    pass
+
+
 class RepositoriesNotFoundError(TAFError):
     pass
 

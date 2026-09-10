@@ -1179,13 +1179,14 @@ class GitRepository:
     def create_local_branch_from_remote_tracking(self, branch, remote="origin"):
         repo = self.pygit_repo
         remote_branch_name = f"refs/remotes/{remote}/{branch}"
-        remote_branch = repo.lookup_reference(remote_branch_name)
+        remote_branch = repo.references.get(remote_branch_name)
         if remote_branch is not None:
             local_branch = repo.lookup_branch(branch, pygit2.GIT_BRANCH_LOCAL)
             if local_branch is None:
                 # Create a new local branch from the remote branch
                 target_commit = repo[remote_branch.target]
                 repo.create_branch(branch, target_commit)
+                self.set_tracking_branch(branch, remote=remote)
 
     def delete_local_branch(self, branch_name: str) -> None:
         """Deletes local branch."""
@@ -1682,7 +1683,7 @@ class GitRepository:
         if start_commit is not None:
             start_commit_id = repo.get(start_commit.hash).id
         elif branch:
-            branch_obj = repo.branches.get(branch)
+            branch_obj = repo.branches.get(self.get_branch_reference(branch))
             start_commit_id = branch_obj.target
         else:
             start_commit_id = repo[repo.head.target].id
