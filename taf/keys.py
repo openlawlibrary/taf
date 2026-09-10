@@ -357,7 +357,8 @@ def load_signers(
                 use_yubikeys_to_sign = True
                 num_of_loaded_keys = len(loaded_keys)
                 for loaded_key in loaded_keys:
-                    key_names.remove(loaded_key)
+                    if loaded_key in key_names:
+                        key_names.remove(loaded_key)
 
                 if num_of_loaded_keys:
                     num_of_signatures += num_of_loaded_keys
