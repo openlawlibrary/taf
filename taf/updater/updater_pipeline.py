@@ -98,7 +98,7 @@ class UpdateState:
             target repositories, this list will not be the same as the list containing new auth repo commits.
         is_partially_updated (bool): Indicates if the update was partial.
         newly_cloned_repos (List[str]): Names of target repositories cloned for the first time
-            during this update (were in repos_not_on_disk and have since been materialized).
+            during this update.
     """
 
     auth_commits_since_last_validated: List[Any] = field(factory=list)
