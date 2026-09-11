@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Determine the default branch from a local (`--from-fs`) path containing a space, instead of failing ([780])
 - Fix YubiKey caching bugs that could skip a valid signing key for a delegated role ([775])
 - Disallowing unauthenticated commits no longer invalidates already-signed history ([774])
 - Allow `--key-pin` with multiple YubiKeys inserted ([770])
@@ -32,6 +33,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Correct the clone access error that rendered as "Cannot None ..." and stop misattributing a local failure to an access/authentication problem ([762])
 
 
+[780]: https://github.com/openlawlibrary/taf/pull/780
 [775]: https://github.com/openlawlibrary/taf/pull/775
 [774]: https://github.com/openlawlibrary/taf/pull/774
 [771]: https://github.com/openlawlibrary/taf/pull/771

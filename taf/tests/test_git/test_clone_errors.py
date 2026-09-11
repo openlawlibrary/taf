@@ -103,6 +103,16 @@ def test_clone_from_disk_with_spaced_source_path(repository: GitRepository, tmp_
     assert repo.is_git_repository
 
 
+def test_get_default_branch_from_remote_with_spaced_local_url(
+    repository: GitRepository, tmp_path
+):
+    spaced_origin = Path(tmp_path) / "Given Surname" / "origin"
+    GitRepository(path=spaced_origin).clone_from_disk(repository.path, is_bare=True)
+
+    branch = repository.get_default_branch(url=str(spaced_origin))
+    assert branch == repository.default_branch
+
+
 def test_git_subprocess_handles_spaced_repo_path(tmp_path):
     # A local git operation that actually shells out (via _git -> run) must
     # tolerate a repository path with spaces. The repo is initialised through

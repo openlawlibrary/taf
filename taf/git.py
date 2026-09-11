@@ -430,8 +430,11 @@ class GitRepository:
                 self,
                 message="Could not get default branch from remote. Not a git repository",
             )
+        # url as a `{}` arg keeps it one token even with spaces (e.g. a
+        # --from-fs local path under a spaced home directory)
         branch = self._git(
-            f"ls-remote --symref {url} HEAD",
+            "ls-remote --symref {} HEAD",
+            url,
             log_error=True,
             log_error_msg="Unable to get default branch from remote",
             reraise_error=True,
