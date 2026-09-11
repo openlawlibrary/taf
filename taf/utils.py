@@ -319,6 +319,39 @@ def normalize_line_endings(file_content):
     return replaced_content
 
 
+_os_replace_patched = False
+
+
+def patch_os_replace_with_windows_retry(retries: int = 5, delay: float = 0.1) -> None:
+    """On Windows, os.replace() can transiently fail with WinError 5 (Access
+    is denied) when another process (commonly antivirus) briefly holds a
+    handle on the source or destination file. python-tuf's own atomic
+    metadata writes (tuf.ngclient.updater) call os.replace() with no retry
+    of their own, so this failure surfaces as a validation error instead of
+    the transient hiccup it usually is. Wraps the stdlib os.replace with a
+    short retry so that case recovers on its own. No-op on non-Windows
+    platforms, and idempotent - calling this more than once won't stack
+    multiple retry wrappers.
+    """
+    global _os_replace_patched
+    if platform.system() != "Windows" or _os_replace_patched:
+        return
+
+    original_replace = os.replace
+
+    def _replace_with_retry(src, dst, *args, **kwargs):
+        for attempt in range(retries):
+            try:
+                return original_replace(src, dst, *args, **kwargs)
+            except PermissionError:
+                if attempt == retries - 1:
+                    raise
+                time.sleep(delay * (attempt + 1))
+
+    os.replace = _replace_with_retry
+    _os_replace_patched = True
+
+
 def on_rm_error(_func, path, _exc_info):
     """Used by when calling rmtree to ensure that readonly files and folders
     are deleted.

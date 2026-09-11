@@ -2,6 +2,10 @@
 
 import sys
 
+from taf.utils import patch_os_replace_with_windows_retry
+
+patch_os_replace_with_windows_retry()
+
 
 class YubikeyMissingLibrary:
     """If `yubikey-manager` is not installed and we try to use any function from `taf.yubikey`
