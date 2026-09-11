@@ -97,6 +97,8 @@ class UpdateState:
             to commits of target repositories that need to be validated. If the previous update excluded some
             target repositories, this list will not be the same as the list containing new auth repo commits.
         is_partially_updated (bool): Indicates if the update was partial.
+        newly_cloned_repos (List[str]): Names of target repositories cloned for the first time
+            during this update (were in repos_not_on_disk and have since been materialized).
     """
 
     auth_commits_since_last_validated: List[Any] = field(factory=list)
@@ -139,6 +141,7 @@ class UpdateState:
     )
     all_targets_auth_commits: List[Commitish] = field(factory=list)
     is_partially_updated: bool = field(default=False)
+    newly_cloned_repos: List[str] = field(factory=list)
 
 
 @attrs
@@ -2042,6 +2045,9 @@ but commit not on branch {current_branch}"
                 for future in as_completed(futures):
                     future.result()
 
+            # every repo in repos_not_on_disk just got cloned above without error
+            self.state.newly_cloned_repos = list(self.state.repos_not_on_disk)
+
             return self.state.update_status
         except Exception as e:
             self.state.errors.append(e)
@@ -2111,6 +2117,11 @@ but commit not on branch {current_branch}"
                 ]
                 for future in as_completed(futures):
                     events_list.extend(future.result())
+
+            if self.state.newly_cloned_repos:
+                # its branch already sits on the commit being merged, so
+                # _merge_commit reports it as unchanged
+                events_list.append(Event.CHANGED)
 
             if self.state.event == Event.UNCHANGED and Event.CHANGED in events_list:
                 # the auth repository was not updated, but one of the target repositories was

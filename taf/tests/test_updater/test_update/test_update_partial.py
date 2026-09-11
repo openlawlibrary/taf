@@ -234,13 +234,15 @@ def test_update_after_clone_with_type1_filter_remove_exclude_from_lvc(
     client_auth_repo.set_last_validated_data(lvc_data, set_last_validated_commit=False)
 
     # Update should now clone and validate all repos, including type1
-    update_and_check_commit_shas(
+    update_ret = update_and_check_commit_shas(
         OperationType.UPDATE,
         origin_auth_repo,
         client_dir,
         expected_repo_type=expected_repo_type,
     )
     verify_repos_exist(client_dir, origin_auth_repo)
+    # cloning target_type1 counts as a change, even though the auth repo has no new commits
+    assert update_ret["changed"] is True
 
 
 @pytest.mark.parametrize(
