@@ -1954,6 +1954,7 @@ but commit not on branch {current_branch}"
         if self.state.update_status != UpdateStatus.SUCCESS:
             return self.state.update_status
         try:
+            unauthenticated_commits_errors = []
             for repository in self.state.temp_target_repositories.values():
                 # this will only include branches that were, at least partially, validated (up until a certain point)
                 for (
@@ -1976,13 +1977,17 @@ but commit not on branch {current_branch}"
                             not _is_unauthenticated_allowed(repository)
                             and not self.no_upstream
                         ):
-                            raise UpdateFailedError(
+                            unauthenticated_commits_errors.append(
                                 f"Target repository {repository.name} does not allow unauthenticated commits, but contains commit(s) {', '.join([commit.value for commit in additional_commits])} on branch {branch}"
                             )
 
                     self.state.additional_commits_per_target_repos_branches[
                         repository.name
                     ][branch] = additional_commits
+
+            if unauthenticated_commits_errors:
+                raise UpdateFailedError("\n".join(unauthenticated_commits_errors))
+
             return self.state.update_status
         except UpdateFailedError as e:
             self.state.errors.append(e)
