@@ -97,6 +97,8 @@ class UpdateState:
             to commits of target repositories that need to be validated. If the previous update excluded some
             target repositories, this list will not be the same as the list containing new auth repo commits.
         is_partially_updated (bool): Indicates if the update was partial.
+        newly_cloned_repos (List[str]): Names of target repositories cloned for the first time
+            during this update.
     """
 
     auth_commits_since_last_validated: List[Any] = field(factory=list)
@@ -139,6 +141,7 @@ class UpdateState:
     )
     all_targets_auth_commits: List[Commitish] = field(factory=list)
     is_partially_updated: bool = field(default=False)
+    newly_cloned_repos: List[str] = field(factory=list)
 
 
 @attrs
@@ -1282,42 +1285,46 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         return UpdateStatus.SUCCESS
 
     def set_auth_commit_for_target_repos(self):
-        last_commits_per_repos = {
-            repo_name: self._get_last_validated_commit(repo_name)
-            for repo_name in self.state.users_target_repositories
-        }
-        last_commits_per_repos[self.state.users_auth_repo.name] = (
-            self._get_last_validated_commit(self.state.users_auth_repo.name)
-        )
+        try:
+            last_commits_per_repos = {
+                repo_name: self._get_last_validated_commit(repo_name)
+                for repo_name in self.state.users_target_repositories
+            }
+            last_commits_per_repos[self.state.users_auth_repo.name] = (
+                self._get_last_validated_commit(self.state.users_auth_repo.name)
+            )
 
-        last_validated_commits = list(set(last_commits_per_repos.values()))
+            last_validated_commits = list(set(last_commits_per_repos.values()))
 
-        if len(last_validated_commits) > 1:
-            # not all target repositories were updated at the same time
-            # updater was run with --exclude-targets
-            # check if the repositories are in sync according to that data
-            partially_validated_commits = (
-                self.state.users_auth_repo.auth_repo_commits_after_repos_last_validated(
+            if len(last_validated_commits) > 1:
+                # not all target repositories were updated at the same time
+                # updater was run with --exclude-targets
+                # check if the repositories are in sync according to that data
+                partially_validated_commits = self.state.users_auth_repo.auth_repo_commits_after_repos_last_validated(
                     self.state.users_target_repositories.values(),
                     self.state.last_validated_data,
                 )
-            )
-            all_auth_commits = partially_validated_commits
-            for commit in self.state.auth_commits_since_last_validated:
-                if commit not in all_auth_commits:
-                    all_auth_commits.append(commit)
-        else:
-            all_auth_commits = self.state.auth_commits_since_last_validated
+                all_auth_commits = partially_validated_commits
+                for commit in self.state.auth_commits_since_last_validated:
+                    if commit not in all_auth_commits:
+                        all_auth_commits.append(commit)
+            else:
+                all_auth_commits = self.state.auth_commits_since_last_validated
 
-        self.state.all_targets_auth_commits = all_auth_commits
+            self.state.all_targets_auth_commits = all_auth_commits
 
-        self.state.targets_data_by_auth_commits = (
-            self.state.users_auth_repo.targets_data_by_auth_commits(
-                all_auth_commits,
-                target_repos=self.state.users_target_repositories,
-                last_commits_per_repos=last_commits_per_repos,
+            self.state.targets_data_by_auth_commits = (
+                self.state.users_auth_repo.targets_data_by_auth_commits(
+                    all_auth_commits,
+                    target_repos=self.state.users_target_repositories,
+                    last_commits_per_repos=last_commits_per_repos,
+                )
             )
-        )
+            return UpdateStatus.SUCCESS
+        except Exception as e:
+            self.state.errors.append(e)
+            self.state.event = Event.FAILED
+            return UpdateStatus.FAILED
 
     def set_excluded_targets(self):
         try:
@@ -1951,6 +1958,7 @@ but commit not on branch {current_branch}"
         if self.state.update_status != UpdateStatus.SUCCESS:
             return self.state.update_status
         try:
+            unauthenticated_commits_errors = []
             for repository in self.state.temp_target_repositories.values():
                 # this will only include branches that were, at least partially, validated (up until a certain point)
                 for (
@@ -1973,13 +1981,17 @@ but commit not on branch {current_branch}"
                             not _is_unauthenticated_allowed(repository)
                             and not self.no_upstream
                         ):
-                            raise UpdateFailedError(
+                            unauthenticated_commits_errors.append(
                                 f"Target repository {repository.name} does not allow unauthenticated commits, but contains commit(s) {', '.join([commit.value for commit in additional_commits])} on branch {branch}"
                             )
 
                     self.state.additional_commits_per_target_repos_branches[
                         repository.name
                     ][branch] = additional_commits
+
+            if unauthenticated_commits_errors:
+                raise UpdateFailedError("\n".join(unauthenticated_commits_errors))
+
             return self.state.update_status
         except UpdateFailedError as e:
             self.state.errors.append(e)
@@ -2041,6 +2053,9 @@ but commit not on branch {current_branch}"
                 ]
                 for future in as_completed(futures):
                     future.result()
+
+            # every repo in repos_not_on_disk just got cloned above without error
+            self.state.newly_cloned_repos = list(self.state.repos_not_on_disk)
 
             return self.state.update_status
         except Exception as e:
@@ -2111,6 +2126,11 @@ but commit not on branch {current_branch}"
                 ]
                 for future in as_completed(futures):
                     events_list.extend(future.result())
+
+            if self.state.newly_cloned_repos:
+                # its branch already sits on the commit being merged, so
+                # _merge_commit reports it as unchanged
+                events_list.append(Event.CHANGED)
 
             if self.state.event == Event.UNCHANGED and Event.CHANGED in events_list:
                 # the auth repository was not updated, but one of the target repositories was
