@@ -8,6 +8,7 @@ from taf.tests.test_updater.conftest import (
     SetupManager,
     add_unauthenticated_commit_to_target_repo,
     add_valid_target_commits,
+    clone_client_repo,
     set_head_commit,
     update_target_repo_without_committing,
 )
@@ -320,4 +321,79 @@ def test_last_validated_commit_set_on_exclude_not_updated_on_partial_error(
     assert (
         client_auth_repo.last_validated_data[client_auth_repo.LAST_VALIDATED_KEY]
         != origin_auth_repo.head_commit().hash
+    )
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [
+                {"name": "target_same1"},
+                {"name": "target_same2"},
+                {"name": "target_different"},
+            ],
+        },
+    ],
+    indirect=True,
+)
+def test_update_with_target_repo_entirely_missing_from_lvc(
+    origin_auth_repo, client_dir
+):
+    """A target repo's entry can be entirely absent from last_validated_commit
+    (not even set to None) - e.g. whatever last wrote the file dropped it -
+    while the repo is already on the client's filesystem and other repos have
+    differing recorded commits. This must not crash the updater (#738)."""
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(add_valid_target_commits)
+    setup_manager.execute_tasks()
+    is_test_repo = origin_auth_repo.is_test_repo
+    expected_repo_type = UpdateType.TEST if is_test_repo else UpdateType.OFFICIAL
+
+    update_and_check_commit_shas(
+        OperationType.CLONE,
+        origin_auth_repo,
+        client_dir,
+        expected_repo_type=expected_repo_type,
+        exclude_filter="'target_same' in repo['name']",
+    )
+
+    setup_manager.add_task(add_valid_target_commits)
+    setup_manager.execute_tasks()
+
+    # still excluding target_same1/2 - exclude_filter persists via LVC
+    update_and_check_commit_shas(
+        OperationType.UPDATE,
+        origin_auth_repo,
+        client_dir,
+        expected_repo_type=expected_repo_type,
+    )
+
+    client_auth_repo = AuthenticationRepository(path=client_dir / origin_auth_repo.name)
+    lvc_data = client_auth_repo.last_validated_data
+    lvc_data.pop("exclude_filter", None)
+    # target_same1's entry is entirely missing, not just excluded (None) -
+    # target_same2 keeps its stale excluded (None) entry, so recorded commits
+    # differ across repos
+    target_same1_key = next(k for k in lvc_data if "target_same1" in k)
+    lvc_data.pop(target_same1_key)
+    client_auth_repo.set_last_validated_data(lvc_data, set_last_validated_commit=False)
+
+    # target_same1 already exists on the client's filesystem
+    origin_root_dir = origin_auth_repo.path.parent.parent
+    origin_target_same1_name = next(
+        name
+        for name in load_target_repositories(
+            origin_auth_repo, library_dir=origin_root_dir
+        )
+        if name.endswith("target_same1")
+    )
+    clone_client_repo(origin_target_same1_name, origin_root_dir, client_dir)
+
+    # must not raise a KeyError - target_same1 should just get re-validated
+    update_and_check_commit_shas(
+        OperationType.UPDATE,
+        origin_auth_repo,
+        client_dir,
+        expected_repo_type=expected_repo_type,
     )
