@@ -27,6 +27,7 @@ from taf.utils import on_rm_error
 from taf.log import disable_console_logging
 from taf.tests.test_updater.update_utils import load_target_repositories
 from taf.api.targets import (
+    add_target_repo,
     register_target_files,
     update_target_repos_from_repositories_json,
 )
@@ -564,6 +565,35 @@ def add_valid_target_commits(
         if not add_if_empty and target_repo.head_commit() is None:
             continue
         update_target_repository(target_repo, "Update target files")
+    sign_target_repositories(
+        TEST_DATA_ORIGIN_PATH, auth_repo.name, KEYSTORE_PATH, pin_manager
+    )
+
+
+def add_new_target_repo(
+    auth_repo: AuthenticationRepository, pin_manager: PinManager, target_name: str
+):
+    """Add a brand-new target repo to an auth repo that was already set up and
+    signed, simulating a repository added after the initial clone/update."""
+    namespace = auth_repo.name.split("/")[0]
+    full_name = f"{namespace}/{target_name}"
+
+    initialize_target_repositories(
+        TEST_DATA_ORIGIN_PATH, targets_config=[RepositoryConfig(full_name)]
+    )
+    add_target_repo(
+        path=str(auth_repo.path),
+        pin_manager=pin_manager,
+        target_path=None,
+        target_name=full_name,
+        role="targets",
+        library_dir=str(TEST_DATA_ORIGIN_PATH),
+        keystore=str(KEYSTORE_PATH),
+        should_create_new_role=False,
+        push=False,
+    )
+    # add_target_repo only lists the repo in repositories.json - it still
+    # needs a signed target file recording its current commit
     sign_target_repositories(
         TEST_DATA_ORIGIN_PATH, auth_repo.name, KEYSTORE_PATH, pin_manager
     )
