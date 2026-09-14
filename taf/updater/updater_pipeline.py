@@ -1636,6 +1636,17 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             for commit_data in commits_data.values():
                 branches.add(commit_data["branch"])
             repo_branches[repo_name] = sorted(list(branches))
+
+        for repository in self.state.temp_target_repositories.values():
+            if repository.name in repo_branches:
+                continue
+            if not _is_unauthenticated_allowed(repository):
+                continue
+            # a repo can be listed in repositories.json with no target file
+            # yet (e.g. it was just added) - if it allows unauthenticated
+            # commits, still bring in whatever's on its default branch
+            repo_branches[repository.name] = [repository.default_branch]
+
         self.state.target_branches_data_from_auth_repo = repo_branches
         return UpdateStatus.SUCCESS
 
@@ -1851,6 +1862,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
 
                 # commit processed without an error
                 self.state.validated_auth_commits.append(auth_commit)
+
+            self._set_validated_data_for_new_repos_allowing_unauthenticated_commits()
+
             taf_logger.info(
                 f"{self.state.auth_repo_name}: Validation of target repositories finished"
             )
@@ -1863,6 +1877,33 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 return UpdateStatus.PARTIAL
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
+
+    def _set_validated_data_for_new_repos_allowing_unauthenticated_commits(self):
+        """Give repos with no target file yet a last_validated_data_per_repositories
+        entry too, if they allow unauthenticated commits, so merge_commits has
+        something to work with instead of failing."""
+        for repository in self.state.temp_target_repositories.values():
+            if repository.name in self.state.last_validated_data_per_repositories:
+                continue
+            if repository.name in self.state.targets_data_by_auth_commits:
+                continue
+            if not _is_unauthenticated_allowed(repository):
+                continue
+            branch = repository.default_branch
+            commits = self.state.fetched_commits_per_target_repos_branches.get(
+                repository.name, {}
+            ).get(branch)
+            if not commits:
+                # nothing committed to the repo yet - nothing to bring in
+                continue
+            commit = commits[-1]
+            self.state.last_validated_data_per_repositories[repository.name] = {
+                "commit": commit,
+                "branch": branch,
+            }
+            self.state.validated_commits_per_target_repos_branches[repository.name][
+                branch
+            ] = commits
 
     def _is_unauthenticated_allowed_at(
         self, repository, auth_commit: Commitish
@@ -2098,6 +2139,13 @@ but commit not on branch {current_branch}"
             def _merge_repository_commits(repository):
                 # this will only include branches that were, at least partially, validated (up until a certain point)
                 events = []
+                if (
+                    repository.name
+                    not in self.state.last_validated_data_per_repositories
+                ):
+                    # e.g. a repo that allows unauthenticated commits but has
+                    # no commits at all yet - nothing to merge
+                    return events
                 last_branch = self.state.last_validated_data_per_repositories[
                     repository.name
                 ]["branch"]

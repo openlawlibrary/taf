@@ -1,6 +1,7 @@
 import pytest
 from taf.tests.test_updater.conftest import (
     SetupManager,
+    add_new_target_repo_without_target_file,
     add_unauthenticated_commit_to_target_repo,
     add_unauthenticated_commits_to_all_target_repos,
     add_valid_target_commits,
@@ -476,3 +477,98 @@ def test_clone_when_no_target_file_and_commit(origin_auth_repo, client_dir):
         expected_repo_type=UpdateType.EITHER,
     )
     verify_repos_exist(client_dir, origin_auth_repo, excluded=["target2"])
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        },
+    ],
+    indirect=True,
+)
+def test_clone_repo_added_without_target_file_and_allowed_unauthenticated(
+    origin_auth_repo, client_dir
+):
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(
+        add_new_target_repo_without_target_file,
+        kwargs={"target_name": "target3", "allow_unauthenticated_commits": True},
+    )
+    setup_manager.execute_tasks()
+
+    update_and_check_commit_shas(
+        OperationType.CLONE,
+        origin_auth_repo,
+        client_dir,
+        expected_repo_type=UpdateType.EITHER,
+    )
+    verify_repos_exist(client_dir, origin_auth_repo)
+    namespace = origin_auth_repo.name.split("/")[0]
+    assert (client_dir / f"{namespace}/target3").is_dir()
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        },
+    ],
+    indirect=True,
+)
+def test_clone_repo_added_without_target_file_and_not_allowed(
+    origin_auth_repo, client_dir
+):
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(
+        add_new_target_repo_without_target_file,
+        kwargs={"target_name": "target3", "allow_unauthenticated_commits": False},
+    )
+    setup_manager.execute_tasks()
+
+    update_and_check_commit_shas(
+        OperationType.CLONE,
+        origin_auth_repo,
+        client_dir,
+        expected_repo_type=UpdateType.EITHER,
+    )
+    verify_repos_exist(client_dir, origin_auth_repo, excluded=["target3"])
+    namespace = origin_auth_repo.name.split("/")[0]
+    assert not (client_dir / f"{namespace}/target3").is_dir()
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        },
+    ],
+    indirect=True,
+)
+def test_clone_repo_added_without_target_file_empty_and_allowed(
+    origin_auth_repo, client_dir
+):
+    # the repo allows unauthenticated commits but has no commits at all yet -
+    # must not crash, even though there's nothing to bring in
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(
+        add_new_target_repo_without_target_file,
+        kwargs={
+            "target_name": "target3",
+            "allow_unauthenticated_commits": True,
+            "is_empty": True,
+        },
+    )
+    setup_manager.execute_tasks()
+
+    # the point of this test is just that the clone completes without
+    # crashing - there's nothing on target3's default branch to check for
+    update_and_check_commit_shas(
+        OperationType.CLONE,
+        origin_auth_repo,
+        client_dir,
+        expected_repo_type=UpdateType.EITHER,
+    )

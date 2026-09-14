@@ -306,9 +306,18 @@ def _load_repositories(
         for name, repo_data in repositories_json.items():
             if name in skipped_targets:
                 continue
-            if name not in targets and only_load_targets:
-                continue
             custom = _get_custom_data(repo_data, targets.get(name))
+            if name not in targets and only_load_targets:
+                if not custom.get("allow-unauthenticated-commits", False):
+                    taf_logger.warning(
+                        "{} is listed in repositories.json, but has no target "
+                        "file yet and does not allow unauthenticated commits, "
+                        "so it will not be cloned. Sign an initial target file "
+                        "for it, or set allow-unauthenticated-commits to true "
+                        "if that's expected.",
+                        name,
+                    )
+                    continue
             urls = _get_urls(mirrors, name, repo_data, raise_error_if_no_urls)
             default_branch = _get_target_default_branch(auth_repo, name, commit)
             git_repo = _initialize_repository(
