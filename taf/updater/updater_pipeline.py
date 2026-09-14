@@ -554,7 +554,10 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     for target_repo in target_repositories.values()
                     if target_repo.is_git_repository_root
                 }
-                repositoriesdb.clear_repositories_db()
+                # scoped to this repo only - dependencies run their own
+                # pipelines at the same time, and a full clear here could wipe
+                # another one's data while it's still using it
+                repositoriesdb.clear_repositories_db(self.state.users_auth_repo.path)
         return UpdateStatus.SUCCESS
 
     def _get_last_validated_commit(self, repo_name) -> Commitish:

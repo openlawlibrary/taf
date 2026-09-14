@@ -39,9 +39,16 @@ MIRRORS_JSON_PATH = f"{TARGETS_DIRECTORY_NAME}/{MIRRORS_JSON_NAME}"
 REPOSITORIES_JSON_PATH = f"{TARGETS_DIRECTORY_NAME}/{REPOSITORIES_JSON_NAME}"
 
 
-def clear_repositories_db():
+def clear_repositories_db(auth_repo_path: Optional[Path] = None):
+    """Clear the repositories cache. If auth_repo_path is given, only that
+    repo's entry is dropped - clearing the whole cache is not safe when other
+    authentication repos (e.g. dependencies) are using it at the same time,
+    on other threads."""
     global _repositories_dict
-    _repositories_dict.clear()
+    if auth_repo_path is not None:
+        _repositories_dict.pop(auth_repo_path, None)
+    else:
+        _repositories_dict.clear()
 
 
 def clear_dependencies_db():
