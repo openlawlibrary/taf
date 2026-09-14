@@ -242,6 +242,42 @@ class UpdateFailedError(TAFError):
     pass
 
 
+class TargetCommitMismatchError(UpdateFailedError):
+    """
+    A target repository's commits do not match the commit that the authentication
+    repository declares for it at an authentication commit.
+
+    If `actual_commit` is None, the declared commit was not found on the branch.
+    """
+
+    def __init__(
+        self,
+        auth_repo_name: str,
+        auth_commit: Any,
+        commit_date: str,
+        repo_name: str,
+        expected_commit: Any,
+        branch: Optional[str],
+        actual_commit: Optional[Any] = None,
+    ):
+        self.auth_repo_name = auth_repo_name
+        self.auth_commit = auth_commit
+        self.commit_date = commit_date
+        self.repo_name = repo_name
+        self.expected_commit = expected_commit
+        self.branch = branch
+        self.actual_commit = actual_commit
+        if actual_commit is None:
+            reason = f"but commit not on branch {branch}"
+        else:
+            reason = f"but repo was at {actual_commit}"
+        self.message = (
+            f"Failure to validate {auth_repo_name} commit {auth_commit} committed on {commit_date}: "
+            f"data repository {repo_name} was supposed to be at commit {expected_commit} {reason}"
+        )
+        super().__init__(self.message)
+
+
 class ValidationFailedError(TAFError):
     pass
 
