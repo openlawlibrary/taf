@@ -64,7 +64,7 @@ kwargs = {
         "securesystemslib==1.4.*",
         "loguru==0.7.*",
         'pygit2==1.9.*; python_version < "3.11"',
-        'pygit2==1.14.*; python_version >= "3.11"',
+        'pygit2==1.16.*; python_version >= "3.11"',
         "pyOpenSSL==24.2.*",
         "logdecorator==2.*",
         "tomli==2.0.*",
