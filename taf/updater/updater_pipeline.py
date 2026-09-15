@@ -346,6 +346,11 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     self.should_run_if_not_synced,
                 ),
                 (
+                    self.warn_about_repos_without_target_files,
+                    RunMode.UPDATE,
+                    self.should_run_if_not_synced,
+                ),
+                (
                     self.check_if_previous_update_partial,
                     RunMode.ALL,
                     self.should_run_step_default,
@@ -1399,7 +1404,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     self.state.users_target_repositories
                 )
             else:
-                self._warn_about_repos_without_target_files()
                 self.state.temp_target_repositories = {
                     repo.name: GitRepository(
                         self.state.temp_root.temp_dir,
@@ -1415,27 +1419,33 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
 
-    def _warn_about_repos_without_target_files(self):
+    def warn_about_repos_without_target_files(self):
         """Warn about a repo listed in repositories.json with no target
         file yet - it will not be cloned until a target file is signed
         for it."""
-        all_repos = repositoriesdb.get_deduplicated_repositories(
-            self.state.users_auth_repo,
-            self.state.auth_commits_since_last_validated[-1::],
-            exclude_filter=self.exclude_filter,
-            library_dir=self.library_dir,
-            raise_error_if_no_urls=False,
-            only_load_targets=False,
-        )
-        for name in all_repos:
-            if name in self.state.users_target_repositories:
-                continue
-            taf_logger.warning(
-                "{} is listed in repositories.json, but has no target "
-                "file yet, so it will not be cloned. Sign an initial "
-                "target file for it first.",
-                name,
+        try:
+            all_repos = repositoriesdb.get_deduplicated_repositories(
+                self.state.users_auth_repo,
+                self.state.auth_commits_since_last_validated[-1::],
+                exclude_filter=self.exclude_filter,
+                library_dir=self.library_dir,
+                raise_error_if_no_urls=False,
+                only_load_targets=False,
             )
+            for name in all_repos:
+                if name in self.state.users_target_repositories:
+                    continue
+                taf_logger.warning(
+                    "{} is listed in repositories.json, but has no target "
+                    "file yet, so it will not be cloned. Sign an initial "
+                    "target file for it first.",
+                    name,
+                )
+            return self.state.update_status
+        except Exception as e:
+            self.state.errors.append(e)
+            self.state.event = Event.FAILED
+            return UpdateStatus.FAILED
 
     def check_if_repositories_on_disk(self):
         taf_logger.info(
