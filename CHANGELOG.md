@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Building the update output no longer removes branches from the updater's targets data ([785])
 - Determine the default branch from a local (`--from-fs`) path containing a space, instead of failing ([780])
 - Fix YubiKey caching bugs that could skip a valid signing key for a delegated role ([775])
 - Disallowing unauthenticated commits no longer invalidates already-signed history ([774])
@@ -35,6 +36,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Correct the clone access error that rendered as "Cannot None ..." and stop misattributing a local failure to an access/authentication problem ([762])
 
 
+[785]: https://github.com/openlawlibrary/taf/pull/785
 [784]: https://github.com/openlawlibrary/taf/pull/784
 [783]: https://github.com/openlawlibrary/taf/pull/783
 [780]: https://github.com/openlawlibrary/taf/pull/780
