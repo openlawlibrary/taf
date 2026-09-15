@@ -3,6 +3,9 @@ The update pipeline's use of TargetValidator: building law steps and last valida
 pointers from the loaded targets data, and recording the result in the update state.
 """
 
+import copy
+from types import SimpleNamespace
+
 from taf.exceptions import TargetCommitMismatchError
 from taf.tests.test_updater.test_target_validator.conftest import (
     AUTH_COMMIT_DATE,
@@ -292,3 +295,23 @@ def test_validate_target_repositories_resolves_unauthenticated_commits_per_repos
 
     assert status == UpdateStatus.SUCCESS
     assert policy.calls == [(REPO1, steps[1].auth_commit)]
+
+
+def test_set_target_repositories_data_does_not_modify_targets_data():
+    main = make_commits(MAIN, 2)
+    steps = law({REPO1: (MAIN, main[0])}, {REPO1: (MAIN, main[1])})
+    pipeline = make_pipeline(steps, {REPO1: {MAIN: main}}, repo_names=[REPO1])
+    pipeline.validate_target_repositories()
+    pipeline.state.users_target_repositories = {
+        REPO1: SimpleNamespace(to_json_dict=lambda: {"name": REPO1})
+    }
+    targets_data_before = copy.deepcopy(pipeline.state.targets_data_by_auth_commits)
+
+    pipeline.set_target_repositories_data()
+
+    assert pipeline.state.targets_data_by_auth_commits == targets_data_before
+    new_commits = pipeline.state.targets_data[REPO1]["commits"][MAIN]["new"]
+    assert [commit_info["commit"] for commit_info in new_commits] == [
+        commit.value for commit in main
+    ]
+    assert all("branch" not in commit_info for commit_info in new_commits)
