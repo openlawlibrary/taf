@@ -388,7 +388,12 @@ class AuthenticationRepository(GitRepository):
         """
         last_validated_target_commits = defaultdict(list)
         for repo in target_repos:
-            last_validated_commit = last_validated_data[repo.name]
+            # a target repo not yet in last_validated_data (e.g. newly added)
+            # has no validated commit of its own - fall back to the auth
+            # repo's, same as _get_last_validated_commit does
+            last_validated_commit = last_validated_data.get(
+                repo.name, last_validated_data.get(self.name)
+            )
             last_validated_target_commits[last_validated_commit].append(repo)
 
         repo = self.pygit_repo

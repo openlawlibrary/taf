@@ -557,6 +557,23 @@ def test_clean_and_reset(repository: GitRepository):
     assert updated_file.read_text() == old_text
 
 
+def test_clean_and_reset_repo_with_no_commits(empty_repository):
+    # a repo with staged/untracked changes but no commits at all yet -
+    # `git reset --hard HEAD` fails on it since there's no HEAD commit to
+    # reset to, so clean_and_reset must still succeed
+    repo = empty_repository
+    (repo.path / "untracked.txt").touch()
+    staged_file = repo.path / "staged.txt"
+    staged_file.write_text("staged content")
+    repo._git("add staged.txt")
+    assert repo.something_to_commit()
+
+    repo.clean_and_reset()
+
+    assert not repo.something_to_commit()
+    assert not staged_file.exists()
+
+
 def test_create_local_branch_from_remote_tracking(
     origin_repo: GitRepository, clone_repository: GitRepository
 ):

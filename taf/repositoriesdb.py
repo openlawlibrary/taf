@@ -39,9 +39,16 @@ MIRRORS_JSON_PATH = f"{TARGETS_DIRECTORY_NAME}/{MIRRORS_JSON_NAME}"
 REPOSITORIES_JSON_PATH = f"{TARGETS_DIRECTORY_NAME}/{REPOSITORIES_JSON_NAME}"
 
 
-def clear_repositories_db():
+def clear_repositories_db(auth_repo_path: Optional[Path] = None):
+    """Clear the repositories cache. If auth_repo_path is given, only that
+    repo's entry is dropped - clearing the whole cache is not safe when other
+    authentication repos (e.g. dependencies) are using it at the same time,
+    on other threads."""
     global _repositories_dict
-    _repositories_dict.clear()
+    if auth_repo_path is not None:
+        _repositories_dict.pop(auth_repo_path, None)
+    else:
+        _repositories_dict.clear()
 
 
 def clear_dependencies_db():
@@ -643,6 +650,7 @@ def get_deduplicated_repositories(
     exclude_filter: Optional[str] = None,
     library_dir: Optional[str] = None,
     raise_error_if_no_urls=False,
+    only_load_targets: bool = True,
 ) -> Dict[str, GitRepository]:
     return _get_deduplicated_target_or_auth_repositories(
         auth_repo,
@@ -651,6 +659,7 @@ def get_deduplicated_repositories(
         exclude_filter,
         library_dir,
         raise_error_if_no_urls,
+        only_load_targets,
     )
 
 
@@ -661,6 +670,7 @@ def _get_deduplicated_target_or_auth_repositories(
     exclude_filter: Optional[str] = None,
     library_dir: Optional[str] = None,
     raise_error_if_no_urls: Optional[bool] = False,
+    only_load_targets: bool = True,
 ):
     if commits is None:
         head_commit = auth_repo.head_commit()
@@ -678,8 +688,13 @@ def _get_deduplicated_target_or_auth_repositories(
                 auth_repo.path: _load_dependencies(auth_repo=auth_repo, commits=commits)
             }
     else:
-        if auth_repo.path in _repositories_dict and all(
-            commit in _repositories_dict[auth_repo.path] for commit in commits
+        # a cache hit is only valid for only_load_targets=True: the cache is
+        # only ever populated that way, so an only_load_targets=False call
+        # must not read back an already-filtered result
+        if (
+            only_load_targets
+            and auth_repo.path in _repositories_dict
+            and all(commit in _repositories_dict[auth_repo.path] for commit in commits)
         ):
             loaded_repositories_dict = _repositories_dict
         else:
@@ -690,6 +705,7 @@ def _get_deduplicated_target_or_auth_repositories(
                     exclude_filter=exclude_filter,
                     library_dir=library_dir,
                     raise_error_if_no_urls=raise_error_if_no_urls,
+                    only_load_targets=only_load_targets,
                 )
             }
 

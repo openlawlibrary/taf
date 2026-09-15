@@ -1,5 +1,6 @@
 import pytest
 from taf.auth_repo import AuthenticationRepository
+from taf.exceptions import UpdateFailedError
 from taf.tests.test_updater.conftest import (
     INVALID_KEYS_PATTERN,
     NO_INFO_JSON,
@@ -26,6 +27,7 @@ from taf.tests.test_updater.update_utils import (
     update_invalid_repos_and_check_if_repos_exist,
 )
 from taf.updater.types.update import OperationType, UpdateType
+from taf.updater.updater import UpdateConfig, clone_repository
 
 
 @pytest.mark.parametrize(
@@ -55,6 +57,40 @@ def test_clone_invalid_target_repositories_top_commits_unsigned(
     client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
     # make sure that the last validated commit does not exist
     check_if_last_validated_commit_exists(client_auth_repo, True)
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        },
+    ],
+    indirect=True,
+)
+def test_clone_invalid_target_repositories_reports_all_unsigned_repos(
+    origin_auth_repo, client_dir
+):
+    # both target1 and target2 get an unauthenticated commit - the error
+    # raised for the clone must name both, not just the first one found
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(add_unauthenticated_commits_to_all_target_repos)
+    setup_manager.execute_tasks()
+
+    config = UpdateConfig(
+        operation=OperationType.CLONE,
+        remote_url=str(origin_auth_repo.path),
+        update_from_filesystem=True,
+        path=str(client_dir / origin_auth_repo.name),
+        library_dir=str(client_dir),
+        no_upstream=False,
+    )
+    with pytest.raises(UpdateFailedError) as exc_info:
+        clone_repository(config)
+
+    message = str(exc_info.value)
+    assert "target1" in message
+    assert "target2" in message
 
 
 @pytest.mark.parametrize(

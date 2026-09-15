@@ -1,6 +1,7 @@
 import pytest
 from taf.tests.test_updater.conftest import (
     SetupManager,
+    add_new_target_repo_without_target_file,
     add_unauthenticated_commit_to_target_repo,
     add_unauthenticated_commits_to_all_target_repos,
     add_valid_target_commits,
@@ -476,3 +477,34 @@ def test_clone_when_no_target_file_and_commit(origin_auth_repo, client_dir):
         expected_repo_type=UpdateType.EITHER,
     )
     verify_repos_exist(client_dir, origin_auth_repo, excluded=["target2"])
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        },
+    ],
+    indirect=True,
+)
+def test_clone_repo_added_without_target_file(origin_auth_repo, client_dir):
+    # a repo listed in repositories.json with no target file signed for it
+    # yet is not cloned, regardless of allow-unauthenticated-commits - there
+    # is nothing signed to validate it against
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(
+        add_new_target_repo_without_target_file,
+        kwargs={"target_name": "target3", "allow_unauthenticated_commits": True},
+    )
+    setup_manager.execute_tasks()
+
+    update_and_check_commit_shas(
+        OperationType.CLONE,
+        origin_auth_repo,
+        client_dir,
+        expected_repo_type=UpdateType.EITHER,
+    )
+    verify_repos_exist(client_dir, origin_auth_repo, excluded=["target3"])
+    namespace = origin_auth_repo.name.split("/")[0]
+    assert not (client_dir / f"{namespace}/target3").is_dir()
