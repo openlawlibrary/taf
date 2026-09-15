@@ -7,7 +7,15 @@ from typing import Any, Callable, Dict, List, Optional, Union
 from collections import defaultdict
 from contextlib import contextmanager
 from pathlib import Path
+from taf.exceptions import InvalidTargetFileError
 from taf.models.types import Commitish
+from taf.targets_history import (
+    BRANCH_KEY,
+    COMMIT_KEY,
+    NOT_CUSTOM_KEYS,
+    get_tip,
+    parse_target_file,
+)
 from taf.tuf.storage import GitStorageBackend
 from taf.git import GitRepository
 from taf.tuf.repository import (
@@ -245,6 +253,19 @@ class AuthenticationRepository(GitRepository):
         else:
             return self.get_json(commit, target_path)
 
+    def get_target_tip(
+        self, target_name: str, commit: Optional[Commitish] = None, safely: bool = True
+    ) -> Optional[Dict]:
+        """
+        The commit that a target repository's target file declares at `commit`, in the
+        single object format whichever format the file uses (see taf.targets_history).
+        None if the target file does not exist.
+        """
+        target = self.get_target(target_name, commit, safely)
+        if target is None:
+            return None
+        return get_tip(target, target_name)
+
     def get_metadata(
         self, role: str, commit: Optional[Commitish] = None, safely: bool = True
     ) -> Optional[Dict]:
@@ -322,10 +343,11 @@ class AuthenticationRepository(GitRepository):
             if target is None:
                 continue
             try:
-                if target["commit"] == commit.hash:
-                    return True
-            except TypeError:
+                entries = parse_target_file(target, target_name)
+            except InvalidTargetFileError:
                 continue
+            if any(entry.commit == commit.hash for entry in entries):
+                return True
         return False
 
     @contextmanager
@@ -597,12 +619,15 @@ class AuthenticationRepository(GitRepository):
                     if target_repos is not None:
                         default_branch = target_repos[target_name].default_branch
                     if target_content is not None:
-                        target_commit = target_content.pop("commit")
-                        target_branch = target_content.pop("branch", default_branch)
+                        tip = get_tip(target_content, target_name)
                         targets[commit][target_name] = {
-                            "branch": target_branch,
-                            "commit": target_commit,
-                            "custom": target_content,
+                            "branch": tip.get(BRANCH_KEY, default_branch),
+                            "commit": tip[COMMIT_KEY],
+                            "custom": {
+                                key: value
+                                for key, value in tip.items()
+                                if key not in NOT_CUSTOM_KEYS
+                            },
                         }
         return targets
 

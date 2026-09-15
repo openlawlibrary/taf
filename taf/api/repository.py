@@ -270,7 +270,7 @@ def reset_repository(
 
         # Reset target repos:
         for repo_name, repo in target_repos.items():
-            target = auth_repo.get_target(repo_name, auth_commit)
+            target = auth_repo.get_target_tip(repo_name, auth_commit)
             if target is None:
                 raise ResetFailedError(
                     f"Target repository {repo_name} could not be loaded, aborting reset."
