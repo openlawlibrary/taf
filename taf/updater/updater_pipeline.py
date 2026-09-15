@@ -1394,6 +1394,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     raise_error_if_no_urls=not self.only_validate,
                 )
             )
+            self._add_new_repos_without_target_files()
             if self.only_validate:
                 self.state.temp_target_repositories = (
                     self.state.users_target_repositories
@@ -1413,6 +1414,33 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             self.state.errors.append(e)
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
+
+    def _add_new_repos_without_target_files(self):
+        """Bring in a repo listed in repositories.json with no target file
+        yet, if it allows unauthenticated commits - otherwise leave it out
+        and warn, since there's nothing signed to validate it against."""
+        all_repos = repositoriesdb.get_deduplicated_repositories(
+            self.state.users_auth_repo,
+            self.state.auth_commits_since_last_validated[-1::],
+            exclude_filter=self.exclude_filter,
+            library_dir=self.library_dir,
+            raise_error_if_no_urls=not self.only_validate,
+            only_load_targets=False,
+        )
+        for name, repo in all_repos.items():
+            if name in self.state.users_target_repositories:
+                continue
+            if _is_unauthenticated_allowed(repo):
+                self.state.users_target_repositories[name] = repo
+            else:
+                taf_logger.warning(
+                    "{} is listed in repositories.json, but has no target "
+                    "file yet and does not allow unauthenticated commits, "
+                    "so it will not be cloned. Sign an initial target file "
+                    "for it, or set allow-unauthenticated-commits to true "
+                    "if that's expected.",
+                    name,
+                )
 
     def check_if_repositories_on_disk(self):
         taf_logger.info(

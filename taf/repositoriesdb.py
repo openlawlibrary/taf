@@ -313,18 +313,9 @@ def _load_repositories(
         for name, repo_data in repositories_json.items():
             if name in skipped_targets:
                 continue
-            custom = _get_custom_data(repo_data, targets.get(name))
             if name not in targets and only_load_targets:
-                if not custom.get("allow-unauthenticated-commits", False):
-                    taf_logger.warning(
-                        "{} is listed in repositories.json, but has no target "
-                        "file yet and does not allow unauthenticated commits, "
-                        "so it will not be cloned. Sign an initial target file "
-                        "for it, or set allow-unauthenticated-commits to true "
-                        "if that's expected.",
-                        name,
-                    )
-                    continue
+                continue
+            custom = _get_custom_data(repo_data, targets.get(name))
             urls = _get_urls(mirrors, name, repo_data, raise_error_if_no_urls)
             default_branch = _get_target_default_branch(auth_repo, name, commit)
             git_repo = _initialize_repository(
@@ -659,6 +650,7 @@ def get_deduplicated_repositories(
     exclude_filter: Optional[str] = None,
     library_dir: Optional[str] = None,
     raise_error_if_no_urls=False,
+    only_load_targets: bool = True,
 ) -> Dict[str, GitRepository]:
     return _get_deduplicated_target_or_auth_repositories(
         auth_repo,
@@ -667,6 +659,7 @@ def get_deduplicated_repositories(
         exclude_filter,
         library_dir,
         raise_error_if_no_urls,
+        only_load_targets,
     )
 
 
@@ -677,6 +670,7 @@ def _get_deduplicated_target_or_auth_repositories(
     exclude_filter: Optional[str] = None,
     library_dir: Optional[str] = None,
     raise_error_if_no_urls: Optional[bool] = False,
+    only_load_targets: bool = True,
 ):
     if commits is None:
         head_commit = auth_repo.head_commit()
@@ -693,6 +687,21 @@ def _get_deduplicated_target_or_auth_repositories(
             loaded_repositories_dict = {
                 auth_repo.path: _load_dependencies(auth_repo=auth_repo, commits=commits)
             }
+    elif not only_load_targets:
+        # the cache is only ever populated/read assuming only_load_targets=True
+        # (that's _load_repositories's own default) - reusing it here would
+        # silently hand back a filtered result, so always compute this fresh
+        # and don't store it, rather than make the cache track this too
+        loaded_repositories_dict = {
+            auth_repo.path: _load_repositories(
+                auth_repo=auth_repo,
+                commits=commits,
+                exclude_filter=exclude_filter,
+                library_dir=library_dir,
+                raise_error_if_no_urls=raise_error_if_no_urls,
+                only_load_targets=False,
+            )
+        }
     else:
         if auth_repo.path in _repositories_dict and all(
             commit in _repositories_dict[auth_repo.path] for commit in commits
