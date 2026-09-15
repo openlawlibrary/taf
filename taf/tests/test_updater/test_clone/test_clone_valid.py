@@ -506,7 +506,12 @@ def test_clone_repo_added_without_target_file_and_allowed_unauthenticated(
     )
     verify_repos_exist(client_dir, origin_auth_repo)
     namespace = origin_auth_repo.name.split("/")[0]
-    assert (client_dir / f"{namespace}/target3").is_dir()
+    target3_path = client_dir / f"{namespace}/target3"
+    assert target3_path.is_dir()
+    # the commit must actually be checked out, not just copied into the
+    # git object store
+    assert (target3_path / "test1.txt").is_file()
+    assert (target3_path / "test2.txt").is_file()
 
 
 @pytest.mark.parametrize(

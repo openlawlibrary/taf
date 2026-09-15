@@ -1895,8 +1895,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 # commit processed without an error
                 self.state.validated_auth_commits.append(auth_commit)
 
-            self._set_validated_data_for_new_repos_allowing_unauthenticated_commits()
-
             taf_logger.info(
                 f"{self.state.auth_repo_name}: Validation of target repositories finished"
             )
@@ -1909,27 +1907,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 return UpdateStatus.PARTIAL
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
-
-    def _set_validated_data_for_new_repos_allowing_unauthenticated_commits(self):
-        """Give repos with no target file a last_validated_data_per_repositories
-        entry too, so merge_commits has something to work with instead of
-        failing."""
-        for name in self.state.repos_without_target_files:
-            repository = self.state.temp_target_repositories[name]
-            branch = repository.default_branch
-            commits = self.state.fetched_commits_per_target_repos_branches.get(
-                name, {}
-            ).get(branch)
-            if not commits:
-                # nothing committed to the repo yet - nothing to use
-                continue
-            self.state.last_validated_data_per_repositories[name] = {
-                "commit": commits[-1],
-                "branch": branch,
-            }
-            self.state.validated_commits_per_target_repos_branches[name][
-                branch
-            ] = commits
 
     def _is_unauthenticated_allowed_at(
         self, repository, auth_commit: Commitish
@@ -2056,6 +2033,8 @@ but commit not on branch {current_branch}"
                         repository.name
                     ][branch] = additional_commits
 
+            self._set_additional_commits_for_new_repos_without_target_files()
+
             if unauthenticated_commits_errors:
                 raise UpdateFailedError("\n".join(unauthenticated_commits_errors))
 
@@ -2071,6 +2050,41 @@ but commit not on branch {current_branch}"
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
 
+    def _set_additional_commits_for_new_repos_without_target_files(self):
+        """Repos with no target file have no validated baseline at all -
+        everything fetched on their default branch is unauthenticated, so
+        record it as additional commits rather than validated ones."""
+        for name in self.state.repos_without_target_files:
+            repository = self.state.temp_target_repositories[name]
+            branch = repository.default_branch
+            commits = self.state.fetched_commits_per_target_repos_branches.get(
+                name, {}
+            ).get(branch)
+            if not commits:
+                # nothing committed to the repo yet
+                continue
+            self.state.additional_commits_per_target_repos_branches[name][
+                branch
+            ] = commits
+
+    def _branches_to_copy(self, repository_name):
+        """The branches (and their commits) to copy from a repo's temp
+        clone to the real one: the validated ones, plus, for a repo with no
+        target file, whatever was fetched as additional (unauthenticated)
+        commits on it, since that's all it has."""
+        branches = dict(
+            self.state.validated_commits_per_target_repos_branches.get(
+                repository_name, {}
+            )
+        )
+        if repository_name in self.state.repos_without_target_files:
+            branches.update(
+                self.state.additional_commits_per_target_repos_branches.get(
+                    repository_name, {}
+                )
+            )
+        return branches
+
     def update_users_target_repositories(self):
         taf_logger.debug(
             f"{self.state.auth_repo_name}: Copying or updating user's target repositories..."
@@ -2080,12 +2094,7 @@ but commit not on branch {current_branch}"
         try:
 
             def _materialize_not_on_disk(repository_name):
-                branches = [
-                    branch
-                    for branch in self.state.validated_commits_per_target_repos_branches[
-                        repository_name
-                    ]
-                ]
+                branches = list(self._branches_to_copy(repository_name))
                 users_target_repo = self.state.users_target_repositories[
                     repository_name
                 ]
@@ -2103,9 +2112,7 @@ but commit not on branch {current_branch}"
                     repository_name
                 ]
                 temp_target_repo = self.state.temp_target_repositories[repository_name]
-                branches = self.state.validated_commits_per_target_repos_branches[
-                    repository_name
-                ]
+                branches = self._branches_to_copy(repository_name)
                 for branch in branches:
                     temp_target_repo.update_local_branch(branch=branch)
                 users_target_repo.fetch_from_disk(temp_target_repo.path, branches)
@@ -2163,6 +2170,25 @@ but commit not on branch {current_branch}"
                 return self.state.update_status
 
             def _merge_repository_commits(repository):
+                events = []
+                if repository.name in self.state.repos_without_target_files:
+                    # this repo has no target file at all, so none of its
+                    # commits were validated - check out the last commit
+                    # fetched on its default branch, if it has any commits
+                    for (
+                        branch,
+                        additional_commits,
+                    ) in self.state.additional_commits_per_target_repos_branches.get(
+                        repository.name, {}
+                    ).items():
+                        if not additional_commits:
+                            continue
+                        events.append(
+                            self._merge_commit(
+                                repository, branch, additional_commits[-1], True
+                            )
+                        )
+                    return events
                 if (
                     repository.name
                     not in self.state.last_validated_data_per_repositories
@@ -2171,7 +2197,6 @@ but commit not on branch {current_branch}"
                     # no commits at all yet - nothing to merge
                     return []
                 # this will only include branches that were, at least partially, validated (up until a certain point)
-                events = []
                 last_branch = self.state.last_validated_data_per_repositories[
                     repository.name
                 ]["branch"]
