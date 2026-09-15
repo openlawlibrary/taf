@@ -1683,12 +1683,13 @@ class GitRepository:
             start_commit_id = branch_obj.target
         else:
             start_commit_id = repo[repo.head.target].id
+        # NOTE: the `number + 1` and the start-commit exclusion that used to filter
+        # this list are pre-existing behaviour. The exclusion compared a str to a
+        # pygit2.Oid, which never matched on pygit2 <= 1.14, so it never removed
+        # anything. pygit2 1.16 made that comparison succeed, so it is dropped here
+        # to keep this method's results unchanged across pygit2 versions.
         commits = itertools.islice(repo.walk(start_commit_id), number + 1)
-        return [
-            Commitish.from_hash(commit.id)
-            for commit in commits
-            if str(commit.id) != start_commit_id
-        ]
+        return [Commitish.from_hash(commit.id) for commit in commits]
 
     def list_modified_files(
         self, path: Optional[str] = None, with_status: Optional[bool] = False
