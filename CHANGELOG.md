@@ -23,6 +23,13 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Fix incorrect "up-to-date" message after cloning a previously excluded repo ([782])
+- Report all target repos with disallowed unauthenticated commits, not just the first ([782])
+- Fix updater crash when a target repo is missing from last_validated_commit ([782])
+- Fix `--force` update crashing on a repo with no commits and uncommitted changes ([782])
+- Silence python-tuf's info-level log output by default ([782])
+- Clone a repo added to repositories.json even without a target file yet, if it allows unauthenticated commits ([782])
+- Fix a dependency update wiping another dependency's data out of a shared cache ([782])
 - Determine the default branch from a local (`--from-fs`) path containing a space, instead of failing ([780])
 - Fix YubiKey caching bugs that could skip a valid signing key for a delegated role ([775])
 - Disallowing unauthenticated commits no longer invalidates already-signed history ([774])
@@ -33,6 +40,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Correct the clone access error that rendered as "Cannot None ..." and stop misattributing a local failure to an access/authentication problem ([762])
 
 
+[782]: https://github.com/openlawlibrary/taf/pull/782
 [780]: https://github.com/openlawlibrary/taf/pull/780
 [775]: https://github.com/openlawlibrary/taf/pull/775
 [774]: https://github.com/openlawlibrary/taf/pull/774
