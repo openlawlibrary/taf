@@ -19,7 +19,7 @@ ci_require = [
     "coverage==4.5.3",
     "pre-commit>=1.18.3",
     "pytest-cov==2.7.1",
-    "freezegun==0.3.15",
+    "freezegun==1.5.*",
 ]
 
 executable_require = ["lxml"]
@@ -28,7 +28,7 @@ dev_require = ["bandit>=1.6.0", "black==26.3.1", "pre-commit>=1.18.3"]
 
 tests_require = [
     "pytest==8.*",
-    "freezegun==0.3.15",
+    "freezegun==1.5.*",
     "jsonschema==3.2.0",
     "jinja2==3.1.*",
     "pytest-mock==3.14.*",
