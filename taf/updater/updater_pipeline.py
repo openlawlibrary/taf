@@ -99,6 +99,8 @@ class UpdateState:
         is_partially_updated (bool): Indicates if the update was partial.
         newly_cloned_repos (List[str]): Names of target repositories cloned for the first time
             during this update (were in repos_not_on_disk and have since been materialized).
+        repos_without_target_files (List[str]): Names of target repositories with no target
+            file yet, allowed in anyway because they allow unauthenticated commits.
     """
 
     auth_commits_since_last_validated: List[Any] = field(factory=list)
@@ -142,6 +144,7 @@ class UpdateState:
     all_targets_auth_commits: List[Commitish] = field(factory=list)
     is_partially_updated: bool = field(default=False)
     newly_cloned_repos: List[str] = field(factory=list)
+    repos_without_target_files: List[str] = field(factory=list)
 
 
 @attrs
@@ -1394,16 +1397,15 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     raise_error_if_no_urls=not self.only_validate,
                 )
             )
-            if not self.only_validate:
-                # local validation never clones anything, so loading a repo
-                # that's not signed anywhere yet would just fail with "not
-                # on disk" instead of the repo simply being left out
-                self._add_new_repos_without_target_files()
             if self.only_validate:
                 self.state.temp_target_repositories = (
                     self.state.users_target_repositories
                 )
             else:
+                # local validation never clones anything, so loading a repo
+                # that's not signed anywhere yet would just fail with "not
+                # on disk" instead of the repo simply being left out
+                self._load_new_repos_without_target_files()
                 self.state.temp_target_repositories = {
                     repo.name: GitRepository(
                         self.state.temp_root.temp_dir,
@@ -1419,7 +1421,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
 
-    def _add_new_repos_without_target_files(self):
+    def _load_new_repos_without_target_files(self):
         """Add a repo listed in repositories.json with no target file yet,
         if it allows unauthenticated commits - otherwise leave it out and
         warn, since there's nothing signed to validate it against."""
@@ -1436,6 +1438,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 continue
             if _is_unauthenticated_allowed(repo):
                 self.state.users_target_repositories[name] = repo
+                self.state.repos_without_target_files.append(name)
             else:
                 taf_logger.warning(
                     "{} is listed in repositories.json, but has no target "
@@ -1672,15 +1675,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 branches.add(commit_data["branch"])
             repo_branches[repo_name] = sorted(list(branches))
 
-        for repository in self.state.temp_target_repositories.values():
-            if repository.name in repo_branches:
-                continue
-            if not _is_unauthenticated_allowed(repository):
-                continue
-            # a repo can be listed in repositories.json with no target file
-            # yet (e.g. it was just added) - if it allows unauthenticated
-            # commits, still use whatever's on its default branch
-            repo_branches[repository.name] = [repository.default_branch]
+        for name in self.state.repos_without_target_files:
+            repository = self.state.temp_target_repositories[name]
+            repo_branches[name] = [repository.default_branch]
 
         self.state.target_branches_data_from_auth_repo = repo_branches
         return UpdateStatus.SUCCESS
@@ -1914,29 +1911,23 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             return UpdateStatus.FAILED
 
     def _set_validated_data_for_new_repos_allowing_unauthenticated_commits(self):
-        """Give repos with no target file yet a last_validated_data_per_repositories
-        entry too, if they allow unauthenticated commits, so merge_commits has
-        something to work with instead of failing."""
-        for repository in self.state.temp_target_repositories.values():
-            if repository.name in self.state.last_validated_data_per_repositories:
-                continue
-            if repository.name in self.state.targets_data_by_auth_commits:
-                continue
-            if not _is_unauthenticated_allowed(repository):
-                continue
+        """Give repos with no target file a last_validated_data_per_repositories
+        entry too, so merge_commits has something to work with instead of
+        failing."""
+        for name in self.state.repos_without_target_files:
+            repository = self.state.temp_target_repositories[name]
             branch = repository.default_branch
             commits = self.state.fetched_commits_per_target_repos_branches.get(
-                repository.name, {}
+                name, {}
             ).get(branch)
             if not commits:
                 # nothing committed to the repo yet - nothing to use
                 continue
-            commit = commits[-1]
-            self.state.last_validated_data_per_repositories[repository.name] = {
-                "commit": commit,
+            self.state.last_validated_data_per_repositories[name] = {
+                "commit": commits[-1],
                 "branch": branch,
             }
-            self.state.validated_commits_per_target_repos_branches[repository.name][
+            self.state.validated_commits_per_target_repos_branches[name][
                 branch
             ] = commits
 
@@ -2172,15 +2163,15 @@ but commit not on branch {current_branch}"
                 return self.state.update_status
 
             def _merge_repository_commits(repository):
-                # this will only include branches that were, at least partially, validated (up until a certain point)
-                events = []
                 if (
                     repository.name
                     not in self.state.last_validated_data_per_repositories
                 ):
                     # e.g. a repo that allows unauthenticated commits but has
                     # no commits at all yet - nothing to merge
-                    return events
+                    return []
+                # this will only include branches that were, at least partially, validated (up until a certain point)
+                events = []
                 last_branch = self.state.last_validated_data_per_repositories[
                     repository.name
                 ]["branch"]

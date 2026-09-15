@@ -557,14 +557,11 @@ def test_clean_and_reset(repository: GitRepository):
     assert updated_file.read_text() == old_text
 
 
-def test_clean_and_reset_repo_with_no_commits(tmp_path):
-    # a repo with staged/untracked changes but no commits yet has an unborn
-    # HEAD - `git reset --hard HEAD` fails on it (#683), clean_and_reset must
-    # still succeed
-    repo_path = tmp_path / "no-commits-repo"
-    repo_path.mkdir()
-    repo = GitRepository(path=repo_path)
-    repo.init_repo()
+def test_clean_and_reset_repo_with_no_commits(empty_repository):
+    # a repo with staged/untracked changes but no commits at all yet -
+    # `git reset --hard HEAD` fails on it since there's no HEAD commit to
+    # reset to, so clean_and_reset must still succeed
+    repo = empty_repository
     (repo.path / "untracked.txt").touch()
     staged_file = repo.path / "staged.txt"
     staged_file.write_text("staged content")

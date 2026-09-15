@@ -687,24 +687,14 @@ def _get_deduplicated_target_or_auth_repositories(
             loaded_repositories_dict = {
                 auth_repo.path: _load_dependencies(auth_repo=auth_repo, commits=commits)
             }
-    elif not only_load_targets:
-        # the cache is only ever populated/read assuming only_load_targets=True
-        # (that's _load_repositories's own default) - reusing it here would
-        # silently hand back a filtered result, so always compute this fresh
-        # and don't store it, rather than make the cache track this too
-        loaded_repositories_dict = {
-            auth_repo.path: _load_repositories(
-                auth_repo=auth_repo,
-                commits=commits,
-                exclude_filter=exclude_filter,
-                library_dir=library_dir,
-                raise_error_if_no_urls=raise_error_if_no_urls,
-                only_load_targets=False,
-            )
-        }
     else:
-        if auth_repo.path in _repositories_dict and all(
-            commit in _repositories_dict[auth_repo.path] for commit in commits
+        # a cache hit is only valid for only_load_targets=True: the cache is
+        # only ever populated that way, so an only_load_targets=False call
+        # must not read back an already-filtered result
+        if (
+            only_load_targets
+            and auth_repo.path in _repositories_dict
+            and all(commit in _repositories_dict[auth_repo.path] for commit in commits)
         ):
             loaded_repositories_dict = _repositories_dict
         else:
@@ -715,6 +705,7 @@ def _get_deduplicated_target_or_auth_repositories(
                     exclude_filter=exclude_filter,
                     library_dir=library_dir,
                     raise_error_if_no_urls=raise_error_if_no_urls,
+                    only_load_targets=only_load_targets,
                 )
             }
 

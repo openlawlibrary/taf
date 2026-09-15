@@ -552,7 +552,7 @@ def test_clone_repo_added_without_target_file_empty_and_allowed(
     origin_auth_repo, client_dir
 ):
     # the repo allows unauthenticated commits but has no commits at all yet -
-    # must not crash, even though there's nothing to bring in
+    # must not crash, even though there's nothing to clone
     setup_manager = SetupManager(origin_auth_repo)
     setup_manager.add_task(
         add_new_target_repo_without_target_file,

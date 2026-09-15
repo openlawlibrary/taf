@@ -570,45 +570,16 @@ def add_valid_target_commits(
     )
 
 
-def add_new_target_repo(
-    auth_repo: AuthenticationRepository, pin_manager: PinManager, target_name: str
-):
-    """Add a brand-new target repo to an auth repo that was already set up and
-    signed, simulating a repository added after the initial clone/update."""
-    namespace = auth_repo.name.split("/")[0]
-    full_name = f"{namespace}/{target_name}"
-
-    initialize_target_repositories(
-        TEST_DATA_ORIGIN_PATH, targets_config=[RepositoryConfig(full_name)]
-    )
-    add_target_repo(
-        path=str(auth_repo.path),
-        pin_manager=pin_manager,
-        target_path=None,
-        target_name=full_name,
-        role="targets",
-        library_dir=str(TEST_DATA_ORIGIN_PATH),
-        keystore=str(KEYSTORE_PATH),
-        should_create_new_role=False,
-        push=False,
-    )
-    # add_target_repo only lists the repo in repositories.json - it still
-    # needs a signed target file recording its current commit
-    sign_target_repositories(
-        TEST_DATA_ORIGIN_PATH, auth_repo.name, KEYSTORE_PATH, pin_manager
-    )
-
-
 def add_new_target_repo_without_target_file(
     auth_repo: AuthenticationRepository,
     pin_manager: PinManager,
     target_name: str,
-    allow_unauthenticated_commits: bool = False,
+    allow_unauthenticated_commits: Optional[bool] = None,
     is_empty: bool = False,
 ):
-    """List a brand-new target repo in repositories.json without ever
-    signing a target file for it - simulating a repo that was added but
-    never had an initial commit pinned (issue #720)."""
+    """List a brand-new target repo in repositories.json without signing a
+    target file for it - simulating a repo that was added but never had an
+    initial commit pinned."""
     namespace = auth_repo.name.split("/")[0]
     full_name = f"{namespace}/{target_name}"
 
@@ -616,6 +587,11 @@ def add_new_target_repo_without_target_file(
         TEST_DATA_ORIGIN_PATH,
         targets_config=[RepositoryConfig(full_name, is_empty=is_empty)],
     )
+    custom = (
+        {"allow-unauthenticated-commits": allow_unauthenticated_commits}
+        if allow_unauthenticated_commits is not None
+        else None
+    )
     add_target_repo(
         path=str(auth_repo.path),
         pin_manager=pin_manager,
@@ -626,7 +602,20 @@ def add_new_target_repo_without_target_file(
         keystore=str(KEYSTORE_PATH),
         should_create_new_role=False,
         push=False,
-        custom={"allow-unauthenticated-commits": allow_unauthenticated_commits},
+        custom=custom,
+    )
+
+
+def add_new_target_repo(
+    auth_repo: AuthenticationRepository, pin_manager: PinManager, target_name: str
+):
+    """Add a brand-new target repo to an auth repo that was already set up and
+    signed, simulating a repository added after the initial clone/update."""
+    add_new_target_repo_without_target_file(auth_repo, pin_manager, target_name)
+    # add_target_repo only lists the repo in repositories.json - it still
+    # needs a signed target file recording its current commit
+    sign_target_repositories(
+        TEST_DATA_ORIGIN_PATH, auth_repo.name, KEYSTORE_PATH, pin_manager
     )
 
 

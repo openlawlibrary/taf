@@ -70,13 +70,15 @@ def test_clear_repositories_db_scoped_to_one_repo(target_repos, auth_repo_with_t
     # clearing their own entry in the shared _repositories_dict - clearing
     # must not touch another repo's entry
     with load_repositories(auth_repo_with_targets):
-        other_repo_path = auth_repo_with_targets.path.parent / "other_repo"
-        repositoriesdb._repositories_dict[other_repo_path] = {"fake": "entry"}
+        other_auth_repo_path = auth_repo_with_targets.path.parent / "auth2"
+        repositoriesdb._repositories_dict[other_auth_repo_path] = {
+            "some_commit": {"organization/auth2_target1": "a loaded target repo"}
+        }
 
         repositoriesdb.clear_repositories_db(auth_repo_with_targets.path)
 
         assert auth_repo_with_targets.path not in repositoriesdb._repositories_dict
-        assert other_repo_path in repositoriesdb._repositories_dict
+        assert other_auth_repo_path in repositoriesdb._repositories_dict
 
 
 def test_get_repository(target_repos, auth_repo_with_targets):
