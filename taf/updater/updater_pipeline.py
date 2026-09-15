@@ -1394,7 +1394,11 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     raise_error_if_no_urls=not self.only_validate,
                 )
             )
-            self._add_new_repos_without_target_files()
+            if not self.only_validate:
+                # local validation never clones anything, so loading a repo
+                # that's not signed anywhere yet would just fail with "not
+                # on disk" instead of the repo simply being left out
+                self._add_new_repos_without_target_files()
             if self.only_validate:
                 self.state.temp_target_repositories = (
                     self.state.users_target_repositories
@@ -1416,9 +1420,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             return UpdateStatus.FAILED
 
     def _add_new_repos_without_target_files(self):
-        """Bring in a repo listed in repositories.json with no target file
-        yet, if it allows unauthenticated commits - otherwise leave it out
-        and warn, since there's nothing signed to validate it against."""
+        """Add a repo listed in repositories.json with no target file yet,
+        if it allows unauthenticated commits - otherwise leave it out and
+        warn, since there's nothing signed to validate it against."""
         all_repos = repositoriesdb.get_deduplicated_repositories(
             self.state.users_auth_repo,
             self.state.auth_commits_since_last_validated[-1::],
@@ -1675,7 +1679,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 continue
             # a repo can be listed in repositories.json with no target file
             # yet (e.g. it was just added) - if it allows unauthenticated
-            # commits, still bring in whatever's on its default branch
+            # commits, still use whatever's on its default branch
             repo_branches[repository.name] = [repository.default_branch]
 
         self.state.target_branches_data_from_auth_repo = repo_branches
@@ -1925,7 +1929,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 repository.name, {}
             ).get(branch)
             if not commits:
-                # nothing committed to the repo yet - nothing to bring in
+                # nothing committed to the repo yet - nothing to use
                 continue
             commit = commits[-1]
             self.state.last_validated_data_per_repositories[repository.name] = {
