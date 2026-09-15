@@ -50,6 +50,7 @@ from tuf.api.metadata import (
 from tuf.api.serialization.json import JSONSerializer
 from taf.exceptions import InvalidKeyError, SignersNotLoaded, TAFError, TargetsError
 from taf.models.types import RolesIterator, RolesKeysData, TargetsRole
+from taf.targets_history import parse_target_file, serialize_target_file
 from taf.tuf.keys import SSlibKey, _get_legacy_keyid, get_sslib_key_from_value
 from tuf.repository import Repository
 
@@ -509,7 +510,8 @@ class MetadataRepository(Repository):
         Writes the specified data to a target file and stores it on disk.
         Target data is of the following form:
         {
-            target: content of the target file, string or Dict (json)
+            target: content of the target file, string, Dict (json) or List (json,
+                a target repository's authenticated commits, see taf.targets_history)
             custom: {
                 custom_field1: custom_value1,
                 custom_field2: custom_value2
@@ -527,9 +529,13 @@ class MetadataRepository(Repository):
             if not target_path.is_file():
                 target_path.touch()
         else:
+            if isinstance(content, list):
+                parse_target_file(content, target_path.name)
             with open(str(target_path), "w") as f:
                 if isinstance(content, dict):
                     json.dump(content, f, indent=4)
+                elif isinstance(content, list):
+                    f.write(serialize_target_file(content))
                 else:
                     f.write(content)
 
