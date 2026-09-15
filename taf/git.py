@@ -39,6 +39,15 @@ try:
     import pygit2
     from .pygit import PyGitRepository as _PyGitRepositoryClass
 
+    try:
+        # pygit2 replaced the GIT_REF_* constants with enums in 1.14
+        # and removed the constants in 1.16
+        from pygit2.enums import ReferenceType as _ReferenceType
+
+        _REFERENCE_TYPE_SYMBOLIC = _ReferenceType.SYMBOLIC
+    except ImportError:  # pygit2 < 1.14
+        _REFERENCE_TYPE_SYMBOLIC = pygit2.GIT_REF_SYMBOLIC
+
     PYGIT2_AVAILABLE = True
 except ImportError:
     pygit2 = None
@@ -414,7 +423,7 @@ class GitRepository:
                 return None
             repo = pygit2.Repository(discovered)
             ref = repo.references.get(ref_name)
-            if ref is None or ref.type != pygit2.GIT_REF_SYMBOLIC:
+            if ref is None or ref.type != _REFERENCE_TYPE_SYMBOLIC:
                 return None
             target = ref.target  # e.g. "refs/remotes/origin/main" or "refs/heads/main"
             for prefix in ("refs/remotes/origin/", "refs/heads/"):
