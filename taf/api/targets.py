@@ -20,6 +20,7 @@ from taf.git import GitRepository
 from taf.messages import git_commit_message
 
 from taf.models.types import Commitish
+from taf.targets_history import is_history, serialize_target_file
 import taf.repositoriesdb as repositoriesdb
 from taf.log import taf_logger
 from taf.auth_repo import AuthenticationRepository
@@ -580,6 +581,7 @@ def update_target_repos_from_repositories_json(
     commit: Optional[bool] = True,
     prompt_for_keys: Optional[bool] = False,
     push: Optional[bool] = True,
+    roles_key_infos: Optional[str] = None,
 ) -> None:
     """
     Create or update target files by reading the latest commit's repositories.json
@@ -588,6 +590,7 @@ def update_target_repos_from_repositories_json(
         path: Authentication repository's location.
         library_dir: Path to the library's root directory. Determined based on the authentication repository's path if not provided.
         keystore: Location of the keystore files.
+        roles_key_infos (optional): A dictionary whose keys are role names, while values contain information about the keys.
         add_branch: Indicates whether to add the current branch's name to the target file.
         commit (optional): Indicates if the changes should be committed and pushed automatically.
         prompt_for_keys (optional): Whether to ask the user to enter their key if it is not located inside the keystore directory.
@@ -615,6 +618,7 @@ def update_target_repos_from_repositories_json(
         path=repo_path,
         pin_manager=pin_manager,
         keystore=keystore,
+        roles_key_infos=roles_key_infos,
         commit=commit,
         prompt_for_keys=prompt_for_keys,
         push=push,
@@ -732,5 +736,23 @@ def _update_target_repos(
             data["branch"] = target_repo.get_current_branch()
         target_repo_name = target_repo_path.name
         path = targets_dir / target_repo_name
-        path.write_text(json.dumps(data, indent=4))
+        history = _read_target_file_history(path)
+        if history is None:
+            path.write_text(json.dumps(data, indent=4))
+        elif all(history[-1].get(key) == value for key, value in data.items()):
+            return
+        else:
+            path.write_text(serialize_target_file(history + [data]))
         taf_logger.log("NOTICE", f"Updated {path}")
+
+
+def _read_target_file_history(path: Path) -> Optional[List[Dict]]:
+    """
+    Content of a target file that lists a target repository's authenticated commits,
+    None if the target file does not exist or does not list them.
+    """
+    try:
+        content = json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return None
+    return content if is_history(content) and content else None

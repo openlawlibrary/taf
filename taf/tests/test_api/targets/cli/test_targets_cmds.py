@@ -4,7 +4,7 @@ from pathlib import Path
 from click.testing import CliRunner
 
 from taf.constants import TARGETS_DIRECTORY_NAME
-from taf.tests.test_api.util import check_if_targets_signed
+from taf.tests.test_api.util import check_if_targets_signed, check_target_file
 from taf.tools.cli.taf import taf
 
 
@@ -125,3 +125,50 @@ def test_targets_add_repo_cmd_expect_success(
 def test_targets_remove_repo_cmd_expect_success():
     # TODO: seems like it is not fully supported yet
     pass
+
+
+def _update_and_sign(auth_repo, keystore, *options):
+    return CliRunner().invoke(
+        taf,
+        [
+            "targets",
+            "update-and-sign",
+            "--path",
+            str(auth_repo.path),
+            "--keystore",
+            str(keystore),
+            *options,
+        ],
+    )
+
+
+def test_targets_update_and_sign_expect_success(
+    auth_repo_when_add_repositories_json,
+    library,
+    keystore_delegations,
+):
+    auth_repo = auth_repo_when_add_repositories_json
+    commits_num = len(auth_repo.list_pygit_commits())
+
+    result = _update_and_sign(auth_repo, keystore_delegations)
+
+    assert result.exception is None, result.output
+    for name in ("target1", "target2", "target3"):
+        target_name = f"{library.name}/{name}"
+        assert check_target_file(library.parent / target_name, target_name, auth_repo)
+    assert len(auth_repo.list_pygit_commits()) == commits_num + 1
+
+
+def test_targets_update_and_sign_with_target_type_expect_success(
+    auth_repo_when_add_repositories_json,
+    library,
+    keystore_delegations,
+):
+    auth_repo = auth_repo_when_add_repositories_json
+
+    result = _update_and_sign(auth_repo, keystore_delegations, "--target-type", "type1")
+
+    assert result.exception is None, result.output
+    target_name = f"{library.name}/target1"
+    assert check_target_file(library.parent / target_name, target_name, auth_repo)
+    assert auth_repo.get_target(f"{library.name}/target2") is None

@@ -5,7 +5,9 @@ from pathlib import Path
 import pytest
 
 import taf.repositoriesdb as repositoriesdb
+from taf.api.targets import update_target_repos_from_repositories_json
 from taf.auth_repo import AuthenticationRepository
+from taf.git import GitRepository
 from taf.models.types import Commitish
 from taf.tests.test_api.util import sign_target_file
 from taf.tests.test_targets_history.conftest import (
@@ -130,3 +132,63 @@ def test_repository_default_branch_is_branch_of_current_commit_in_list(
         repositoriesdb.clear_repositories_db()
 
     assert repository.default_branch == PUBLICATION
+
+
+def _top_commit_entry(library: Path, target_name: str):
+    target_repo = GitRepository(path=library.parent / target_name)
+    head_commit = target_repo.head_commit()
+    assert head_commit is not None
+    return {
+        "commit": head_commit.value,
+        "branch": target_repo.get_current_branch(),
+    }
+
+
+def test_update_target_repos_appends_top_commit_to_list_target_file(
+    auth_repo_when_add_repositories_json,
+    sign,
+    target_names,
+    library,
+    pin_manager,
+    keystore_delegations,
+):
+    list_name, new_name = target_names
+    history = make_history(2, PUBLICATION)
+    sign(list_name, history)
+
+    update_target_repos_from_repositories_json(
+        str(auth_repo_when_add_repositories_json.path),
+        pin_manager,
+        str(library.parent),
+        keystore_delegations,
+        push=False,
+    )
+
+    auth_repo = auth_repo_when_add_repositories_json
+    assert auth_repo.get_target(list_name) == history + [
+        _top_commit_entry(library, list_name)
+    ]
+    assert auth_repo.get_target(new_name) == _top_commit_entry(library, new_name)
+
+
+def test_update_target_repos_does_not_append_current_commit_again(
+    auth_repo_when_add_repositories_json,
+    sign,
+    target_names,
+    library,
+    pin_manager,
+    keystore_delegations,
+):
+    list_name = target_names[0]
+    history = make_history(2, PUBLICATION) + [_top_commit_entry(library, list_name)]
+    sign(list_name, history)
+
+    update_target_repos_from_repositories_json(
+        str(auth_repo_when_add_repositories_json.path),
+        pin_manager,
+        str(library.parent),
+        keystore_delegations,
+        push=False,
+    )
+
+    assert auth_repo_when_add_repositories_json.get_target(list_name) == history
