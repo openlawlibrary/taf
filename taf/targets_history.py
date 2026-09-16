@@ -17,7 +17,7 @@ would contain. Besides `branch` and `commit`, an entry can hold `branch-id` and
 """
 
 import json
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import attrs
 
@@ -152,6 +152,65 @@ def check_append(
             f"{len(current) - len(previous)} commits were added, but at most one "
             "can be added at a time",
         )
+
+
+def check_target_file_versions(
+    target_name: str,
+    versions: Iterable[Tuple[Any, Optional[str]]],
+    previous: Optional[str] = None,
+) -> None:
+    """
+    Check with `check_append` how a target file changed across consecutive commits of
+    the authentication repository.
+
+    Arguments:
+        target_name: Name of the target file.
+        versions: (authentication commit, raw content of the target file) pairs, oldest
+            first. Content is None at commits where the target file does not exist.
+        previous: Raw content of the target file at the commit before the first
+            version, None if it did not exist.
+
+    Only changes to or from a list are parsed, so checking target files that were never
+    lists does not parse them.
+
+    Raises:
+        InvalidTargetFileError: if a version involved in such a change is not a valid
+            target file.
+        TargetsHistoryRewrittenError: if a change is not allowed.
+    """
+    previous_content = None
+    previous_parsed = False
+    for auth_commit, current in versions:
+        if current != previous and (_is_list(previous) or _is_list(current)):
+            try:
+                if not previous_parsed:
+                    previous_content = _load(previous, target_name)
+                current_content = _load(current, target_name)
+                check_append(previous_content, current_content, target_name)
+            except TargetsHistoryRewrittenError as e:
+                raise TargetsHistoryRewrittenError(
+                    target_name, e.reason, auth_commit
+                ) from e
+            except InvalidTargetFileError as e:
+                raise InvalidTargetFileError(target_name, e.reason, auth_commit) from e
+            previous_content = current_content
+            previous_parsed = True
+        elif current != previous:
+            previous_parsed = False
+        previous = current
+
+
+def _is_list(raw: Optional[str]) -> bool:
+    return raw is not None and raw.lstrip().startswith("[")
+
+
+def _load(raw: Optional[str], target_name: str) -> Any:
+    if raw is None:
+        return None
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError as e:
+        raise InvalidTargetFileError(target_name, f"not valid JSON ({e})")
 
 
 def serialize_target_file(content: TargetFileContent) -> str:

@@ -27,6 +27,7 @@ from taf.exceptions import (
 )
 from taf.updater.handlers import GitUpdater
 from taf.updater.lifecycle_handlers import Event
+from taf.targets_history import check_target_file_versions
 from taf.updater.target_validator import LawStep, TargetPointer, TargetValidator
 from taf.updater.types.update import OperationType, UpdateType
 from taf.utils import TempPartition, on_rm_error, ensure_pre_push_hook
@@ -380,6 +381,11 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 ),
                 (
                     self.get_target_repositories_commits,
+                    RunMode.ALL,
+                    self.should_validate_target_repos,
+                ),
+                (
+                    self.check_target_files_appended,
                     RunMode.ALL,
                     self.should_validate_target_repos,
                 ),
@@ -1755,6 +1761,44 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             return UpdateStatus.SUCCESS
         except Exception as e:
             self.state.errors.append(e)
+            self.state.event = Event.FAILED
+            return UpdateStatus.FAILED
+
+    def check_target_files_appended(self):
+        """
+        Check that target files listing a target repository's authenticated commits
+        were only ever appended to, at every authentication commit being validated
+        """
+        taf_logger.debug(
+            f"{self.state.auth_repo_name}: Checking changes of target files..."
+        )
+        try:
+            commits = self.state.all_targets_auth_commits
+            if not commits:
+                return UpdateStatus.SUCCESS
+            auth_repo = self.state.users_auth_repo
+            parent_commit = auth_repo.get_parent_commit(commits[0])
+            for repository in self.state.temp_target_repositories.values():
+                previous = (
+                    auth_repo.safely_get_target_file(repository.name, parent_commit)
+                    if parent_commit is not None
+                    else None
+                )
+                check_target_file_versions(
+                    repository.name,
+                    (
+                        (
+                            commit,
+                            auth_repo.safely_get_target_file(repository.name, commit),
+                        )
+                        for commit in commits
+                    ),
+                    previous,
+                )
+            return UpdateStatus.SUCCESS
+        except Exception as e:
+            self.state.errors.append(e)
+            taf_logger.error(e)
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
 

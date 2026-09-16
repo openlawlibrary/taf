@@ -80,10 +80,14 @@ class InvalidRepositoryError(TAFError):
 
 
 class InvalidTargetFileError(TAFError):
-    def __init__(self, target_name: str, reason: str):
+    def __init__(
+        self, target_name: str, reason: str, auth_commit: Optional[Any] = None
+    ):
         self.target_name = target_name
         self.reason = reason
-        self.message = f"Invalid target file {target_name}: {reason}"
+        self.auth_commit = auth_commit
+        at_commit = f" at commit {auth_commit}" if auth_commit is not None else ""
+        self.message = f"Invalid target file {target_name}{at_commit}: {reason}"
         super().__init__(self.message)
 
 
@@ -289,10 +293,14 @@ class TargetCommitMismatchError(UpdateFailedError):
 class TargetsHistoryRewrittenError(UpdateFailedError):
     """A target file's list of authenticated commits was changed other than by appending."""
 
-    def __init__(self, target_name: str, reason: str):
+    def __init__(
+        self, target_name: str, reason: str, auth_commit: Optional[Any] = None
+    ):
         self.target_name = target_name
         self.reason = reason
-        self.message = f"Target file {target_name} was rewritten: {reason}"
+        self.auth_commit = auth_commit
+        at_commit = f" at commit {auth_commit}" if auth_commit is not None else ""
+        self.message = f"Target file {target_name} was rewritten{at_commit}: {reason}"
         super().__init__(self.message)
 
 

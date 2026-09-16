@@ -3,11 +3,11 @@ import os
 import fnmatch
 import pygit2
 
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union, cast
 from collections import defaultdict
 from contextlib import contextmanager
 from pathlib import Path
-from taf.exceptions import InvalidTargetFileError
+from taf.exceptions import GitError, InvalidTargetFileError
 from taf.models.types import Commitish
 from taf.targets_history import (
     BRANCH_KEY,
@@ -252,6 +252,15 @@ class AuthenticationRepository(GitRepository):
             return self.safely_get_json(commit, target_path)
         else:
             return self.get_json(commit, target_path)
+
+    def safely_get_target_file(
+        self, target_name: str, commit: Commitish
+    ) -> Optional[str]:
+        """Raw content of a target file at `commit`, None if it does not exist."""
+        try:
+            return cast(str, self.get_file(commit, get_target_path(target_name)))
+        except GitError:
+            return None
 
     def get_target_tip(
         self, target_name: str, commit: Optional[Commitish] = None, safely: bool = True
