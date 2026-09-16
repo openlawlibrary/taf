@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- Read a target repository's current commit from its target file in either format ([788])
 - Validate target repositories with `TargetValidator`, which no longer rescans each target branch's commits for every authentication commit ([784])
 - Remove unused `scheme` parameters ([757])
 
@@ -37,6 +38,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Correct the clone access error that rendered as "Cannot None ..." and stop misattributing a local failure to an access/authentication problem ([762])
 
 
+[788]: https://github.com/openlawlibrary/taf/pull/788
 [787]: https://github.com/openlawlibrary/taf/pull/787
 [785]: https://github.com/openlawlibrary/taf/pull/785
 [784]: https://github.com/openlawlibrary/taf/pull/784
