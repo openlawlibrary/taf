@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Fail updates in which a target file's list of authenticated commits was rewritten ([789])
 - Support target files that list every authenticated commit of a target repository ([787])
 - Add `TargetValidator`, which checks target repositories' commits against the commits declared by the authentication repository without reading git ([783])
 - Allow overriding the temp directory used when cloning repositories via an anv var ([771])
@@ -38,6 +39,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Correct the clone access error that rendered as "Cannot None ..." and stop misattributing a local failure to an access/authentication problem ([762])
 
 
+[789]: https://github.com/openlawlibrary/taf/pull/789
 [788]: https://github.com/openlawlibrary/taf/pull/788
 [787]: https://github.com/openlawlibrary/taf/pull/787
 [785]: https://github.com/openlawlibrary/taf/pull/785
