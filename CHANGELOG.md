@@ -9,10 +9,18 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Support Python 3.13 ([791])
+
 ### Changed
+
+- Update test and Git dependencies for Python 3.13 compatibility ([791])
 
 ### Fixed
 
+- Interpret Git commit timezone offsets correctly when formatting commit dates ([791])
+
+
+[791]: https://github.com/openlawlibrary/taf/pull/791
 
 ## [0.39.3]
 

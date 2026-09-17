@@ -1229,8 +1229,11 @@ class GitRepository:
         repo = self.pygit_repo
 
         pygit_commit = repo.get(commit.hash)
-        date = datetime.datetime.utcfromtimestamp(
-            pygit_commit.commit_time + pygit_commit.commit_time_offset
+        commit_timezone = datetime.timezone(
+            datetime.timedelta(minutes=pygit_commit.commit_time_offset)
+        )
+        date = datetime.datetime.fromtimestamp(
+            pygit_commit.commit_time, tz=commit_timezone
         )
         formatted_date = date.strftime("%Y-%m-%d")
         return formatted_date
