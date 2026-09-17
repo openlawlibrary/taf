@@ -9,12 +9,14 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Support Python 3.13 ([791])
 - Allow overriding the temp directory used when cloning repositories via an anv var ([771])
 - Sign and discover keys across all YubiKey PIV slots, not just SIGNATURE ([767])
 - Support choosing a YubiKey PIV slot when setting up signing keys ([759])
 
 ### Changed
 
+- Update test and Git dependencies for Python 3.13 compatibility ([791])
 - Remove unused `scheme` parameters ([757])
 
 ### Removed
@@ -23,6 +25,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Interpret Git commit timezone offsets correctly when formatting commit dates ([791])
 - Determine the default branch from a local (`--from-fs`) path containing a space, instead of failing ([780])
 - Fix YubiKey caching bugs that could skip a valid signing key for a delegated role ([775])
 - Disallowing unauthenticated commits no longer invalidates already-signed history ([774])
@@ -33,6 +36,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Correct the clone access error that rendered as "Cannot None ..." and stop misattributing a local failure to an access/authentication problem ([762])
 
 
+[791]: https://github.com/openlawlibrary/taf/pull/791
 [780]: https://github.com/openlawlibrary/taf/pull/780
 [775]: https://github.com/openlawlibrary/taf/pull/775
 [774]: https://github.com/openlawlibrary/taf/pull/774

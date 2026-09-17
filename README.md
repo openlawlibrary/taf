@@ -113,13 +113,8 @@ The newer versions of TAF do not require additional setup, and there are no plat
 - Install dependencies
 
 ```bash
-sudo add-apt-repository ppa:jonathonf/python-3.10
 sudo apt-get update
-sudo apt-get install python3.10
-sudo apt-get install python3.10-venv
-sudo apt-get install python3.10-dev
-sudo apt-get install swig
-sudo apt-get install libpcsclite-dev
+sudo apt-get install python3 python3-venv python3-dev build-essential swig libpcsclite-dev
 sudo apt-get install libssl-dev
 sudo apt-get install libykpers-1-dev
 ```
@@ -127,7 +122,7 @@ sudo apt-get install libykpers-1-dev
 - Create virtual environment
 
 ```bash
-python3.10 -m venv env
+python3 -m venv env
 pip install --upgrade pip
 pip install wheel
 pip install taf
