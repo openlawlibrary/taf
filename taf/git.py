@@ -1313,6 +1313,13 @@ class GitRepository:
     def has_remote(self) -> bool:
         return len(self.remotes) > 0
 
+    def get_parent_commit(self, commit: Commitish) -> Optional[Commitish]:
+        """First parent of `commit`, None if `commit` has no parents"""
+        parent_ids = self.pygit_repo.get(commit.hash).parent_ids
+        if not parent_ids:
+            return None
+        return Commitish.from_hash(str(parent_ids[0]))
+
     def head_commit(self) -> Optional[Commitish]:
         """Finds sha of the commit to which the current HEAD points"""
         repo = self.pygit_repo
