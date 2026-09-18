@@ -408,12 +408,13 @@ def update_and_sign_command():
             else:
                 update_target_repos_from_repositories_json(
                     path,
+                    pin_manager,
                     library_dir,
+                    keystore,
                     add_branch=True,
-                    keystore=keystore,
                     prompt_for_keys=prompt_for_keys,
                     commit=not no_commit,
-                    keys_description=keys_description,
+                    roles_key_infos=keys_description,
                 )
         except TAFError as e:
             click.echo()
