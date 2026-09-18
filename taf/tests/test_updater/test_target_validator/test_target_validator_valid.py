@@ -158,11 +158,21 @@ def test_validate_branch_change_from_last_validated_commit():
     assert_valid(result, steps, {REPO1: {PUBLICATION: publication}})
 
 
-def test_validate_return_to_earlier_branch_starts_from_its_first_commit():
-    """
-    Coming back to a branch is validated from that branch's first commit, not from
-    the commit last validated on it (the updater's existing behaviour).
-    """
+def test_validate_return_to_earlier_branch_continues_after_its_last_validated_commit():
+    main = make_commits(MAIN, 2)
+    publication = make_commits(PUBLICATION, 1)
+    steps = law(
+        {REPO1: (MAIN, main[0])},
+        {REPO1: (PUBLICATION, publication[0])},
+        {REPO1: (MAIN, main[1])},
+    )
+
+    result = validate(steps, {REPO1: {MAIN: main, PUBLICATION: publication}})
+
+    assert_valid(result, steps, {REPO1: {MAIN: main, PUBLICATION: publication}})
+
+
+def test_validate_return_to_earlier_branch_at_commit_it_was_left_at():
     main = make_commits(MAIN, 2)
     publication = make_commits(PUBLICATION, 1)
     steps = law(
@@ -180,14 +190,33 @@ def test_validate_return_to_earlier_branch_starts_from_its_first_commit():
     )
 
 
-def test_validate_same_commit_on_different_branch_is_unchanged():
-    """A declared commit equal to the last validated one passes even if the branch changed."""
+def test_validate_return_to_branch_of_last_validated_commit():
+    main = make_commits(MAIN, 3)
+    publication = make_commits(PUBLICATION, 1)
+    steps = law({REPO1: (PUBLICATION, publication[0])}, {REPO1: (MAIN, main[2])})
+
+    result = validate(
+        steps,
+        {REPO1: {MAIN: main, PUBLICATION: publication}},
+        start={REPO1: TargetPointer(MAIN, main[1])},
+    )
+
+    assert_valid(result, steps, {REPO1: {MAIN: [main[2]], PUBLICATION: publication}})
+
+
+def test_validate_same_commit_on_new_branch_containing_it():
+    """A new branch can start at the commit the repository is already at."""
     main = make_commits(MAIN, 1)
-    steps = law({REPO1: (MAIN, main[0])}, {REPO1: (PUBLICATION, main[0])})
+    publication = [main[0]] + make_commits(PUBLICATION, 1)
+    steps = law(
+        {REPO1: (MAIN, main[0])},
+        {REPO1: (PUBLICATION, main[0])},
+        {REPO1: (PUBLICATION, publication[1])},
+    )
 
-    result = validate(steps, {REPO1: {MAIN: main, PUBLICATION: []}})
+    result = validate(steps, {REPO1: {MAIN: main, PUBLICATION: publication}})
 
-    assert_valid(result, steps, {REPO1: {MAIN: main, PUBLICATION: main}})
+    assert_valid(result, steps, {REPO1: {MAIN: main, PUBLICATION: publication}})
 
 
 @pytest.mark.parametrize("skipped", [1, 2, 5])

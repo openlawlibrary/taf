@@ -3,6 +3,10 @@ TargetValidator makes the same decision, with the same error message, as the upd
 existing per-commit check (`AuthenticationRepositoryUpdatePipeline._validate_current_repo_commit`)
 for every combination of previous pointer, declared pointer and unauthenticated-commits policy.
 
+The one intended difference: a repository that moves to another branch while staying
+at the same commit is only accepted if that commit is on the new branch, which the
+updater's check did not verify.
+
 Remove this module together with `_validate_current_repo_commit` once the pipeline uses
 TargetValidator.
 """
@@ -91,8 +95,18 @@ def test_validator_matches_updater_check(
     declared = POINTERS[declared_label]
     steps = law({REPO1: declared})
 
-    assert _validator_outcome(
-        steps, previous, unauthenticated_allowed
-    ) == _legacy_outcome(
-        previous, declared, steps[0].auth_commit, unauthenticated_allowed
-    )
+    outcome = _validator_outcome(steps, previous, unauthenticated_allowed)
+
+    if _stays_at_commit_off_branch(previous, declared):
+        assert outcome is not None and "but commit not on branch" in outcome
+    else:
+        assert outcome == _legacy_outcome(
+            previous, declared, steps[0].auth_commit, unauthenticated_allowed
+        )
+
+
+def _stays_at_commit_off_branch(previous, declared):
+    """Moves to another branch at the same commit, which is not on that branch."""
+    if previous is None or previous[0] == declared[0] or previous[1] != declared[1]:
+        return False
+    return declared[1] not in ACTUAL[REPO1][declared[0]]

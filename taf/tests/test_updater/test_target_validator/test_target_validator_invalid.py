@@ -93,6 +93,30 @@ def test_validate_rejects_commit_not_on_branch(
     assert_invalid(result, steps[:1], steps[1], REPO1, actual_commit=expected_actual)
 
 
+def test_validate_rejects_same_commit_on_new_branch_without_it():
+    main = make_commits(MAIN, 1)
+    publication = make_commits(PUBLICATION, 1)
+    steps = law({REPO1: (MAIN, main[0])}, {REPO1: (PUBLICATION, main[0])})
+
+    result = validate(steps, {REPO1: {MAIN: main, PUBLICATION: publication}})
+
+    assert_invalid(result, steps[:1], steps[1], REPO1)
+
+
+def test_validate_rejects_unauthenticated_commits_when_returning_to_earlier_branch():
+    main = make_commits(MAIN, 3)
+    publication = make_commits(PUBLICATION, 1)
+    steps = law(
+        {REPO1: (MAIN, main[0])},
+        {REPO1: (PUBLICATION, publication[0])},
+        {REPO1: (MAIN, main[2])},
+    )
+
+    result = validate(steps, {REPO1: {MAIN: main, PUBLICATION: publication}})
+
+    assert_invalid(result, steps[:2], steps[2], REPO1, actual_commit=main[1])
+
+
 def test_validate_rejects_branch_missing_from_target_repository():
     main = make_commits(MAIN, 1)
     publication = make_commits(PUBLICATION, 1)

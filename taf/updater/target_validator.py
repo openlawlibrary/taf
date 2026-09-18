@@ -9,9 +9,12 @@ branch. Moving further than that means that the target repository contains
 commits that were never authenticated, which is only allowed for repositories
 that permit unauthenticated commits.
 
-Each (repository, branch) pair is validated as a separate commit sequence, so
-repositories that move between branches (e.g. publication branches) need no
-special handling.
+Each (repository, branch) pair is validated as a separate commit sequence. A
+branch continues after the commit last validated on it, whether by an earlier
+step or as the repository's starting point, and a branch that was not validated
+before starts at its first commit, so repositories can move between branches (e.g.
+publication branches) and back. A repository that moves to another branch while
+staying at the same commit must find that commit on the new branch.
 
 This module does not touch git. Callers provide the declared pointers, the
 target repositories' commits and callbacks for anything that needs to be looked
@@ -113,7 +116,13 @@ class TargetValidator:
                         repo_name, self.start.get(repo_name)
                     )
                     self._validate_target(
-                        step.auth_commit, repo_name, previous, declared
+                        step.auth_commit,
+                        repo_name,
+                        previous,
+                        declared,
+                        self._last_validated_on_branch(
+                            result, repo_name, declared.branch
+                        ),
                     )
                     result.last_validated_per_repo[repo_name] = declared
                     result.validated_commits_per_repo_branch.setdefault(
@@ -130,17 +139,26 @@ class TargetValidator:
         repo_name: str,
         previous: Optional[TargetPointer],
         declared: TargetPointer,
+        last_on_branch: Optional[Commitish],
     ) -> None:
-        if previous is not None and declared.commit == previous.commit:
+        if declared == previous or declared.commit == last_on_branch:
+            return
+        if (
+            last_on_branch is None
+            and previous is not None
+            and declared.commit == previous.commit
+        ):
+            if self._position(repo_name, declared.branch, declared.commit) is None:
+                raise self._error(auth_commit, repo_name, declared)
             return
 
         branch_commits = self.actual.get(repo_name, {}).get(declared.branch, [])
         next_index: Optional[int]
-        if previous is not None and previous.branch == declared.branch:
-            previous_index = self._position(repo_name, declared.branch, previous.commit)
-            next_index = previous_index + 1 if previous_index is not None else None
-        else:
+        if last_on_branch is None:
             next_index = 0
+        else:
+            last_index = self._position(repo_name, declared.branch, last_on_branch)
+            next_index = last_index + 1 if last_index is not None else None
 
         if next_index is None or next_index >= len(branch_commits):
             raise self._error(auth_commit, repo_name, declared)
@@ -163,6 +181,21 @@ class TargetValidator:
             f"{repo_name}: skipped {declared_index - next_index} unauthenticated "
             f"commit(s) on branch {declared.branch} before commit {declared.commit}"
         )
+
+    def _last_validated_on_branch(
+        self, result: ValidationResult, repo_name: str, branch: str
+    ) -> Optional[Commitish]:
+        """
+        Commit last validated on the repository's branch in this validation, or the
+        repository's starting commit if it is on that branch, None otherwise.
+        """
+        validated = result.validated_commits_per_repo_branch.get(repo_name, {})
+        if validated.get(branch):
+            return validated[branch][-1]
+        start = self.start.get(repo_name)
+        if start is not None and start.branch == branch:
+            return start.commit
+        return None
 
     def _position(
         self, repo_name: str, branch: str, commit: Commitish
