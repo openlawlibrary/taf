@@ -651,7 +651,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
 
             branches_per_repos = {}
             for target_name, target_repo in self.state.repos_on_disk.items():
-                target = auth_repo.get_target(target_name)
+                target = auth_repo.get_target_tip(target_name)
                 if target and "branch" in target:
                     branches_per_repos.setdefault(target_name, []).append(
                         target["branch"]
@@ -732,7 +732,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 if repo.is_detached_head:
                     return UpdateStatus.SUCCESS
 
-                target_data = auth_repo.get_target(
+                target_data = auth_repo.get_target_tip(
                     repo_name, Commitish.from_hash(lvc_entry)
                 )
                 if not target_data:

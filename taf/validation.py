@@ -2,6 +2,7 @@ from pathlib import Path
 
 from taf.constants import CAPSTONE, METADATA_DIRECTORY_NAME, TARGETS_DIRECTORY_NAME
 from taf.exceptions import GitError, InvalidBranchError
+from taf.targets_history import COMMIT_KEY, get_tip
 from taf.tuf.repository import MetadataRepository, get_target_path
 
 
@@ -220,7 +221,9 @@ def _compare_commit_with_targets_metadata(
     """
     repo_name = f"{TARGETS_DIRECTORY_NAME}/{target_repo.name}"
     try:
-        targets_head_sha = tuf_repo.get_json(tuf_commit, repo_name)["commit"]
+        targets_head_sha = get_tip(
+            tuf_repo.get_json(tuf_commit, repo_name), target_repo.name
+        )[COMMIT_KEY]
     except GitError:
         if target_repo_commit is not None:
             raise InvalidBranchError(

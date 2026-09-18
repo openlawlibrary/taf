@@ -9,7 +9,9 @@ MAIN = "main"
 PUBLICATION = "publication/2026-01-15"
 
 
-def make_entry(label: str = MAIN, branch: str = MAIN, **custom: Any) -> Dict[str, Any]:
+def make_entry(
+    label: str = "entry", branch: str = MAIN, **custom: Any
+) -> Dict[str, Any]:
     """A target file entry for a distinct commit. Keyword arguments become custom data."""
     return {"branch": branch, "commit": make_commits(label, 1)[0].value, **custom}
 

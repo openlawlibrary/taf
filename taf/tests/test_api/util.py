@@ -1,5 +1,9 @@
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
+from taf.api.targets import register_target_files
+from taf.constants import TARGETS_DIRECTORY_NAME
+from taf.targets_history import serialize_target_file
+from taf.yubikey.yubikey_manager import PinManager
 from taf.auth_repo import AuthenticationRepository
 from taf.git import GitRepository
 from typing import List
@@ -86,3 +90,29 @@ def check_role_scheme(
     keyid = auth_repo.get_keyids_of_role(role_name)[0]
     _, _, scheme = auth_repo.get_key_length_and_scheme_from_metadata(parent_name, keyid)
     assert scheme == expected_scheme
+
+
+def sign_target_file(
+    auth_repo: AuthenticationRepository,
+    pin_manager: PinManager,
+    keystore: str,
+    target_name: str,
+    content: Any,
+) -> Commitish:
+    """
+    Write a target repository's target file with the given content (either format, see
+    taf.targets_history), sign and commit it. Returns the new authentication commit.
+    """
+    target_path = Path(auth_repo.path, TARGETS_DIRECTORY_NAME, target_name)
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+    target_path.write_text(serialize_target_file(content))
+    register_target_files(
+        auth_repo.path,
+        pin_manager,
+        keystore,
+        update_snapshot_and_timestamp=True,
+        push=False,
+    )
+    head_commit = auth_repo.head_commit()
+    assert head_commit is not None
+    return head_commit

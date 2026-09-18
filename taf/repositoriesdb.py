@@ -9,6 +9,7 @@ from taf.exceptions import (
     RepositoriesNotFoundError,
     RepositoryInstantiationError,
     GitError,
+    InvalidTargetFileError,
     TAFError,
 )
 from taf.git import GitRepository
@@ -404,12 +405,12 @@ def _get_target_default_branch(
     Otherwise, when no branch key is found under signed targets, the default branch is inherited from authentication repository.
     """
     try:
-        target = auth_repo.get_target(name, commit)
+        target = auth_repo.get_target_tip(name, commit)
         if target is None:
             default_branch = None
         else:
             default_branch = target.get("branch")
-    except (KeyError, AttributeError):
+    except (KeyError, AttributeError, InvalidTargetFileError):
         default_branch = None
 
     if default_branch is None:
