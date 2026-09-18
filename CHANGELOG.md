@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- `taf targets update-and-sign` appends to target files that list authenticated commits instead of overwriting them ([790])
 - Read a target repository's current commit from its target file in either format ([788])
 - Validate target repositories with `TargetValidator`, which no longer rescans each target branch's commits for every authentication commit ([784])
 - Remove unused `scheme` parameters ([757])
@@ -28,6 +29,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- `taf targets update-and-sign` without `--target-type` no longer fails with a TypeError ([790])
 - Building the update output no longer removes branches from the updater's targets data ([785])
 - Determine the default branch from a local (`--from-fs`) path containing a space, instead of failing ([780])
 - Fix YubiKey caching bugs that could skip a valid signing key for a delegated role ([775])
@@ -39,6 +41,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Correct the clone access error that rendered as "Cannot None ..." and stop misattributing a local failure to an access/authentication problem ([762])
 
 
+[790]: https://github.com/openlawlibrary/taf/pull/790
 [789]: https://github.com/openlawlibrary/taf/pull/789
 [788]: https://github.com/openlawlibrary/taf/pull/788
 [787]: https://github.com/openlawlibrary/taf/pull/787
