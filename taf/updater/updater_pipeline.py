@@ -2248,6 +2248,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     if not commit_info or "branch" not in commit_info:
                         continue
 
+                    commit_info = dict(commit_info)
                     branch = commit_info.pop("branch")
 
                     # Update the before_pull, after_pull, and new values
