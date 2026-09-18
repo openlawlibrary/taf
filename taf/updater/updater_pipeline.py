@@ -27,6 +27,7 @@ from taf.exceptions import (
 )
 from taf.updater.handlers import GitUpdater
 from taf.updater.lifecycle_handlers import Event
+from taf.updater.target_validator import LawStep, TargetPointer, TargetValidator
 from taf.updater.types.update import OperationType, UpdateType
 from taf.utils import TempPartition, on_rm_error, ensure_pre_push_hook
 from taf.updater.in_memory_updater import InMemoryUpdater
@@ -1765,85 +1766,34 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         taf_logger.info(
             f"{self.state.auth_repo_name}: Validating target repositories..."
         )
+        self.state.validated_commits_per_target_repos_branches = defaultdict(dict)
+        self.state.last_validated_data_per_repositories = defaultdict(dict)
+        self.state.validated_auth_commits = []
         try:
-            # need to be set to old head since that is the last validated target
-            self.state.validated_commits_per_target_repos_branches = defaultdict(dict)
+            repositories = self.state.temp_target_repositories
+            result = TargetValidator(
+                self._get_law_steps(),
+                self.state.fetched_commits_per_target_repos_branches,
+                start=self._get_last_validated_target_pointers(),
+                is_unauthenticated_allowed=lambda repo_name, auth_commit: self._is_unauthenticated_allowed_at(
+                    repositories[repo_name], auth_commit
+                ),
+                auth_repo_name=self.state.users_auth_repo.name,
+                get_commit_date=self.state.users_auth_repo.get_commit_date,
+            ).validate()
 
-            self.state.last_validated_data_per_repositories = defaultdict(dict)
-            self.state.validated_auth_commits = []
-            for auth_commit in self.state.all_targets_auth_commits:
-                for repository in self.state.temp_target_repositories.values():
-                    if repository.name not in self.state.targets_data_by_auth_commits:
-                        continue
-                    if (
-                        auth_commit
-                        not in self.state.targets_data_by_auth_commits[repository.name]
-                    ):
-                        continue
-                    current_targets_data = self.state.targets_data_by_auth_commits[
-                        repository.name
-                    ][auth_commit]
-
-                    current_branch = current_targets_data.get(
-                        "branch", repository.default_branch
-                    )
-                    current_commit = Commitish.from_hash(current_targets_data["commit"])
-                    if not len(
-                        self.state.last_validated_data_per_repositories[repository.name]
-                    ):
-                        last_validated_target_auth_commit = (
-                            self._get_last_validated_commit(repository.name)
-                        )
-                        current_head_commit_and_branch = (
-                            self.state.targets_data_by_auth_commits[
-                                repository.name
-                            ].get(last_validated_target_auth_commit, {})
-                        )
-                        previous_branch = current_head_commit_and_branch.get("branch")
-                        previous_commit = Commitish.from_hash(
-                            current_head_commit_and_branch.get("commit")
-                        )
-                        if previous_commit is not None and previous_branch is None:
-                            previous_branch = repository.default_branch
-                    else:
-                        previous_branch = (
-                            self.state.last_validated_data_per_repositories[
-                                repository.name
-                            ].get("branch")
-                        )
-                        previous_commit = (
-                            self.state.last_validated_data_per_repositories[
-                                repository.name
-                            ]["commit"]
-                        )
-
-                    target_commits_from_target_repo = (
-                        self.state.fetched_commits_per_target_repos_branches[
-                            repository.name
-                        ]
-                    )
-                    validated_commit = self._validate_current_repo_commit(
-                        repository,
-                        self.state.users_auth_repo,
-                        previous_branch,
-                        previous_commit,
-                        current_branch,
-                        current_commit,
-                        target_commits_from_target_repo,
-                        auth_commit,
-                    )
-
-                    self.state.last_validated_data_per_repositories[repository.name] = {
-                        "commit": validated_commit,
-                        "branch": current_branch,
-                    }
-
-                    self.state.validated_commits_per_target_repos_branches[
-                        repository.name
-                    ].setdefault(current_branch, []).append(validated_commit)
-
-                # commit processed without an error
-                self.state.validated_auth_commits.append(auth_commit)
+            self.state.validated_auth_commits = result.validated_auth_commits
+            self.state.validated_commits_per_target_repos_branches.update(
+                result.validated_commits_per_repo_branch
+            )
+            self.state.last_validated_data_per_repositories.update(
+                {
+                    repo_name: {"commit": pointer.commit, "branch": pointer.branch}
+                    for repo_name, pointer in result.last_validated_per_repo.items()
+                }
+            )
+            if result.error is not None:
+                raise result.error
             taf_logger.info(
                 f"{self.state.auth_repo_name}: Validation of target repositories finished"
             )
@@ -1872,68 +1822,52 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             return _is_unauthenticated_allowed(repository)
         return custom.get("allow-unauthenticated-commits", False)
 
-    def _validate_current_repo_commit(
-        self,
-        repository,
-        users_auth_repo,
-        previous_branch,
-        previous_commit,
-        current_branch,
-        current_commit,
-        target_commits_from_target_repo,
-        current_auth_commit,
-    ):
-        target_commits_from_target_repos_on_branch = target_commits_from_target_repo[
-            current_branch
-        ]
-        if previous_commit == current_commit:
-            # target not updated in this revision
-            return current_commit
-        if previous_branch == current_branch:
-            # same branch
-            current_target_commit = _find_next_value(
-                previous_commit, target_commits_from_target_repos_on_branch
+    def _get_law_steps(self) -> List[LawStep]:
+        """
+        For each authentication commit to validate, the branch and commit that it
+        declares for each target repository that has a target file at that commit.
+        """
+        steps = []
+        for auth_commit in self.state.all_targets_auth_commits:
+            targets = {}
+            for repository in self.state.temp_target_repositories.values():
+                commits_data = self.state.targets_data_by_auth_commits.get(
+                    repository.name, {}
+                )
+                if auth_commit not in commits_data:
+                    continue
+                target_data = commits_data[auth_commit]
+                targets[repository.name] = TargetPointer(  # type: ignore[call-arg]
+                    branch=target_data.get("branch", repository.default_branch),
+                    commit=Commitish.from_hash(target_data["commit"]),
+                )
+            steps.append(
+                LawStep(auth_commit=auth_commit, targets=targets)  # type: ignore[call-arg]
             )
-        else:
-            # next branch
-            current_target_commit = target_commits_from_target_repos_on_branch[0]
+        return steps
 
-        if current_target_commit is None:
-            # there are commits missing from the target repository
-            commit_date = users_auth_repo.get_commit_date(current_auth_commit)
-            raise UpdateFailedError(
-                f"Failure to validate {users_auth_repo.name} commit {current_auth_commit} committed on {commit_date}: \
-data repository {repository.name} was supposed to be at commit {current_commit} \
-but commit not on branch {current_branch}"
+    def _get_last_validated_target_pointers(self) -> Dict[str, TargetPointer]:
+        """
+        Branch and commit of each target repository as of its last validated
+        authentication commit. Repositories that were never validated are omitted.
+        """
+        pointers = {}
+        for repository in self.state.temp_target_repositories.values():
+            if repository.name not in self.state.targets_data_by_auth_commits:
+                continue
+            target_data = self.state.targets_data_by_auth_commits[repository.name].get(
+                self._get_last_validated_commit(repository.name), {}
             )
-
-        if current_commit == current_target_commit:
-            return current_target_commit
-        if not self._is_unauthenticated_allowed_at(repository, current_auth_commit):
-            commit_date = users_auth_repo.get_commit_date(current_auth_commit)
-            raise UpdateFailedError(
-                f"Failure to validate {users_auth_repo.name} commit {current_auth_commit} committed on {commit_date}: \
-data repository {repository.name} was supposed to be at commit {current_commit} \
-but repo was at {current_target_commit}"
+            commit = Commitish.from_hash(target_data.get("commit"))
+            if commit is None:
+                continue
+            branch = target_data.get("branch")
+            if branch is None:
+                branch = repository.default_branch
+            pointers[repository.name] = TargetPointer(  # type: ignore[call-arg]
+                branch=branch, commit=commit
             )
-        # unauthenticated commits are allowed, try to skip them
-        # if commits of the target repositories were swapped, commit which is expected to be found
-        # after the current one will be skipped and it won't be found later, so validation will fail
-        remaining_commits = target_commits_from_target_repos_on_branch[
-            target_commits_from_target_repos_on_branch.index(current_target_commit) :
-        ]
-        for target_commit in remaining_commits:
-            if current_commit == target_commit:
-                return target_commit
-            taf_logger.debug(
-                f"{repository.name}: skipping target commit {target_commit}. Looking for commit {current_commit}"
-            )
-        commit_date = users_auth_repo.get_commit_date(current_auth_commit)
-        raise UpdateFailedError(
-            f"Failure to validate {users_auth_repo.name} commit {current_auth_commit} committed on {commit_date}: \
-data repository {repository.name} was supposed to be at commit {current_commit} \
-but commit not on branch {current_branch}"
-        )
+        return pointers
 
     def validate_and_set_additional_commits_of_target_repositories(self):
         """
@@ -2634,26 +2568,6 @@ def _validate_metadata_on_disk(git_fetcher):
         )
         if metadata_content != tuf_metadata_content:
             raise UpdateFailedError(f"Invalid metadata file {metadata_file_name}")
-
-
-def _find_next_value(value, values_list):
-    """
-    Find the next value in the list after the given value.
-
-    Parameters:
-    - value: The value to look for.
-    - values_list: The list of values.
-
-    Returns:
-    - The next value in the list after the given value, or None if there isn't one.
-    """
-    try:
-        index = values_list.index(value)
-        if index < len(values_list) - 1:  # check if there are remaining values
-            return values_list[index + 1]
-    except ValueError:
-        pass  # value not in list
-    return None
 
 
 def _format_commits(commits: List[Commitish]) -> str:

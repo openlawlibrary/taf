@@ -6,7 +6,18 @@ commit per target repository. No git repositories are involved.
 """
 
 import hashlib
-from typing import Callable, Dict, Iterable, List, Mapping, Optional, Tuple, Union
+from types import SimpleNamespace
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Mapping,
+    Optional,
+    Tuple,
+    Union,
+)
 
 from taf.exceptions import TargetCommitMismatchError
 from taf.models.types import Commitish
@@ -15,6 +26,10 @@ from taf.updater.target_validator import (
     TargetPointer,
     TargetValidator,
     ValidationResult,
+)
+from taf.updater.updater_pipeline import (
+    AuthenticationRepositoryUpdatePipeline,
+    UpdateState,
 )
 
 AUTH_REPO_NAME = "namespace/auth"
@@ -126,3 +141,64 @@ def assert_invalid(
     assert result.error.expected_commit == declared.commit
     assert result.error.branch == declared.branch
     assert result.error.actual_commit == actual_commit
+
+
+def targets_data_by_auth_commits(
+    steps: List[LawStep],
+) -> Dict[str, Dict[Commitish, Dict[str, Any]]]:
+    """
+    The steps in the shape the updater loads from the authentication repository
+    (`AuthenticationRepository.targets_data_by_auth_commits`).
+    """
+    targets_data: Dict[str, Dict[Commitish, Dict[str, Any]]] = {}
+    for step in steps:
+        for repo_name, pointer in step.targets.items():
+            targets_data.setdefault(repo_name, {})[step.auth_commit] = {
+                "branch": pointer.branch,
+                "commit": pointer.commit.value,
+                "custom": {},
+            }
+    return targets_data
+
+
+def make_pipeline(
+    steps: List[LawStep],
+    fetched_commits: Mapping[str, Mapping[str, List[Commitish]]],
+    repo_names: Iterable[str] = (REPO1, REPO2),
+    targets_data: Optional[Dict[str, Dict[Commitish, Dict[str, Any]]]] = None,
+    last_validated_commit: Optional[Commitish] = None,
+    last_validated_data: Optional[Dict[str, str]] = None,
+    is_unauthenticated_allowed: Optional[Callable[[str, Commitish], bool]] = None,
+) -> AuthenticationRepositoryUpdatePipeline:
+    """
+    An update pipeline whose state is ready for target repository validation: the
+    steps' authentication commits are to be validated, targets data is derived from
+    the steps unless given, and `repo_names` are the target repositories being updated
+    (with default branch MAIN). The allow-unauthenticated-commits lookup, which reads
+    the authentication repository, is replaced by `is_unauthenticated_allowed`.
+    """
+    pipeline = object.__new__(AuthenticationRepositoryUpdatePipeline)
+    pipeline.state = UpdateState(  # type: ignore[call-arg]
+        errors=[],
+        auth_repo_name=AUTH_REPO_NAME,
+        users_auth_repo=SimpleNamespace(
+            name=AUTH_REPO_NAME, get_commit_date=lambda _commit: AUTH_COMMIT_DATE
+        ),
+        temp_target_repositories={
+            name: SimpleNamespace(name=name, default_branch=MAIN) for name in repo_names
+        },
+        targets_data_by_auth_commits=(
+            targets_data
+            if targets_data is not None
+            else targets_data_by_auth_commits(steps)
+        ),
+        fetched_commits_per_target_repos_branches=fetched_commits,
+        all_targets_auth_commits=[step.auth_commit for step in steps],
+        last_validated_commit=last_validated_commit,
+        last_validated_data=last_validated_data or {},
+    )
+    policy = is_unauthenticated_allowed or UnauthenticatedPolicy()
+    pipeline._is_unauthenticated_allowed_at = (  # type: ignore[method-assign]
+        lambda repository, auth_commit: policy(repository.name, auth_commit)
+    )
+    return pipeline
