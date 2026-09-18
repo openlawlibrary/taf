@@ -1,4 +1,11 @@
 from collections import defaultdict
+import json
+
+import pytest
+
+from taf.exceptions import InvalidTargetFileError
+from taf.targets_history import serialize_target_file
+from taf.tests.test_targets_history.conftest import make_entry, make_history
 
 
 def test_add_target_files(tuf_repo):
@@ -22,6 +29,29 @@ def test_add_target_files(tuf_repo):
     assert (tuf_repo.path / "targets" / path2).is_file()
     assert tuf_repo.targets().targets[path2].length > 0
     assert tuf_repo.targets().targets[path2].custom == custom
+
+
+def test_add_target_file_with_list_of_commits(tuf_repo):
+    path = "repo-with-history"
+    history = make_history(3)
+
+    tuf_repo.add_target_files_to_role({path: {"target": history}})
+
+    target_file = tuf_repo.path / "targets" / path
+    assert target_file.read_text() == serialize_target_file(history)
+    assert json.loads(target_file.read_text()) == history
+    assert tuf_repo.targets().targets[path].length > 0
+
+
+def test_add_target_file_with_invalid_list_of_commits(tuf_repo):
+    path = "repo-with-invalid-history"
+    invalid_history = [make_entry(), {"branch": "main"}]
+
+    with pytest.raises(InvalidTargetFileError, match=path):
+        tuf_repo.add_target_files_to_role({path: {"target": invalid_history}})
+
+    assert not (tuf_repo.path / "targets" / path).exists()
+    assert path not in tuf_repo.targets().targets
 
 
 def test_repo_target_files(tuf_repo):

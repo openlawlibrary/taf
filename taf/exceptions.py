@@ -79,6 +79,14 @@ class InvalidRepositoryError(TAFError):
     pass
 
 
+class InvalidTargetFileError(TAFError):
+    def __init__(self, target_name: str, reason: str):
+        self.target_name = target_name
+        self.reason = reason
+        self.message = f"Invalid target file {target_name}: {reason}"
+        super().__init__(self.message)
+
+
 class InvalidPINError(TAFError):
     pass
 
@@ -275,6 +283,16 @@ class TargetCommitMismatchError(UpdateFailedError):
             f"Failure to validate {auth_repo_name} commit {auth_commit} committed on {commit_date}: "
             f"data repository {repo_name} was supposed to be at commit {expected_commit} {reason}"
         )
+        super().__init__(self.message)
+
+
+class TargetsHistoryRewrittenError(UpdateFailedError):
+    """A target file's list of authenticated commits was changed other than by appending."""
+
+    def __init__(self, target_name: str, reason: str):
+        self.target_name = target_name
+        self.reason = reason
+        self.message = f"Target file {target_name} was rewritten: {reason}"
         super().__init__(self.message)
 
 
