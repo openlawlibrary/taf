@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Add `TargetValidator`, which checks target repositories' commits against the commits declared by the authentication repository without reading git ([783])
 - Allow overriding the temp directory used when cloning repositories via an anv var ([771])
 - Sign and discover keys across all YubiKey PIV slots, not just SIGNATURE ([767])
 - Support choosing a YubiKey PIV slot when setting up signing keys ([759])
@@ -33,6 +34,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Correct the clone access error that rendered as "Cannot None ..." and stop misattributing a local failure to an access/authentication problem ([762])
 
 
+[783]: https://github.com/openlawlibrary/taf/pull/783
 [780]: https://github.com/openlawlibrary/taf/pull/780
 [775]: https://github.com/openlawlibrary/taf/pull/775
 [774]: https://github.com/openlawlibrary/taf/pull/774
