@@ -263,3 +263,22 @@ def test_default_branch_where_repository_created_after_construction_expect_own_b
     init_repository(nested, initial_head="main")
 
     assert GitRepository(path=nested).default_branch == "main"
+
+
+def test_init_repo_where_constructed_before_the_repository_existed_expect_branch_read(
+    repo_path,
+):
+    """`init_repo` reads the branch the repository was created on.
+
+    Building the object first and creating the repository through it is the
+    usual order, and there is no branch to read at construction. `clone` and
+    `clone_from_disk` already resolve once the repository exists; so does this.
+    """
+    nested = repo_path / "nested"
+    nested.mkdir(parents=True)
+    repo = GitRepository(path=nested)
+    assert repo.default_branch is None
+
+    repo.init_repo()
+
+    assert repo.default_branch is not None

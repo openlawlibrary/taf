@@ -1636,6 +1636,12 @@ class GitRepository:
         if self.urls is not None and len(self.urls):
             self._git("remote add origin {}", self.urls[0])
 
+        # A repository built for a path that did not exist yet has no default
+        # branch: there was nothing to read one from. There is now, so read it,
+        # the same way `clone` and `clone_from_disk` do.
+        if self.default_branch is None:
+            self.default_branch = self._determine_default_branch()
+
     def is_path_ignored(self, path: str) -> bool:
         """
         Checks if the given path is ignored by gitignore rules.
