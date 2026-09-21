@@ -347,7 +347,18 @@ class GitRepository:
         when possible, each falling back to the subprocess equivalent on any
         failure, so behavior is a strict superset of the previous
         implementation.
+
+        Raises `GitError` when `self.path` is not itself a repository. Every
+        read below resolves by walking up from the path, so a path nested
+        inside another repository would otherwise be answered by that
+        repository. Callers treat the error as "not determined yet".
         """
+        if not self._path_is_repository():
+            raise GitError(
+                self,
+                message=f"{self.path} is not a repository",
+            )
+
         # step 1: refs/remotes/origin/HEAD
         branch = self._symbolic_ref_branch_via_pygit("refs/remotes/origin/HEAD")
         if branch is not None:
@@ -383,6 +394,38 @@ class GitRepository:
         raise GitError(
             self,
             message="Could not determine default branch from local repository",
+        )
+
+    def _path_is_repository(self) -> bool:
+        """Whether `self.path` is a repository, rather than merely inside one.
+
+        `is_git_repository` answers the second question, and `pygit_repo` caches
+        whatever repository it discovers on the instance, so neither serves
+        here. This opens nothing and caches nothing: it asks which repository
+        encloses the path and keeps the answer only if that repository is this
+        one, as a worktree or bare.
+        """
+        discovered: Optional[str] = None
+        if PYGIT2_AVAILABLE:
+            try:
+                discovered = pygit2.discover_repository(str(self.path))
+            except Exception:
+                discovered = None
+        else:
+            try:
+                discovered = self._git(
+                    "rev-parse --absolute-git-dir",
+                    error_if_not_exists=False,
+                    reraise_error=True,
+                )
+            except GitError:
+                discovered = None
+        if not discovered:
+            return False
+        discovered_path = Path(discovered).resolve()
+        return discovered_path in (
+            (self.path / ".git").resolve(),  # worktree
+            self.path.resolve(),  # bare
         )
 
     def _symbolic_ref_branch_via_pygit(self, ref_name: str) -> Optional[str]:

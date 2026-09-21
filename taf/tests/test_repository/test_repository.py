@@ -232,3 +232,34 @@ def test_default_branch_when_main(repo_path):
     init_repository(repo_path, initial_head="master")
     repo = GitRepository(path=repo_path)
     assert repo.default_branch == "master"
+
+
+def test_default_branch_where_path_is_inside_another_repository_expect_none(repo_path):
+    """A path that is not yet a repository must not answer from its parent.
+
+    Git resolves `symbolic-ref` for such a path by walking up until it finds a
+    repository, so an enclosing checkout answers for it. Creating repositories
+    beneath an existing one is ordinary -- test fixtures and archives both do
+    it -- and the enclosing branch is never the right answer.
+    """
+    init_repository(repo_path, initial_head="master")
+    nested = repo_path / "nested"
+    nested.mkdir()
+
+    repo = GitRepository(path=nested)
+
+    assert repo.default_branch is None
+
+
+def test_default_branch_where_repository_created_after_construction_expect_own_branch(
+    repo_path,
+):
+    """The branch comes from the repository, not from a value cached before it existed."""
+    init_repository(repo_path, initial_head="master")
+    nested = repo_path / "nested"
+    nested.mkdir()
+    GitRepository(path=nested)  # resolves once, while nested is a plain directory
+
+    init_repository(nested, initial_head="main")
+
+    assert GitRepository(path=nested).default_branch == "main"
