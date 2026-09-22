@@ -39,7 +39,6 @@ and this project adheres to [Semantic Versioning][semver].
 - Surface the underlying git error when a clone fails, instead of hiding it behind a generic access message ([762])
 - Correct the clone access error that rendered as "Cannot None ..." and stop misattributing a local failure to an access/authentication problem ([762])
 
-
 [782]: https://github.com/openlawlibrary/taf/pull/782
 [780]: https://github.com/openlawlibrary/taf/pull/780
 [775]: https://github.com/openlawlibrary/taf/pull/775
@@ -50,6 +49,25 @@ and this project adheres to [Semantic Versioning][semver].
 [762]: https://github.com/openlawlibrary/taf/pull/762
 [759]: https://github.com/openlawlibrary/taf/pull/759
 [757]: https://github.com/openlawlibrary/taf/pull/757
+
+
+## [0.40.0]
+
+### Added
+
+- Support Python 3.13 ([800])
+
+### Changed
+
+- Update test and Git dependencies for Python 3.13 compatibility ([800])
+
+### Fixed
+
+- Interpret Git commit timezone offsets correctly when formatting commit dates ([800])
+
+
+[800]: https://github.com/openlawlibrary/taf/pull/800
+
 
 ## [0.39.3]
 
@@ -1936,7 +1954,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
-[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.39.3...HEAD
+[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.40.0...HEAD
+[0.40.0]: https://github.com/openlawlibrary/taf/compare/v0.39.3...v0.40.0
 [0.39.3]: https://github.com/openlawlibrary/taf/compare/v0.39.2...v0.39.3
 [0.39.2]: https://github.com/openlawlibrary/taf/compare/v0.39.1...v0.39.2
 [0.39.1]: https://github.com/openlawlibrary/taf/compare/v0.39.0...v0.39.1

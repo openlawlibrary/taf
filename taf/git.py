@@ -39,6 +39,15 @@ try:
     import pygit2
     from .pygit import PyGitRepository as _PyGitRepositoryClass
 
+    try:
+        # pygit2 replaced the GIT_REF_* constants with enums in 1.14
+        # and removed the constants in 1.16
+        from pygit2.enums import ReferenceType as _ReferenceType
+
+        _REFERENCE_TYPE_SYMBOLIC = _ReferenceType.SYMBOLIC
+    except ImportError:  # pygit2 < 1.14
+        _REFERENCE_TYPE_SYMBOLIC = pygit2.GIT_REF_SYMBOLIC
+
     PYGIT2_AVAILABLE = True
 except ImportError:
     pygit2 = None
@@ -414,7 +423,7 @@ class GitRepository:
                 return None
             repo = pygit2.Repository(discovered)
             ref = repo.references.get(ref_name)
-            if ref is None or ref.type != pygit2.GIT_REF_SYMBOLIC:
+            if ref is None or ref.type != _REFERENCE_TYPE_SYMBOLIC:
                 return None
             target = ref.target  # e.g. "refs/remotes/origin/main" or "refs/heads/main"
             for prefix in ("refs/remotes/origin/", "refs/heads/"):
@@ -490,7 +499,7 @@ class GitRepository:
 
         sort = pygit2.GIT_SORT_REVERSE if reverse else pygit2.GIT_SORT_NONE
         commits = [
-            Commitish.from_hash(commit.id.hex)
+            Commitish.from_hash(commit.id)
             for commit in repo.walk(latest_commit_id, sort)
         ]
         self._log_debug(
@@ -544,7 +553,7 @@ class GitRepository:
 
         commits: List[Commitish] = []
         for commit in repo.walk(latest_commit_id):
-            commit = Commitish.from_hash(commit.id.hex)
+            commit = Commitish.from_hash(commit.id)
             if commit == since_commit:
                 break
             commits.insert(0, commit)
@@ -1177,7 +1186,7 @@ class GitRepository:
 
         repo_commit_id = repo.get(commit.hash).id
         for comm in repo.walk(repo_commit_id):
-            hex = comm.id.hex
+            hex = str(comm.id)
             if hex != commit.hash:
                 return Commitish.from_hash(hex)
         return None
@@ -1234,8 +1243,11 @@ class GitRepository:
         repo = self.pygit_repo
 
         pygit_commit = repo.get(commit.hash)
-        date = datetime.datetime.utcfromtimestamp(
-            pygit_commit.commit_time + pygit_commit.commit_time_offset
+        commit_timezone = datetime.timezone(
+            datetime.timedelta(minutes=pygit_commit.commit_time_offset)
+        )
+        date = datetime.datetime.fromtimestamp(
+            pygit_commit.commit_time, tz=commit_timezone
         )
         formatted_date = date.strftime("%Y-%m-%d")
         return formatted_date
@@ -1321,7 +1333,7 @@ class GitRepository:
         repo = self.pygit_repo
 
         try:
-            return Commitish.from_hash(repo.revparse_single("HEAD").id.hex)
+            return Commitish.from_hash(repo.revparse_single("HEAD").id)
         except Exception:
             return None
 
@@ -1332,9 +1344,7 @@ class GitRepository:
         if isinstance(commitish, Commitish):
             return commitish
         try:
-            return Commitish.from_hash(
-                self.pygit_repo.revparse_single(commitish).id.hex
-            )
+            return Commitish.from_hash(self.pygit_repo.revparse_single(commitish).id)
         except Exception:
             return None
 
@@ -1446,11 +1456,11 @@ class GitRepository:
             if pattern_func(stripped_name):
                 branch = repo.lookup_branch(branch_name)
                 try:
-                    branch_tips[stripped_name] = branch.peel().hex
+                    branch_tips[stripped_name] = str(branch.peel().id)
                 except Exception:
                     ref = repo.references[f"refs/remotes/{branch_name}"]
                     commit = ref.peel(pygit2.Commit)
-                    branch_tips[stripped_name] = commit.hex
+                    branch_tips[stripped_name] = str(commit.id)
             all_branch_names.append(stripped_name)
 
         if sort_key_func is not None:
@@ -1461,7 +1471,8 @@ class GitRepository:
                 for branch_name in all_branch_names:
                     tip_hex = branch_tips.get(branch_name)
                     if tip_hex is not None and (
-                        commit.hex == tip_hex or repo.descendant_of(tip_hex, commit.hex)
+                        str(commit.id) == tip_hex
+                        or repo.descendant_of(tip_hex, str(commit.id))
                     ):
                         return branch_name
         return None
@@ -1536,7 +1547,7 @@ class GitRepository:
         merge_base = repo.merge_base(commit1.hash, commit2.hash)
         if merge_base is None:
             return None
-        return Commitish.from_hash(merge_base.hex)
+        return Commitish.from_hash(merge_base)
 
     def get_tracking_branch(
         self, branch: Optional[str] = "", strip_remote: Optional[bool] = False
@@ -1658,8 +1669,7 @@ class GitRepository:
     def list_commits(self, branch: Optional[str] = "") -> List[Commitish]:
 
         return [
-            Commitish.from_hash(commit.hex)
-            for commit in self.list_pygit_commits(branch)
+            Commitish.from_hash(commit.id) for commit in self.list_pygit_commits(branch)
         ]
 
     def list_pygit_commits(self, branch: Optional[str] = "") -> List[pygit2.Commit]:
@@ -1692,12 +1702,13 @@ class GitRepository:
             start_commit_id = branch_obj.target
         else:
             start_commit_id = repo[repo.head.target].id
+        # NOTE: the `number + 1` and the start-commit exclusion that used to filter
+        # this list are pre-existing behaviour. The exclusion compared a str to a
+        # pygit2.Oid, which never matched on pygit2 <= 1.14, so it never removed
+        # anything. pygit2 1.16 made that comparison succeed, so it is dropped here
+        # to keep this method's results unchanged across pygit2 versions.
         commits = itertools.islice(repo.walk(start_commit_id), number + 1)
-        return [
-            Commitish.from_hash(commit.hex)
-            for commit in commits
-            if commit.hex != start_commit_id
-        ]
+        return [Commitish.from_hash(commit.id) for commit in commits]
 
     def list_modified_files(
         self, path: Optional[str] = None, with_status: Optional[bool] = False
@@ -2070,10 +2081,10 @@ class GitRepository:
 
         branch = repo.branches.get(branch_name)
         if branch is not None:
-            return Commitish.from_hash(branch.target.hex)
+            return Commitish.from_hash(branch.target)
         # a reference like HEAD
         try:
-            return Commitish.from_hash(repo.revparse_single(branch_name).id.hex)
+            return Commitish.from_hash(repo.revparse_single(branch_name).id)
         except Exception:
             return None
 

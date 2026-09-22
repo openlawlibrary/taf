@@ -77,7 +77,7 @@ class PyGitRepository:
                 message=f"fatal: Path '{path}' does not exist in '{commit}'",
             )
         else:
-            git_id = blob.hex
+            git_id = str(blob.id)
             type = "raw" if raw else "decoded"
             if git_id not in self._files_cache or type not in self._files_cache[git_id]:
                 content = blob.read_raw() if raw else blob.read_raw().decode()

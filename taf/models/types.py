@@ -1,7 +1,10 @@
 from __future__ import annotations
 import json
-from typing import Iterator, List, Optional, Dict
+from typing import TYPE_CHECKING, Iterator, List, Optional, Dict
 import attrs
+
+if TYPE_CHECKING:
+    import pygit2
 
 from taf.constants import DEFAULT_ROLE_SETUP_PARAMS
 from taf.exceptions import RolesKeyDataConversionError
@@ -26,16 +29,18 @@ class Commitish:
         return self.tag if self.tag else self.hash
 
     @classmethod
-    def from_hash(cls, hash: Optional[Commitish | str]):
+    def from_hash(cls, hash: Optional[Commitish | str | pygit2.Oid]):
         """
         Initialize cls from `hash`.
-        If `hash` is already `Commitish`, returns self
+        If `hash` is already `Commitish`, returns self.
+        A pygit2 Oid is converted through str(), which yields its hex digest
+        on every pygit2 version TAF supports.
         """
         if hash is None:
             return None
-        if isinstance(hash, str):
-            return cls(hash)  # type: ignore
-        return hash  # type: ignore
+        if isinstance(hash, Commitish):
+            return hash
+        return cls(str(hash))  # type: ignore
 
     def __eq__(self, other):
         if other is None:
