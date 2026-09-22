@@ -17,11 +17,15 @@ from cryptography.hazmat.primitives.serialization import (
     load_pem_public_key,
 )
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
+from cryptography.hazmat.primitives.asymmetric.ec import (
+    EllipticCurvePublicKey,
+    SECP256R1,
+)
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 
-from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
+from taf.constants import DEFAULT_ECDSA_SIGNATURE_SCHEME, DEFAULT_RSA_SIGNATURE_SCHEME
 
 
 def generate_rsa_keypair(key_size=3072, password=None) -> Tuple[bytes, bytes]:
@@ -74,9 +78,7 @@ def generate_and_write_rsa_keypair(path, key_size, password) -> bytes:
     return private_pem
 
 
-def get_sslib_key_from_value(
-    key: str, scheme: str = DEFAULT_RSA_SIGNATURE_SCHEME
-) -> SSlibKey:
+def get_sslib_key_from_value(key: str, scheme: Optional[str] = None) -> SSlibKey:
     """
     Converts a key from its string representation into an SSlibKey object.
     """
@@ -101,12 +103,37 @@ def _get_legacy_keyid(key: SSlibKey) -> str:
     return hasher.hexdigest()
 
 
-def _from_crypto(pub: RSAPublicKey, scheme=DEFAULT_RSA_SIGNATURE_SCHEME) -> SSlibKey:
+def _from_crypto(
+    pub: Union[RSAPublicKey, EllipticCurvePublicKey],
+    scheme: Optional[str] = None,
+) -> SSlibKey:
     """Converts pyca/cryptography public key to SSlibKey with default signing
-    scheme and legacy keyid."""
+    scheme and legacy keyid.
+
+    Detects the key's actual type (RSA or ECDSA P-256) from the key material
+    itself, so callers that pass scheme=None because they don't know ahead
+    of time what type of key they're about to load (e.g. reading a
+    YubiKey's public key) still get back a correctly scheme-tagged key
+    when it turns out to be an EC key. RSA callers that need a specific
+    sub-scheme (e.g. rsassa-pss-sha256) can still request one explicitly,
+    since that can't be inferred from the key bytes alone.
+    """
     # securesystemslib does not (yet) check if keytype and scheme are compatible
     # https://github.com/secure-systems-lab/securesystemslib/issues/766
-    if not isinstance(pub, RSAPublicKey):
+    if isinstance(pub, RSAPublicKey):
+        scheme = scheme or DEFAULT_RSA_SIGNATURE_SCHEME
+    elif isinstance(pub, EllipticCurvePublicKey):
+        # only P-256 is accepted here because securesystemslib.CryptoSigner
+        # (used for signing) only implements ecdsa-sha2-nistp256; sslib's
+        # SSlibKey already supports *verifying* nistp384/nistp521
+        # signatures, so this is a signing-side limitation, not a
+        # fundamental one
+        if not isinstance(pub.curve, SECP256R1):
+            raise ValueError(f"unsupported EC curve '{pub.curve.name}'")
+        if scheme not in (None, DEFAULT_ECDSA_SIGNATURE_SCHEME):
+            raise ValueError(f"scheme '{scheme}' not valid for an ecdsa key")
+        scheme = DEFAULT_ECDSA_SIGNATURE_SCHEME
+    else:
         raise ValueError(f"keytype '{type(pub)}' not supported")
     key = SSlibKey.from_crypto(pub, scheme=scheme)
     # FIXME: include the 'keyid_hash_algorithms' entry in the key portion
@@ -117,17 +144,14 @@ def _from_crypto(pub: RSAPublicKey, scheme=DEFAULT_RSA_SIGNATURE_SCHEME) -> SSli
     return key
 
 
-def load_public_key_from_file(
-    path: Union[str, Path], scheme=DEFAULT_RSA_SIGNATURE_SCHEME
-) -> SSlibKey:
-    """Load SSlibKey from RSA public key file.
+def load_public_key_from_file(path: Union[str, Path]) -> SSlibKey:
+    """Load SSlibKey from a public key file.
 
     * Expected key file format is SubjectPublicKeyInfo/PEM
-    * Signing scheme defaults to 'rsa-pkcs1v15-sha256'
+    * Signing scheme is detected from the key material (RSA or ECDSA P-256)
     * Keyid is computed from legacy canonical representation of public key
 
     """
-    # TODO handle scheme
     with open(path, "rb") as f:
         pem = f.read()
 
@@ -135,13 +159,11 @@ def load_public_key_from_file(
     return _from_crypto(pub)
 
 
-def load_signer_from_file(
-    path: Path, password: Optional[str] = None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME
-) -> CryptoSigner:
-    """Load CryptoSigner from RSA private key file.
+def load_signer_from_file(path: Path, password: Optional[str] = None) -> CryptoSigner:
+    """Load CryptoSigner from a private key file.
 
     * Expected key file format is PKCS8/PEM
-    * Signing scheme defaults to 'rsa-pkcs1v15-sha256'
+    * Signing scheme is detected from the key material (RSA or ECDSA P-256)
     * Keyid is computed from legacy canonical representation of public key
     * If password is None, the key is expected to be unencrypted
 
@@ -149,26 +171,29 @@ def load_signer_from_file(
     with open(path, "rb") as f:
         pem = f.read()
 
-    # TODO scheme
-
     password_encoded = password.encode() if password is not None else None
     priv = load_pem_private_key(pem, password_encoded)
     pub = priv.public_key()
     return CryptoSigner(priv, _from_crypto(pub))
 
 
-def load_signer_from_pem(pem: bytes, password: Optional[bytes] = None) -> CryptoSigner:
-    """Load CryptoSigner from RSA private key file.
+def load_signer_from_pem(
+    pem: bytes, password: Optional[bytes] = None, scheme: Optional[str] = None
+) -> CryptoSigner:
+    """Load CryptoSigner from a private key in PEM format.
 
     * Expected key file format is PKCS8/PEM
-    * Signing scheme defaults to 'rsa-pkcs1v15-sha256'
+    * Signing scheme is detected from the key material (RSA or ECDSA P-256)
+      unless explicitly overridden, which only makes sense for RSA, where
+      the sub-scheme (e.g. rsassa-pss-sha256) can't be inferred from the
+      key bytes alone
     * Keyid is computed from legacy canonical representation of public key
     * If password is None, the key is expected to be unencrypted
 
     """
     priv = load_pem_private_key(pem, password)
     pub = priv.public_key()
-    return CryptoSigner(priv, _from_crypto(pub))
+    return CryptoSigner(priv, _from_crypto(pub, scheme))
 
 
 class YkSigner(Signer):
@@ -192,12 +217,17 @@ class YkSigner(Signer):
         serial_num: str,
         pin_handler: SecretsHandler,
         key_name: str,
+        slot=None,
     ):
 
         self._public_key = public_key
         self._pin_handler = pin_handler
         self._serial_num = serial_num
         self._key_name = key_name
+        # the PIV slot holding this key; None defaults to SLOT.SIGNATURE in
+        # sign() - kept untyped here so this module stays importable without
+        # yubikey-manager installed (an optional extra)
+        self._slot = slot
 
     @property
     def public_key(self) -> SSlibKey:
@@ -211,6 +241,10 @@ class YkSigner(Signer):
     def key_name(self) -> str:
         return self._key_name
 
+    @property
+    def slot(self):
+        return self._slot
+
     @classmethod
     def import_(cls) -> SSlibKey:
         """Import rsa public key from Yubikey.
@@ -221,6 +255,10 @@ class YkSigner(Signer):
         TODO: Consider returning priv key uri along with public key.
         See e.g. `self.from_priv_key_uri` and other `import_` methods on
         securesystemslib signers, e.g. `HSMSigner.import_`.
+
+        TODO: only checks SLOT.SIGNATURE, same as export_piv_pub_key -
+        test-only helper per the comment below, so not extended to other
+        slots for now.
         """
         # if multiple keys are inserted, we need to know from which key should be imported
         # TODO
@@ -236,9 +274,11 @@ class YkSigner(Signer):
     def sign(self, payload: bytes) -> Signature:
         pin = self._pin_handler(self._SECRET_PROMPT)
         from taf.yubikey.yubikey import sign_piv_rsa_pkcs1v15, verify_yk_inserted
+        from yubikit.piv import SLOT
 
         verify_yk_inserted(self.serial_num, self.key_name)
-        sig = sign_piv_rsa_pkcs1v15(payload, pin, serial=self.serial_num)
+        slot = self._slot if self._slot is not None else SLOT.SIGNATURE
+        sig = sign_piv_rsa_pkcs1v15(payload, pin, serial=self.serial_num, slot=slot)
         return Signature(self.public_key.keyid, sig.hex())
 
     @classmethod

@@ -20,14 +20,14 @@ from taf.api.metadata import (
     update_metadata_expiration_date,
 )
 from taf.auth_repo import AuthenticationRepository
-from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME, TARGETS_DIRECTORY_NAME
+from taf.constants import TARGETS_DIRECTORY_NAME
 from taf import repositoriesdb, settings
 from taf.exceptions import GitError
 from taf.utils import on_rm_error
 from taf.log import disable_console_logging
 from taf.tests.test_updater.update_utils import load_target_repositories
-from taf.api.repository import create_repository
 from taf.api.targets import (
+    add_target_repo,
     register_target_files,
     update_target_repos_from_repositories_json,
 )
@@ -41,6 +41,7 @@ from taf.tests.conftest import (
     TEST_DATA_ORIGIN_PATH,
     KEYSTORE_PATH,
     TEST_INIT_DATA_PATH,
+    create_authentication_repository,
 )
 from taf.yubikey.yubikey_manager import PinManager
 
@@ -316,24 +317,6 @@ def create_mirrors_json(library_dir: Path, repo_name: str):
     mirrors_path.write_text(json.dumps(mirrors))
 
 
-def create_authentication_repository(
-    library_dir: Path,
-    pin_manager: PinManager,
-    repo_name: str,
-    keys_description: str,
-    is_test_repo: bool = False,
-):
-    repo_path = Path(library_dir, repo_name)
-    create_repository(
-        str(repo_path),
-        pin_manager,
-        str(KEYSTORE_PATH),
-        keys_description,
-        commit=True,
-        test=is_test_repo,
-    )
-
-
 def sign_target_files(library_dir, repo_name, keystore, pin_manager):
     repo_path = Path(library_dir, repo_name)
     register_target_files(str(repo_path), pin_manager, keystore)
@@ -582,6 +565,55 @@ def add_valid_target_commits(
         if not add_if_empty and target_repo.head_commit() is None:
             continue
         update_target_repository(target_repo, "Update target files")
+    sign_target_repositories(
+        TEST_DATA_ORIGIN_PATH, auth_repo.name, KEYSTORE_PATH, pin_manager
+    )
+
+
+def add_new_target_repo_without_target_file(
+    auth_repo: AuthenticationRepository,
+    pin_manager: PinManager,
+    target_name: str,
+    allow_unauthenticated_commits: Optional[bool] = None,
+    is_empty: bool = False,
+):
+    """List a brand-new target repo in repositories.json without signing a
+    target file for it - simulating a repo that was added but never had an
+    initial commit pinned."""
+    namespace = auth_repo.name.split("/")[0]
+    full_name = f"{namespace}/{target_name}"
+
+    initialize_target_repositories(
+        TEST_DATA_ORIGIN_PATH,
+        targets_config=[RepositoryConfig(full_name, is_empty=is_empty)],
+    )
+    custom = (
+        {"allow-unauthenticated-commits": allow_unauthenticated_commits}
+        if allow_unauthenticated_commits is not None
+        else None
+    )
+    add_target_repo(
+        path=str(auth_repo.path),
+        pin_manager=pin_manager,
+        target_path=None,
+        target_name=full_name,
+        role="targets",
+        library_dir=str(TEST_DATA_ORIGIN_PATH),
+        keystore=str(KEYSTORE_PATH),
+        should_create_new_role=False,
+        push=False,
+        custom=custom,
+    )
+
+
+def add_new_target_repo(
+    auth_repo: AuthenticationRepository, pin_manager: PinManager, target_name: str
+):
+    """Add a brand-new target repo to an auth repo that was already set up and
+    signed, simulating a repository added after the initial clone/update."""
+    add_new_target_repo_without_target_file(auth_repo, pin_manager, target_name)
+    # add_target_repo only lists the repo in repositories.json - it still
+    # needs a signed target file recording its current commit
     sign_target_repositories(
         TEST_DATA_ORIGIN_PATH, auth_repo.name, KEYSTORE_PATH, pin_manager
     )
@@ -883,7 +915,6 @@ def update_timestamp_metadata_invalid_signature(
         auth_repo,
         [role],
         keystore=KEYSTORE_PATH,
-        scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
         prompt_for_keys=False,
         load_snapshot_and_timestamp=False,
         commit=True,
@@ -907,7 +938,6 @@ def update_and_sign_metadata_without_clean_check(
         pin_manager=pin_manager,
         roles=roles,
         keystore=KEYSTORE_PATH,
-        scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
         prompt_for_keys=False,
         skip_clean_check=True,
         update_snapshot_and_timestamp=True,

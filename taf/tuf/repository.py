@@ -29,7 +29,6 @@ try:
 except ImportError:
     yk = YubikeyMissingLibrary()  # type: ignore
 
-from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.utils import (
     default_backend,
     get_file_details,
@@ -240,9 +239,13 @@ class MetadataRepository(Repository):
             self._keys_name_mappings[key_id] = key_name
 
     def add_default_names_of_role(self, role_name):
-        key_names = self.get_key_names_of_role(role_name)
+        keys_name_mapping = self.keys_name_mappings
         key_ids = self.get_keyids_of_role(role_name)
-        for key_name, key_id in zip(key_names, key_ids):
+        number = len(key_ids)
+        for index, key_id in enumerate(key_ids):
+            if keys_name_mapping and key_id in keys_name_mapping:
+                continue
+            key_name = role_name if number == 1 else f"{role_name}{index + 1}"
             self.add_key_name(key_name, key_id)
 
     def all_target_files(self) -> Set:
@@ -1376,7 +1379,7 @@ class MetadataRepository(Repository):
             pass
 
     def is_valid_metadata_key(
-        self, role: str, key: Union[SSlibKey, str], scheme=DEFAULT_RSA_SIGNATURE_SCHEME
+        self, role: str, key: Union[SSlibKey, str], scheme: Optional[str] = None
     ) -> bool:
         """Checks if metadata role contains key id of provided key.
 
@@ -1419,7 +1422,12 @@ class MetadataRepository(Repository):
         """
 
         if public_key is None:
-            public_key = yk.get_piv_public_key_tuf()
+            for serial in yk.get_serial_nums():
+                device_keys = yk.get_piv_public_keys_tuf(serial=serial).get(serial, {})
+                for candidate_key in device_keys.values():
+                    if self.is_valid_metadata_key(role, candidate_key):
+                        return True
+            return False
 
         return self.is_valid_metadata_key(role, public_key)
 

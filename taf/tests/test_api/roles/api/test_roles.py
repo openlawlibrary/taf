@@ -10,7 +10,7 @@ from taf.api.roles import (
 )
 from taf.messages import git_commit_message
 from taf.auth_repo import AuthenticationRepository
-from taf.tests.test_api.util import check_new_role
+from taf.tests.test_api.util import check_new_role, check_role_scheme
 from taf.yubikey.yubikey_manager import PinManager
 
 
@@ -72,6 +72,32 @@ def test_add_role_when_delegated_role_is_parent(
     check_new_role(
         auth_repo_with_delegations, ROLE_NAME, PATHS, roles_keystore, PARENT_NAME
     )
+
+
+def test_add_role_applies_requested_scheme_to_generated_key(
+    auth_repo: AuthenticationRepository,
+    roles_keystore: str,
+    pin_manager: PinManager,
+):
+    requested_scheme = "rsassa-pss-sha256"
+    ROLE_NAME = "role_with_custom_scheme"
+    add_role(
+        path=str(auth_repo.path),
+        pin_manager=pin_manager,
+        auth_repo=auth_repo,
+        role=ROLE_NAME,
+        parent_role="targets",
+        paths=["some-scheme-path"],
+        keys_number=1,
+        threshold=1,
+        yubikey=False,
+        keystore=roles_keystore,
+        scheme=requested_scheme,
+        push=False,
+        skip_prompt=True,
+    )
+
+    check_role_scheme(auth_repo, ROLE_NAME, requested_scheme)
 
 
 def test_add_multiple_roles(
@@ -243,13 +269,35 @@ def test_remove_role_paths(
 
 def test_list_keys(auth_repo: AuthenticationRepository):
     root_keys_infos = list_keys_of_role(str(auth_repo.path), "root")
-    assert len(root_keys_infos) == 3
+    assert len(root_keys_infos) == 1
+    assert root_keys_infos[0].startswith("Role: root\n")
+    assert root_keys_infos[0].count("Key ID:") == 3
+
     targets_keys_infos = list_keys_of_role(str(auth_repo.path), "targets")
-    assert len(targets_keys_infos) == 2
+    assert len(targets_keys_infos) == 1
+    assert targets_keys_infos[0].startswith("Role: targets\n")
+    assert targets_keys_infos[0].count("Key ID:") == 2
+
     snapshot_keys_infos = list_keys_of_role(str(auth_repo.path), "snapshot")
     assert len(snapshot_keys_infos) == 1
+    assert snapshot_keys_infos[0].startswith("Role: snapshot\n")
+    assert snapshot_keys_infos[0].count("Key ID:") == 1
+
     timestamp_keys_infos = list_keys_of_role(str(auth_repo.path), "timestamp")
     assert len(timestamp_keys_infos) == 1
+    assert timestamp_keys_infos[0].startswith("Role: timestamp\n")
+    assert timestamp_keys_infos[0].count("Key ID:") == 1
+
+
+def test_list_all_keys(auth_repo: AuthenticationRepository):
+    all_keys_infos = list_keys_of_role(str(auth_repo.path))
+    unique_keys = set()
+    for role_name in auth_repo.get_all_roles():
+        for key_id in auth_repo.get_role_keys(role=role_name) or []:
+            unique_keys.add(key_id)
+    assert len(all_keys_infos) == len(unique_keys)
+    assert all(info.startswith("Role:") for info in all_keys_infos)
+    assert all("Key ID:" in info for info in all_keys_infos)
 
 
 def test_add_signing_key(
@@ -257,8 +305,10 @@ def test_add_signing_key(
 ):
     auth_repo = AuthenticationRepository(path=auth_repo.path)
     initial_commits_num = len(auth_repo.list_pygit_commits())
-    # for testing purposes, add targets signing key to timestamp and snapshot roles
-    pub_key_path = Path(roles_keystore, "targets1.pub")
+    # for testing purposes, add a signing key to timestamp and snapshot roles. Must be a key
+    # not already used by any role - targets1.pub is already shared by targets/snapshot/timestamp
+    # from the fixture's initial bootstrap, which would make it a no-op here.
+    pub_key_path = Path(roles_keystore, "inner_role.pub")
     COMMIT_MSG = "Add new timestamp and snapshot signing key"
     add_signing_key(
         path=str(auth_repo.path),
@@ -272,10 +322,20 @@ def test_add_signing_key(
     commits = auth_repo.list_pygit_commits()
     assert len(commits) == initial_commits_num + 1
     assert commits[0].message.strip() == COMMIT_MSG
+    shared_key_info = next(
+        info
+        for info in list_keys_of_role(str(auth_repo.path))
+        if "Role: snapshot, timestamp" in info or "Role: timestamp, snapshot" in info
+    )
+    assert shared_key_info.count("Key ID:") == 1
     timestamp_keys_infos = list_keys_of_role(str(auth_repo.path), "timestamp")
-    assert len(timestamp_keys_infos) == 2
+    assert len(timestamp_keys_infos) == 1
+    assert timestamp_keys_infos[0].startswith("Role: timestamp\n")
+    assert timestamp_keys_infos[0].count("Key ID:") == 2
     snapshot_keys_infos = list_keys_of_role(str(auth_repo.path), "snapshot")
-    assert len(snapshot_keys_infos) == 2
+    assert len(snapshot_keys_infos) == 1
+    assert snapshot_keys_infos[0].startswith("Role: snapshot\n")
+    assert snapshot_keys_infos[0].count("Key ID:") == 2
 
 
 def test_revoke_signing_key(
@@ -286,7 +346,8 @@ def test_revoke_signing_key(
     key_to_remove = targest_keyids[-1]
     initial_commits_num = len(auth_repo.list_pygit_commits())
     targets_keys_infos = list_keys_of_role(str(auth_repo.path), "targets")
-    assert len(targets_keys_infos) == 2
+    assert len(targets_keys_infos) == 1
+    assert targets_keys_infos[0].count("Key ID:") == 2
     COMMIT_MSG = "Revoke a targets key"
     revoke_signing_key(
         path=str(auth_repo.path),

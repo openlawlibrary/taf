@@ -171,11 +171,12 @@ def disable_console_logging():
 
 
 def disable_file_logging():
-    try:
-        taf_logger.remove(file_loggers["log"])
-    except (KeyError, ValueError):
-        # will be raised if this is called twice
-        pass
+    for handler_id in file_loggers:
+        try:
+            taf_logger.remove(file_loggers[handler_id])
+        except (KeyError, ValueError):
+            # will be raised if this is called twice
+            pass
 
 
 def _get_log_location():
@@ -208,6 +209,14 @@ def _add_file_logger(key: str, path: str, level) -> None:
 
 def initialize_logger_handlers():
     taf_logger.remove()
+    # python-tuf logs things like "No signature for keyid ..." at INFO level
+    # through the stdlib logging module, not taf_logger, so taf's own
+    # verbosity setting doesn't normally control it. Set it here explicitly
+    # so it stays quiet by default, no matter how the rest of the process
+    # has logging configured, and only shows up once taf is set to debug.
+    logging.getLogger("tuf").setLevel(
+        logging.DEBUG if settings.VERBOSITY >= 2 else logging.WARNING
+    )
     if settings.ENABLE_CONSOLE_LOGGING:
         console_loggers["log"] = taf_logger.add(
             sys.stdout, format=formatter, level=VERBOSITY_LEVELS[settings.VERBOSITY]

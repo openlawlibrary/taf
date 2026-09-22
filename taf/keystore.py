@@ -12,7 +12,6 @@ from taf.tuf.keys import (
     load_signer_from_pem,
 )
 
-from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import KeystoreError
 
 from taf.tuf.repository import MetadataRepository as TUFRepository
@@ -54,13 +53,12 @@ def key_cmd_prompt(
     role: str,
     taf_repo: TUFRepository,
     loaded_keys: Optional[List] = None,
-    scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
 ) -> CryptoSigner:
-    def _enter_and_check_key(key_name, role, loaded_keys, scheme):
+    def _enter_and_check_key(key_name, role, loaded_keys):
         pem = getpass(f"Enter {key_name} private key without its header and footer\n")
         pem = _form_private_pem(pem)
         try:
-            signer = load_signer_from_pem(pem, scheme)
+            signer = load_signer_from_pem(pem)
         except Exception:
             print("Invalid key")
             return None
@@ -74,23 +72,23 @@ def key_cmd_prompt(
         return signer
 
     while True:
-        pem = _enter_and_check_key(key_name, role, loaded_keys, scheme)
+        pem = _enter_and_check_key(key_name, role, loaded_keys)
         if pem is not None:
             return pem
 
 
-def new_public_key_cmd_prompt(scheme: Optional[str]) -> SSlibKey:
-    def _enter_and_check_key(scheme):
+def new_public_key_cmd_prompt() -> SSlibKey:
+    def _enter_and_check_key():
         pem = getpass("Enter public key without its header and footer\n")
         pem = _from_public_pem(pem)
         try:
-            return load_public_key_from_file(pem, scheme)
+            return load_public_key_from_file(pem)
         except Exception:
             print("Invalid key")
             return None
 
     while True:
-        key = _enter_and_check_key(scheme)
+        key = _enter_and_check_key()
         if key is not None:
             return key
 
@@ -98,17 +96,16 @@ def new_public_key_cmd_prompt(scheme: Optional[str]) -> SSlibKey:
 def load_signer_from_private_keystore(
     keystore: str,
     key_name: str,
-    scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
     password: Optional[str] = None,
 ) -> CryptoSigner:
     key_path = Path(keystore, key_name).expanduser().resolve()
     if not key_path.is_file():
         raise KeystoreError(f"{str(key_path)} does not exist")
 
-    def _read_key(path, password, scheme):
-        def _read_key_or_keystore_error(path, password, scheme):
+    def _read_key(path, password):
+        def _read_key_or_keystore_error(path, password):
             try:
-                return load_signer_from_file(path, password or None, scheme=scheme)
+                return load_signer_from_file(path, password or None)
             except TypeError:
                 raise
             except Exception as e:
@@ -116,34 +113,32 @@ def load_signer_from_private_keystore(
 
         try:
             # try to load with a given password or None
-            return _read_key_or_keystore_error(path, password, scheme)
+            return _read_key_or_keystore_error(path, password)
         except TypeError:
             password = getpass(
                 f"Enter {key_name} keystore file password and press ENTER"
             )
             try:
-                return _read_key_or_keystore_error(path, password, scheme)
+                return _read_key_or_keystore_error(path, password)
             except Exception:
                 return None
         except Exception:
             return None
 
     while True:
-        signer = _read_key(key_path, password, scheme)
+        signer = _read_key(key_path, password)
         if signer is not None:
             return signer
         if not click.confirm(f"Could not open keystore file {key_path}. Try again?"):
             raise KeystoreError(f"Could not open keystore file {key_path}")
 
 
-def read_public_key_from_keystore(
-    keystore: str, key_name: str, scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME
-) -> SSlibKey:
+def read_public_key_from_keystore(keystore: str, key_name: str) -> SSlibKey:
     pub_key_path = Path(keystore, f"{key_name}.pub").expanduser().resolve()
     if not pub_key_path.is_file():
         raise KeystoreError(f"{str(pub_key_path)} does not exist")
     try:
-        return load_public_key_from_file(str(pub_key_path), scheme)
+        return load_public_key_from_file(str(pub_key_path))
     except (
         securesystemslib.exceptions.FormatError,
         securesystemslib.exceptions.Error,

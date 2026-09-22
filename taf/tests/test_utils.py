@@ -6,10 +6,26 @@ from pathlib import Path
 from taf.utils import (
     TempPartition,
     _background_cleanup_threads,
+    format_command_args,
     normalize_line_endings,
     safely_save_json_to_disk,
     safely_move_file,
 )
+
+
+def test_format_command_args_fills_placeholders_as_single_tokens():
+    tokens = format_command_args("clone {} .", "/path with spaces")
+    assert tokens == ["clone", "/path with spaces", "."]
+
+
+def test_format_command_args_drops_empty_args():
+    tokens = format_command_args("push {} {}", "--force", "")
+    assert tokens == ["push", "--force"]
+
+
+def test_format_command_args_fills_multiple_placeholders_in_one_token():
+    tokens = format_command_args("update-ref refs/heads/{}/{} {}", "a", "b", "c")
+    assert tokens == ["update-ref", "refs/heads/a/b", "c"]
 
 
 def test_normalize_line_ending_extra_lines():

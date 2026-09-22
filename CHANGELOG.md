@@ -18,16 +18,50 @@ and this project adheres to [Semantic Versioning][semver].
 ### Added
 
 - Support Python 3.13 ([791])
+- Allow overriding the temp directory used when cloning repositories via an anv var ([771])
+- Sign and discover keys across all YubiKey PIV slots, not just SIGNATURE ([767])
+- Support choosing a YubiKey PIV slot when setting up signing keys ([759])
 
 ### Changed
 
 - Update test and Git dependencies for Python 3.13 compatibility ([791])
+- Remove unused `scheme` parameters ([757])
+
+### Removed
+
+- `--reset`/`--force` from `taf yubikey setup-signing-key`/`setup-test-key` - an occupied PIV slot is refused instead of being overwritten ([767])
 
 ### Fixed
 
 - Interpret Git commit timezone offsets correctly when formatting commit dates ([791])
+- Fix incorrect "up-to-date" message after cloning a previously excluded repo ([782])
+- Report all target repos with disallowed unauthenticated commits, not just the first ([782])
+- Fix updater crash when a target repo is missing from last_validated_commit ([782])
+- Fix `--force` update crashing on a repo with no commits and uncommitted changes ([782])
+- Silence python-tuf's info-level log output by default ([782])
+- Warn about a repo added to repositories.json with no target file yet, instead of silently skipping it ([782])
+- Fix a dependency update wiping another dependency's data out of a shared cache ([782])
+- Determine the default branch from a local (`--from-fs`) path containing a space, instead of failing ([780])
+- Fix YubiKey caching bugs that could skip a valid signing key for a delegated role ([775])
+- Disallowing unauthenticated commits no longer invalidates already-signed history ([774])
+- Allow `--key-pin` with multiple YubiKeys inserted ([770])
+- Detect signing scheme from key material instead of assuming RSA ([757])
+- Clone no longer fails when the repository path contains a space (e.g. a Windows home directory with a space in the user name) ([762])
+- Surface the underlying git error when a clone fails, instead of hiding it behind a generic access message ([762])
+- Correct the clone access error that rendered as "Cannot None ..." and stop misattributing a local failure to an access/authentication problem ([762])
+
 
 [791]: https://github.com/openlawlibrary/taf/pull/791
+[782]: https://github.com/openlawlibrary/taf/pull/782
+[780]: https://github.com/openlawlibrary/taf/pull/780
+[775]: https://github.com/openlawlibrary/taf/pull/775
+[774]: https://github.com/openlawlibrary/taf/pull/774
+[771]: https://github.com/openlawlibrary/taf/pull/771
+[770]: https://github.com/openlawlibrary/taf/pull/770
+[767]: https://github.com/openlawlibrary/taf/pull/767
+[762]: https://github.com/openlawlibrary/taf/pull/762
+[759]: https://github.com/openlawlibrary/taf/pull/759
+[757]: https://github.com/openlawlibrary/taf/pull/757
 
 ## [0.39.3]
 
