@@ -1956,7 +1956,9 @@ class GitRepository:
     def reset_to_head(self) -> None:
         if self.head_commit() is None:
             # no commits yet (unborn HEAD) - nothing to reset to, just clear the index
-            self._git("reset")
+            index = self.pygit_repo.index
+            index.clear()
+            index.write()
             return
         mode = "--soft" if self.is_bare_repository else "--hard"
         self._git(f"reset {mode} HEAD")
