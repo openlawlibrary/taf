@@ -800,8 +800,11 @@ class GitRepository:
     def clean_and_reset(self, excluded_paths=None):
         """Cleans the untracked files and resets the HEAD to the latest commit."""
         try:
-            self.clean(excluded_paths=excluded_paths)
+            # reset before clean: on a repo with no commits yet, resetting
+            # only unstages files rather than restoring tracked content, so
+            # they need to still be swept up by the clean that follows
             self.reset_to_head()
+            self.clean(excluded_paths=excluded_paths)
         except GitError as e:
             raise GitError(
                 self, message=f"Failed to clean and reset the repository: {e}"
@@ -1951,6 +1954,12 @@ class GitRepository:
         self._git(f"update-ref refs/remotes/origin/{branch_name} {commit}")
 
     def reset_to_head(self) -> None:
+        if self.head_commit() is None:
+            # no commits yet (unborn HEAD) - nothing to reset to, just clear the index
+            index = self.pygit_repo.index
+            index.clear()
+            index.write()
+            return
         mode = "--soft" if self.is_bare_repository else "--hard"
         self._git(f"reset {mode} HEAD")
 
