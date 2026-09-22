@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## [0.40.0]
+
+### Added
+
 - Support Python 3.13 ([791])
 
 ### Changed
@@ -18,7 +26,6 @@ and this project adheres to [Semantic Versioning][semver].
 ### Fixed
 
 - Interpret Git commit timezone offsets correctly when formatting commit dates ([791])
-
 
 [791]: https://github.com/openlawlibrary/taf/pull/791
 
@@ -1907,7 +1914,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
-[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.39.3...HEAD
+[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.40.0...HEAD
+[0.40.0]: https://github.com/openlawlibrary/taf/compare/v0.39.3...v0.40.0
 [0.39.3]: https://github.com/openlawlibrary/taf/compare/v0.39.2...v0.39.3
 [0.39.2]: https://github.com/openlawlibrary/taf/compare/v0.39.1...v0.39.2
 [0.39.1]: https://github.com/openlawlibrary/taf/compare/v0.39.0...v0.39.1
