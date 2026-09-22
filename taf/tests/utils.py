@@ -1,5 +1,6 @@
 from typing import Dict
 from taf.constants import TARGETS_DIRECTORY_NAME
+from taf.git import GitRepository
 import json
 from pathlib import Path
 import shutil
@@ -7,6 +8,17 @@ import shutil
 
 def read_json(path):
     return json.loads(Path(path).read_text())
+
+
+def nested_git_repository(parent: Path, name: str = "nested") -> GitRepository:
+    """Return a `GitRepository` for a new directory inside `parent`.
+
+    The directory is not a repository. `discover_repository` walks upward, so
+    anything read through pygit2 here answers from whatever encloses `parent`.
+    """
+    path = Path(parent) / name
+    path.mkdir(parents=True)
+    return GitRepository(path=path)
 
 
 def copy_repositories_json(
