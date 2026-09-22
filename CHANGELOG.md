@@ -9,22 +9,12 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
-### Changed
-
-### Fixed
-
-## [0.40.0]
-
-### Added
-
-- Support Python 3.13 ([791])
 - Allow overriding the temp directory used when cloning repositories via an anv var ([771])
 - Sign and discover keys across all YubiKey PIV slots, not just SIGNATURE ([767])
 - Support choosing a YubiKey PIV slot when setting up signing keys ([759])
 
 ### Changed
 
-- Update test and Git dependencies for Python 3.13 compatibility ([791])
 - Remove unused `scheme` parameters ([757])
 
 ### Removed
@@ -33,7 +23,6 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
-- Interpret Git commit timezone offsets correctly when formatting commit dates ([791])
 - Fix incorrect "up-to-date" message after cloning a previously excluded repo ([782])
 - Report all target repos with disallowed unauthenticated commits, not just the first ([782])
 - Fix updater crash when a target repo is missing from last_validated_commit ([782])
@@ -50,8 +39,6 @@ and this project adheres to [Semantic Versioning][semver].
 - Surface the underlying git error when a clone fails, instead of hiding it behind a generic access message ([762])
 - Correct the clone access error that rendered as "Cannot None ..." and stop misattributing a local failure to an access/authentication problem ([762])
 
-
-[791]: https://github.com/openlawlibrary/taf/pull/791
 [782]: https://github.com/openlawlibrary/taf/pull/782
 [780]: https://github.com/openlawlibrary/taf/pull/780
 [775]: https://github.com/openlawlibrary/taf/pull/775
@@ -62,6 +49,25 @@ and this project adheres to [Semantic Versioning][semver].
 [762]: https://github.com/openlawlibrary/taf/pull/762
 [759]: https://github.com/openlawlibrary/taf/pull/759
 [757]: https://github.com/openlawlibrary/taf/pull/757
+
+
+## [0.40.0]
+
+### Added
+
+- Support Python 3.13 ([800])
+
+### Changed
+
+- Update test and Git dependencies for Python 3.13 compatibility ([800])
+
+### Fixed
+
+- Interpret Git commit timezone offsets correctly when formatting commit dates ([800])
+
+
+[800]: https://github.com/openlawlibrary/taf/pull/800
+
 
 ## [0.39.3]
 
