@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning][semver].
 ### Fixed
 
 - A repository created or cloned at a path inside another repository no longer reports the enclosing repository's state, and a linked worktree or submodule is recognized as a repository of its own ([797])
+- The default branch comes from the repository at the path, not from one that encloses it, and is read once `init_repo` has created it ([795])
 - Fix incorrect "up-to-date" message after cloning a previously excluded repo ([782])
 - Report all target repos with disallowed unauthenticated commits, not just the first ([782])
 - Fix updater crash when a target repo is missing from last_validated_commit ([782])
@@ -41,6 +42,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Correct the clone access error that rendered as "Cannot None ..." and stop misattributing a local failure to an access/authentication problem ([762])
 
 [797]: https://github.com/openlawlibrary/taf/pull/797
+[795]: https://github.com/openlawlibrary/taf/pull/795
 [782]: https://github.com/openlawlibrary/taf/pull/782
 [780]: https://github.com/openlawlibrary/taf/pull/780
 [775]: https://github.com/openlawlibrary/taf/pull/775
