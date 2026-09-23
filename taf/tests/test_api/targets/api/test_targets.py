@@ -7,6 +7,7 @@ from taf.auth_repo import AuthenticationRepository
 
 from taf.api.targets import (
     add_target_repo,
+    list_targets,
     register_target_files,
     update_and_sign_targets,
     update_target_repos_from_repositories_json,
@@ -194,6 +195,29 @@ def test_update_target_repos_from_repositories_json(
     commits = auth_repo_when_add_repositories_json.list_pygit_commits()
     assert len(commits) == initial_commits_num + 1
     assert commits[0].message.strip() == git_commit_message("update-targets")
+
+
+def test_list_targets_with_locally_cloned_target_repos(
+    auth_repo_when_add_repositories_json: AuthenticationRepository,
+    pin_manager: PinManager,
+    library: Path,
+    keystore_delegations: str,
+):
+    # regression test for locally cloned target repos in list_targets
+    repo_path = library / "auth"
+    update_target_repos_from_repositories_json(
+        str(repo_path),
+        pin_manager,
+        str(library.parent),
+        keystore_delegations,
+        push=False,
+    )
+    namespace = library.name
+    output = list_targets(str(repo_path))
+    for name in ("target1", "target2", "target3"):
+        target_repo_name = f"{namespace}/{name}"
+        assert output[target_repo_name]["cloned"] is True
+        assert output[target_repo_name]["unsigned"] == []
 
 
 def test_update_and_sign_targets_when_target_type_matches(

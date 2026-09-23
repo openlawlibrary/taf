@@ -310,7 +310,7 @@ def list_targets(
                         is_synced_with_remote = repo.synced_with_remote(branch=branch)
                         repo_output["up-to-date"] = is_synced_with_remote
 
-                    last_signed_commit = branch_data[0]["commit"]
+                    last_signed_commit = Commitish.from_hash(branch_data[0]["commit"])
                     if branch in repo.branches_containing_commit(last_signed_commit):
                         branch_top_commit = repo.top_commit_of_branch(branch)
                         unsigned_commits = repo.all_commits_since_commit(
