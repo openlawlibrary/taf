@@ -2115,7 +2115,7 @@ but commit not on branch {current_branch}"
             for repo in self.state.temp_target_repositories.values():
                 repo.cleanup()
             if self.state.update_handler is not None:
-                self.state.update_handler.cleanup()  # TODO: This should not be None.
+                self.state.update_handler.cleanup()
 
             # finally clean temps
             self.state.temp_root.cleanup_async()

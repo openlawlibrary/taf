@@ -180,7 +180,9 @@ def safe_cleanup(method):
         def _signal_handler(signum, frame):
             if has_on_interrupt:
                 self.on_interrupt()
-            raise KeyboardInterrupt(f"Received signal {signum}")
+            raise KeyboardInterrupt(
+                f"The program was interrupted before it could finish. exit code: {signum}"
+            )
 
         original_sigint = None
         original_sigterm = None

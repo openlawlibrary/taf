@@ -7,6 +7,23 @@ from taf.tools.cli import safe_cleanup
 from taf.updater.updater_pipeline import AuthenticationRepositoryUpdatePipeline
 
 
+def _make_capturing_signal_handler(captured_handlers):
+    """Return a signal.signal() replacement that records the handler it's asked to
+    install (keyed by signal number) instead of touching the real OS signal table.
+    Shared by tests that need to simulate the OS delivering a signal mid-run."""
+
+    def fake_signal(sig, handler):
+        captured_handlers[sig] = handler
+        return Mock()
+
+    return fake_signal
+
+
+def _deliver_signal(captured_handlers, sig=signal.SIGINT):
+    """Invoke a previously captured handler as if the OS delivered `sig`."""
+    captured_handlers[sig](sig, None)
+
+
 @pytest.fixture
 def dummy_pipeline():
     """Mock pipeline with real cleanup/on_interrupt hooks bound, so safe_cleanup's
@@ -89,17 +106,12 @@ def test_pipeline_on_interrupt_sets_failed_event_via_signal(
     """A real interrupt (SIGINT/SIGTERM) fires the registered handler, which calls
     on_interrupt and marks the update FAILED; cleanup still runs afterwards."""
     captured_handlers = {}
-
-    def fake_signal(sig, handler):
-        captured_handlers[sig] = handler
-        return Mock()
-
-    mock_signal.side_effect = fake_signal
+    mock_signal.side_effect = _make_capturing_signal_handler(captured_handlers)
 
     @safe_cleanup
     def dummy_method(self):
         # Simulate the OS delivering SIGINT mid-run
-        captured_handlers[signal.SIGINT](signal.SIGINT, None)
+        _deliver_signal(captured_handlers)
 
     with pytest.raises(KeyboardInterrupt):
         dummy_method(dummy_pipeline)
@@ -118,16 +130,11 @@ def test_pipeline_on_interrupt_skips_failed_event_when_repo_preexisting(
     dummy_pipeline.state.existing_repo = True
 
     captured_handlers = {}
-
-    def fake_signal(sig, handler):
-        captured_handlers[sig] = handler
-        return Mock()
-
-    mock_signal.side_effect = fake_signal
+    mock_signal.side_effect = _make_capturing_signal_handler(captured_handlers)
 
     @safe_cleanup
     def dummy_method(self):
-        captured_handlers[signal.SIGINT](signal.SIGINT, None)
+        _deliver_signal(captured_handlers)
 
     with pytest.raises(KeyboardInterrupt):
         dummy_method(dummy_pipeline)
