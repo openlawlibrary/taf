@@ -1,10 +1,11 @@
 """The long-running git-lfs connection: its lifetime, restart and shutdown."""
 
 import io
-import shutil
 
 import pytest
 
+from taf.git import GitRepository
+from taf.lfs.lfs import record_failure, take_failures
 from taf.lfs.lfs_process import (
     GitLFSProcess,
     GitLFSProcessError,
@@ -51,6 +52,18 @@ def test_a_crashed_process_is_restarted(lfs_repository):
         assert process._process is not killed, "the dead process was reused"
     finally:
         process.close()
+
+
+def test_a_failure_recorded_outside_a_session_is_not_kept(tmp_path):
+    """Nothing records what nobody will collect.
+
+    A record kept here would be raised by the next operation, against files that
+    operation had materialized correctly.
+    """
+    workdir = str(tmp_path)
+    record_failure(workdir, "file.bin")
+
+    assert take_failures(workdir) == set()
 
 
 @needs_git_lfs
@@ -110,6 +123,35 @@ def test_an_unusable_executable_is_reported(tmp_path, lfs_repository):
         process.close()
 
 
+def test_closing_a_session_forgets_what_it_recorded(tmp_path):
+    """A record lives no longer than the operation that hit it."""
+    workdir = str(tmp_path)
+    with session():
+        record_failure(workdir, "file.bin")
+
+    assert take_failures(workdir) == set()
+
+
+@needs_git_lfs
+def test_no_process_outlives_a_checkout(tmp_path):
+    """Many repositories must not mean many resident git-lfs children."""
+    clients = []
+    for index in range(4):
+        origin = build_lfs_origin(tmp_path / f"origin{index}")
+        client = GitRepository(path=tmp_path / f"client{index}")
+        client.clone_from_disk(origin.path, keep_remote=True)
+        client.checkout_branch("other", create=True)
+        clients.append(GitRepository(path=client.path))
+
+    for client in clients:
+        client.checkout_branch(client.default_branch)
+
+    assert not SESSION.processes, (
+        f"{len(SESSION.processes)} git-lfs processes are still held after "
+        f"{len(clients)} checkouts"
+    )
+
+
 @needs_git_lfs
 def test_one_process_serves_many_files(lfs_repository):
     """The connection is reused rather than reopened per file."""
@@ -125,6 +167,8 @@ def test_one_process_serves_many_files(lfs_repository):
 
 
 def _git_lfs() -> str:
-    executable = shutil.which("git-lfs")
+    from taf.lfs.lfs import get_git_lfs_executable
+
+    executable = get_git_lfs_executable()
     assert executable is not None
     return executable

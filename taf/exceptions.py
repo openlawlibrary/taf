@@ -56,6 +56,13 @@ class GitError(TAFError):
         self.error = error
 
 
+class GitLFSError(GitError):
+    """Raised when Git LFS content could not be filtered."""
+
+    def __init__(self, message: str, repo: Any = None):
+        super().__init__(repo, message=message)
+
+
 class InvalidBranchError(TAFError):
     pass
 

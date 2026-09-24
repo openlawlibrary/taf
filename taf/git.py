@@ -18,6 +18,7 @@ from taf.models.types import Commitish
 import taf.settings as settings
 from taf.exceptions import (
     GitAccessDeniedException,
+    GitLFSError,
     NoRemoteError,
     NothingToCommitError,
     PushFailedError,
@@ -29,6 +30,9 @@ from taf.exceptions import (
     UpdateFailedError,
     PygitError,
 )
+
+# importing also registers the Git LFS filter with libgit2
+from taf.lfs.lfs import filtering
 from taf.log import NOTICE, taf_logger
 from taf.utils import format_command_args, run
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
@@ -699,7 +703,8 @@ class GitRepository:
             repo.branches.local.create(branch_name, pygit2_commit)
             branch = repo.lookup_branch(branch_name)
             ref = repo.lookup_reference(branch.name)
-            repo.checkout(ref)
+            with filtering(str(repo.workdir or "")):
+                repo.checkout(ref)
         except Exception as e:
             self._log_error(str(e))
             raise
@@ -731,13 +736,16 @@ class GitRepository:
             branch = repo.lookup_branch(branch_name)
             if branch is not None:
                 ref = repo.lookup_reference(branch.name)
-                repo.checkout(ref)
+                with filtering(str(repo.workdir or "")):
+                    repo.checkout(ref)
             else:
                 self._git(
                     "checkout {}",
                     branch_name,
                     log_success_msg=f"Repo {self.name}: checked out branch {branch_name}",
                 )
+        except GitLFSError:
+            raise
         except Exception as e:
             if raise_anyway:
                 raise GitError(repo=self, message=str(e))
@@ -770,9 +778,10 @@ class GitRepository:
         repo = self.pygit_repo
 
         pygit_commit = repo.get(commit.hash)
-        repo.checkout_tree(
-            pygit_commit, paths=list(args), strategy=pygit2.GIT_CHECKOUT_FORCE
-        )
+        with filtering(str(repo.workdir or "")):
+            repo.checkout_tree(
+                pygit_commit, paths=list(args), strategy=pygit2.GIT_CHECKOUT_FORCE
+            )
 
     def checkout_orphan_branch(self, branch_name: str) -> None:
         """Creates orphan branch"""
@@ -1045,7 +1054,8 @@ class GitRepository:
                 repo.branches.local.create(branch_name, commit)
                 branch = repo.lookup_branch(branch_name)
                 ref = repo.lookup_reference(branch.name)
-                repo.checkout(ref)
+                with filtering(str(repo.workdir or "")):
+                    repo.checkout(ref)
             except KeyError:
                 # this will be execute if there is no HEAD pointer
                 flag = "-b" if raise_error_if_exists else "-B"
@@ -1800,9 +1810,10 @@ class GitRepository:
                 message = commit.message
                 break
 
-            repo.merge(oid)
-            self.commit(message)
-            repo.state_cleanup()
+            with filtering(str(repo.workdir or "")):
+                repo.merge(oid)
+                self.commit(message)
+                repo.state_cleanup()
         else:
             self._git("merge {}", branch_name, log_error=True)
 
@@ -2042,8 +2053,9 @@ class GitRepository:
         # (same set `git status --porcelain` reports), so an empty result means
         # the working tree is clean.
         try:
-            if not self.pygit_repo.status():
-                return False
+            with filtering(str(self.pygit_repo.workdir or "")):
+                if not self.pygit_repo.status():
+                    return False
         except Exception:
             pass
         return bool(self._git("status --porcelain"))

@@ -11,11 +11,16 @@ and this project adheres to [Semantic Versioning][semver].
 
 - Allow overriding the temp directory used when cloning repositories via an anv var ([771])
 - Sign and discover keys across all YubiKey PIV slots, not just SIGNATURE ([767])
+- Git LFS support: pygit2 checkouts now materialize LFS content instead of leaving pointer files, by delegating to a long-running `git-lfs filter-process`, one per checkout, with content streamed rather than held in memory. `git-lfs` stays optional - the filter runs only where git itself is configured to run Git LFS, so repositories that do not use it are unaffected, and a smudge that cannot fetch its object leaves the pointer in place instead of an empty file ([766])
+- Test coverage for cloning and updating Git LFS target repositories, including an in-process Git LFS server ([766])
 - Support choosing a YubiKey PIV slot when setting up signing keys ([759])
 
 ### Changed
 
 - `pygit2` for Python 3.10 moves from 1.9 to 1.15, the oldest series with the libgit2 filter API, and 3.11 and later keep 1.16. `python_requires` is now `>=3.10` and the classifiers match the tested versions, so pip will no longer install TAF on 3.8 or 3.9 ([802])
+- Checking out Git LFS content stages each object in temporary space up to its full size, so a host whose `TMPDIR` is small needs one large enough for the biggest object being checked out ([766])
+- `taf.git` imports pygit2 unconditionally; it is a required dependency, not an optional one ([766])
+- Target repositories that store content in Git LFS need a reachable LFS server. TAF stages each target repository through a bare intermediate clone, which carries no LFS objects, so cloning one with no `lfs.url` configured fails ([766])
 - Remove unused `scheme` parameters ([757])
 
 ### Removed
@@ -52,6 +57,7 @@ and this project adheres to [Semantic Versioning][semver].
 [771]: https://github.com/openlawlibrary/taf/pull/771
 [770]: https://github.com/openlawlibrary/taf/pull/770
 [767]: https://github.com/openlawlibrary/taf/pull/767
+[766]: https://github.com/openlawlibrary/taf/pull/766
 [762]: https://github.com/openlawlibrary/taf/pull/762
 [759]: https://github.com/openlawlibrary/taf/pull/759
 [757]: https://github.com/openlawlibrary/taf/pull/757

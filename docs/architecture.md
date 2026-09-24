@@ -156,6 +156,26 @@ This module hosts the `GitUpdater` class, which extends TUF's `FetcherInterface`
 
 To validate commits that could be decades old without being obstructed by expired metadata (TUF's default behavior), TAF extends `trusted_metadata_set.TrustedMetadataSet` with the `GitTrustedMetadataSet` class. This extension is implemented in a separate module named `git_trusted_metadata_set`, making it possible to validate older commits without expiration concerns.
 
+### `taf/lfs/`
+
+Make libgit2 checkouts honor Git LFS. libgit2 provides a filter framework but
+does not run the external filter commands declared in git config, so a file
+stored in Git LFS would otherwise be checked out as its pointer text whenever
+TAF uses `pygit2` rather than the `git` subprocess.
+
+`taf/lfs/lfs.py` registers the filter and decides where it applies: only for paths
+`.gitattributes` routes to LFS, and only in a direction where git is configured
+to run `git-lfs` itself. `taf/lfs/lfs_process.py` runs one `git-lfs filter-process`
+for the length of one libgit2 operation, streaming content in
+both directions, and `taf/lfs/lfs_protocol.py` implements the pkt-line framing that
+conversation uses.
+
+A filter cannot abort a libgit2 operation: the exception it raises reaches
+libgit2 as `failed to close filter stream`, carrying none of the reason, and
+whatever it had already forwarded stays in the destination file. So a file that
+cannot be filtered is left unchanged and reported by the caller that started the
+operation.
+
 ### `taf/git.py`
 
 This module encapsulates the `GitRepository` class, a high-level abstraction over Git operations, designed to interface directly with Git repositories at the filesystem level. The `GitRepository` class serves as an intermediary, enabling programmatic access to Git actions including: creating branches, working with commits, and working with remotes. It leverages [`pygit2`](https://www.pygit2.org/) for some of the interactions with Git. Other interactions use direct shell command execution via subprocess for operations not covered by `pygit2` or where direct command invocation is preferred for efficiency or functionality reasons.
