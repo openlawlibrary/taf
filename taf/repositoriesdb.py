@@ -465,23 +465,8 @@ def get_repositories_by_expression(
     if not filter_expr:
         return repositories
 
-    # Safe namespace for eval
-    safe_globals: dict = {"__builtins__": {}}
-
     def _matches_filter(repo):
-        try:
-            custom_data = repo.custom
-            # Evaluate filter expression with custom data as 'repo'
-            # Safe: validated via AST + restricted namespace with no builtins
-            return eval(filter_expr, safe_globals, {"repo": custom_data})  # nosec B307
-        except Exception as e:
-            taf_logger.debug(
-                "Auth repo {}: filter failed for {}: {}",
-                auth_repo.path,
-                repo.name,
-                e,
-            )
-            return False
+        return _eval_filter_expr(filter_expr, repo.custom, auth_repo.path, repo.name)
 
     repos = list(filter(_matches_filter, repositories.values()))
 
@@ -597,25 +582,13 @@ def get_repository_names_by_expression(
 
     targets = _targets_of_roles(auth_repo, commit)
 
-    # Safe namespace for eval
-    safe_globals: dict = {"__builtins__": {}}
-
     def _matches_filter(name):
-        try:
-            custom_data = _get_custom_data(repositories[name], targets.get(name))
-            # Add special case for repo['name'] filter expressions
-            custom_data["name"] = name
-            # Evaluate filter expression with custom data as 'repo'
-            # Safe: validated via AST + restricted namespace with no builtins
-            return eval(filter_expr, safe_globals, {"repo": custom_data})  # nosec B307
-        except Exception as e:
-            taf_logger.debug(
-                "Auth repo {}: filter failed for {}: {}",
-                auth_repo.path,
-                name,
-                e,
-            )
-            return False
+        # Add special case for repo['name'] filter expressions
+        custom_data = {
+            **_get_custom_data(repositories[name], targets.get(name)),
+            "name": name,
+        }
+        return _eval_filter_expr(filter_expr, custom_data, auth_repo.path, name)
 
     filtered_names = (
         list(filter(_matches_filter, repositories))
@@ -748,6 +721,11 @@ def _get_deduplicated_target_or_auth_repositories(
             # will overwrite older repo with newer
             repositories[name] = repo
 
+    # applied here, not just at load time: a cache hit can come from a load
+    # that used a different (or no) exclude_filter, and this call's own
+    # filter still has to be honored regardless of what's cached
+    repositories = _exclude_by_filter(repositories, exclude_filter, auth_repo.path)
+
     taf_logger.debug(
         "Auth repo {}: deduplicated list of {} repositories {}",
         auth_repo.path,
@@ -755,6 +733,26 @@ def _get_deduplicated_target_or_auth_repositories(
         ", ".join(repositories.keys()),
     )
     return repositories
+
+
+def _exclude_by_filter(
+    repositories: Dict[str, GitRepository],
+    exclude_filter: Optional[str],
+    auth_repo_path,
+) -> Dict[str, GitRepository]:
+    """Drop repositories whose custom data matches exclude_filter, evaluated
+    against each repository's own already-loaded custom data. Safe to call
+    on a result that came from the shared cache: it only looks at what's
+    already on each repository object, not at what filter (if any) was used
+    to populate the cache."""
+    if not exclude_filter:
+        return repositories
+    _validate_filter_expression(exclude_filter)
+    return {
+        name: repo
+        for name, repo in repositories.items()
+        if not _eval_filter_expr(exclude_filter, repo.custom, auth_repo_path, name)
+    }
 
 
 def get_repository(
@@ -1032,6 +1030,29 @@ def get_all_auth_repos(
             get_all_auth_repos(auth_repo, auth_repos_list)
 
     return auth_repos_list
+
+
+def _eval_filter_expr(
+    filter_expr: str, custom_data: dict, auth_repo_path, repo_label: str
+) -> bool:
+    """Evaluate filter_expr with custom_data bound to 'repo', in a namespace
+    with no builtins. Returns False (does not match) if the expression fails
+    to evaluate against this particular repo's data, logging why at debug
+    level rather than raising - one repo's malformed/unexpected custom data
+    shouldn't fail the whole filter operation."""
+    try:
+        # Safe: validated via AST + restricted namespace with no builtins
+        return eval(
+            filter_expr, {"__builtins__": {}}, {"repo": custom_data}
+        )  # nosec B307
+    except Exception as e:
+        taf_logger.debug(
+            "Auth repo {}: filter failed for {}: {}",
+            auth_repo_path,
+            repo_label,
+            e,
+        )
+        return False
 
 
 def _validate_filter_expression(filter_expr: str) -> None:

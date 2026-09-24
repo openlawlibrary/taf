@@ -65,6 +65,22 @@ def test_get_deduplicated_repositories(target_repos, auth_repo_with_targets):
             assert target_repo.name in repos
 
 
+def test_get_deduplicated_repositories_exclude_filter_applies_to_cached_result(
+    target_repos, auth_repo_with_targets
+):
+    # populate the cache with an unfiltered load first, same as any other
+    # caller might have already done for an unrelated reason
+    with load_repositories(auth_repo_with_targets):
+        excluded_repo = target_repos[0]
+        repos = repositoriesdb.get_deduplicated_repositories(
+            auth_repo_with_targets,
+            exclude_filter="repo['type']=='type1'",
+        )
+        assert excluded_repo.name not in repos
+        for target_repo in target_repos[1:]:
+            assert target_repo.name in repos
+
+
 def test_clear_repositories_db_scoped_to_one_repo(target_repos, auth_repo_with_targets):
     # dependencies run their own pipelines at the same time, each loading and
     # clearing their own entry in the shared _repositories_dict - clearing
