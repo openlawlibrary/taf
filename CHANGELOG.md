@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- `pygit2` for Python 3.10 moves from 1.9 to 1.15, the oldest series with the libgit2 filter API, and 3.11 and later keep 1.16. `python_requires` is now `>=3.10` and the classifiers match the tested versions, so pip will no longer install TAF on 3.8 or 3.9 ([802])
 - Remove unused `scheme` parameters ([757])
 
 ### Removed
@@ -41,6 +42,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Surface the underlying git error when a clone fails, instead of hiding it behind a generic access message ([762])
 - Correct the clone access error that rendered as "Cannot None ..." and stop misattributing a local failure to an access/authentication problem ([762])
 
+[802]: https://github.com/openlawlibrary/taf/pull/802
 [797]: https://github.com/openlawlibrary/taf/pull/797
 [795]: https://github.com/openlawlibrary/taf/pull/795
 [782]: https://github.com/openlawlibrary/taf/pull/782
