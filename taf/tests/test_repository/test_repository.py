@@ -4,6 +4,7 @@ from pathlib import Path
 
 from taf.exceptions import InvalidRepositoryError
 from taf.git import GitRepository
+from taf.tests.utils import nested_git_repository
 from taf.auth_repo import AuthenticationRepository
 
 
@@ -232,3 +233,48 @@ def test_default_branch_when_main(repo_path):
     init_repository(repo_path, initial_head="master")
     repo = GitRepository(path=repo_path)
     assert repo.default_branch == "master"
+
+
+def test_default_branch_where_path_is_inside_another_repository_expect_none(repo_path):
+    """A path that is not yet a repository must not answer from its parent.
+
+    Git resolves `symbolic-ref` for such a path by walking up until it finds a
+    repository, so an enclosing checkout answers for it. Creating repositories
+    beneath an existing one is ordinary -- test fixtures and archives both do
+    it -- and the enclosing branch is never the right answer.
+    """
+    init_repository(repo_path, initial_head="master")
+
+    repo = nested_git_repository(repo_path)
+
+    assert repo.default_branch is None
+
+
+def test_default_branch_where_repository_created_after_construction_expect_own_branch(
+    repo_path,
+):
+    """The branch comes from the repository, not from a value cached before it existed."""
+    init_repository(repo_path, initial_head="master")
+    # resolves once, while the nested path is still a plain directory
+    nested = nested_git_repository(repo_path)
+
+    init_repository(nested.path, initial_head="main")
+
+    assert GitRepository(path=nested.path).default_branch == "main"
+
+
+def test_init_repo_where_constructed_before_the_repository_existed_expect_branch_read(
+    repo_path,
+):
+    """`init_repo` reads the branch the repository was created on.
+
+    Building the object first and creating the repository through it is the
+    usual order, and there is no branch to read at construction. `clone` and
+    `clone_from_disk` already resolve once the repository exists; so does this.
+    """
+    repo = nested_git_repository(repo_path)
+    assert repo.default_branch is None
+
+    repo.init_repo()
+
+    assert repo.default_branch == repo._git("symbolic-ref HEAD --short")
