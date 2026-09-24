@@ -23,6 +23,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Apply `exclude_filter` to repositories returned from the shared cache, not just freshly loaded ones ([804])
+- Fix `list_targets` crash comparing a target repo's last signed commit against local branches ([804])
 - Fix incorrect "up-to-date" message after cloning a previously excluded repo ([782])
 - Report all target repos with disallowed unauthenticated commits, not just the first ([782])
 - Fix updater crash when a target repo is missing from last_validated_commit ([782])
@@ -39,6 +41,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Surface the underlying git error when a clone fails, instead of hiding it behind a generic access message ([762])
 - Correct the clone access error that rendered as "Cannot None ..." and stop misattributing a local failure to an access/authentication problem ([762])
 
+[804]: https://github.com/openlawlibrary/taf/pull/804
 [782]: https://github.com/openlawlibrary/taf/pull/782
 [780]: https://github.com/openlawlibrary/taf/pull/780
 [775]: https://github.com/openlawlibrary/taf/pull/775

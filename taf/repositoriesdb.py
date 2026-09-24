@@ -1042,7 +1042,9 @@ def _eval_filter_expr(
     shouldn't fail the whole filter operation."""
     try:
         # Safe: validated via AST + restricted namespace with no builtins
-        return eval(filter_expr, {"__builtins__": {}}, {"repo": custom_data})  # nosec B307
+        return eval(
+            filter_expr, {"__builtins__": {}}, {"repo": custom_data}
+        )  # nosec B307
     except Exception as e:
         taf_logger.debug(
             "Auth repo {}: filter failed for {}: {}",
