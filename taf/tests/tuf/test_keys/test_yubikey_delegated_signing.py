@@ -25,6 +25,45 @@ def _pin_manager(*devices) -> PinManager:
     return pin_manager
 
 
+@pytest.mark.parametrize("device_a_inserted_first", [True, False])
+def test_read_and_check_yubikeys_assigns_distinct_names_to_two_devices_of_same_role(
+    make_fake_yubikey,
+    keystore_delegations,
+    create_delegated_auth_repo,
+    real_public_key,
+    device_a_inserted_first,
+):
+    """https://github.com/openlawlibrary/taf/issues/611 - with two valid
+    YubiKeys for the same role inserted together, both got prompted for
+    under the same default key name."""
+    device1 = make_fake_yubikey("targets1", keystore_path=keystore_delegations)
+    device2 = make_fake_yubikey("targets2", keystore_path=keystore_delegations)
+    if not device_a_inserted_first:
+        insert_in_order(device2, device1)
+
+    taf_repo = create_delegated_auth_repo()
+    taf_repo.add_default_names_of_role("targets")
+
+    result = yk._read_and_check_yubikeys(
+        role="targets",
+        taf_repo=taf_repo,
+        pin_manager=_pin_manager(device1, device2),
+        pin_confirm=False,
+        pin_repeat=False,
+        prompt_message=None,
+        key_names=taf_repo.get_key_names_of_role("targets"),
+        retrying=False,
+        hide_already_loaded_message=True,
+        hide_threshold_message=True,
+        key_id_pins=None,
+    )
+
+    assert result is not None
+    names_by_keyid = {entry[0].keyid: entry[2] for entry in result}
+    assert names_by_keyid[real_public_key("targets1").keyid] == "targets1"
+    assert names_by_keyid[real_public_key("targets2").keyid] == "targets2"
+
+
 @pytest.mark.parametrize("authorized_inserted_first", [True, False])
 def test_read_and_check_yubikeys_skips_unauthorized_device_for_delegated_role(
     delegated_role_device,
