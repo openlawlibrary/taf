@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Gracefully handle SIGINT/SIGTERM during an update, running cleanup instead of leaving temp state behind ([769])
 - Allow overriding the temp directory used when cloning repositories via an anv var ([771])
 - Sign and discover keys across all YubiKey PIV slots, not just SIGNATURE ([767])
 - Support choosing a YubiKey PIV slot when setting up signing keys ([759])
@@ -23,6 +24,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Apply `exclude_filter` to repositories returned from the shared cache, not just freshly loaded ones ([804])
+- Fix `list_targets` crash comparing a target repo's last signed commit against local branches ([804])
 - A repository created or cloned at a path inside another repository no longer reports the enclosing repository's state, and a linked worktree or submodule is recognized as a repository of its own ([797])
 - The default branch comes from the repository at the path, not from one that encloses it, and is read once `init_repo` has created it ([795])
 - Fix incorrect "up-to-date" message after cloning a previously excluded repo ([782])
@@ -41,6 +44,8 @@ and this project adheres to [Semantic Versioning][semver].
 - Surface the underlying git error when a clone fails, instead of hiding it behind a generic access message ([762])
 - Correct the clone access error that rendered as "Cannot None ..." and stop misattributing a local failure to an access/authentication problem ([762])
 
+[804]: https://github.com/openlawlibrary/taf/pull/804
+[769]: https://github.com/openlawlibrary/taf/pull/769
 [797]: https://github.com/openlawlibrary/taf/pull/797
 [795]: https://github.com/openlawlibrary/taf/pull/795
 [782]: https://github.com/openlawlibrary/taf/pull/782
