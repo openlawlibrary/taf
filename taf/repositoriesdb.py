@@ -721,9 +721,6 @@ def _get_deduplicated_target_or_auth_repositories(
             # will overwrite older repo with newer
             repositories[name] = repo
 
-    # applied here, not just at load time: a cache hit can come from a load
-    # that used a different (or no) exclude_filter, and this call's own
-    # filter still has to be honored regardless of what's cached
     repositories = _exclude_by_filter(repositories, exclude_filter, auth_repo.path)
 
     taf_logger.debug(

@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Gracefully handle SIGINT/SIGTERM during an update, running cleanup instead of leaving temp state behind ([769])
 - Allow overriding the temp directory used when cloning repositories via an anv var ([771])
 - Sign and discover keys across all YubiKey PIV slots, not just SIGNATURE ([767])
 - Support choosing a YubiKey PIV slot when setting up signing keys ([759])
@@ -44,6 +45,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Correct the clone access error that rendered as "Cannot None ..." and stop misattributing a local failure to an access/authentication problem ([762])
 
 [804]: https://github.com/openlawlibrary/taf/pull/804
+[769]: https://github.com/openlawlibrary/taf/pull/769
 [797]: https://github.com/openlawlibrary/taf/pull/797
 [795]: https://github.com/openlawlibrary/taf/pull/795
 [782]: https://github.com/openlawlibrary/taf/pull/782
