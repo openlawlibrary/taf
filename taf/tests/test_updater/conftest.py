@@ -26,6 +26,7 @@ from taf.exceptions import GitError
 from taf.utils import on_rm_error
 from taf.log import disable_console_logging
 from taf.tests.test_updater.update_utils import load_target_repositories
+from taf.api.roles import add_roles
 from taf.api.targets import (
     add_target_repo,
     register_target_files,
@@ -616,6 +617,51 @@ def add_new_target_repo(
     # needs a signed target file recording its current commit
     sign_target_repositories(
         TEST_DATA_ORIGIN_PATH, auth_repo.name, KEYSTORE_PATH, pin_manager
+    )
+
+
+def add_new_role_and_target_repo(
+    auth_repo: AuthenticationRepository,
+    pin_manager: PinManager,
+    target_name: str,
+    role_name: str,
+):
+    """Add a new delegated role, then a new target repo under it, as two
+    separate calls."""
+    namespace = auth_repo.name.split("/")[0]
+    full_name = f"{namespace}/{target_name}"
+
+    initialize_target_repositories(
+        TEST_DATA_ORIGIN_PATH,
+        targets_config=[RepositoryConfig(full_name)],
+    )
+
+    add_roles(
+        path=str(auth_repo.path),
+        pin_manager=pin_manager,
+        keystore=str(KEYSTORE_PATH),
+        roles_key_infos={
+            "roles": {
+                role_name: {
+                    "parent_role": "targets",
+                    "paths": [full_name],
+                    "threshold": 1,
+                }
+            }
+        },
+        push=False,
+    )
+
+    add_target_repo(
+        path=str(auth_repo.path),
+        pin_manager=pin_manager,
+        target_path=None,
+        target_name=full_name,
+        role=role_name,
+        library_dir=str(TEST_DATA_ORIGIN_PATH),
+        keystore=str(KEYSTORE_PATH),
+        should_create_new_role=False,
+        push=False,
     )
 
 
