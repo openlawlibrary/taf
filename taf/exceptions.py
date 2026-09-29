@@ -239,7 +239,9 @@ class RepositoriesNotFoundError(TAFError):
 
 
 class UpdateFailedError(TAFError):
-    pass
+    def __init__(self, message, update_data=None):
+        super().__init__(message)
+        self.update_data = update_data
 
 
 class ValidationFailedError(TAFError):

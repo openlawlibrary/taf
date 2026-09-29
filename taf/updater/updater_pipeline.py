@@ -1962,7 +1962,7 @@ but commit not on branch {current_branch}"
             raise UpdateFailedError(
                 f"Failure to validate {users_auth_repo.name} commit {current_auth_commit} committed on {commit_date}: \
 data repository {repository.name} was supposed to be at commit {current_commit} \
-but repo was at {current_target_commit}"
+but repo was at {current_target_commit}, an unauthenticated commit which {repository.name} does not allow"
             )
         # unauthenticated commits are allowed, try to skip them
         # if commits of the target repositories were swapped, commit which is expected to be found

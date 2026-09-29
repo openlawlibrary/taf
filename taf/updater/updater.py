@@ -53,6 +53,7 @@ from taf.exceptions import (
 from taf.updater.lifecycle_handlers import (
     handle_repo_event,
     handle_update_event,
+    _format_event,
     Event,
 )
 from cattr import unstructure
@@ -389,14 +390,17 @@ def _update_or_clone_repository(config: UpdateConfig):
             f"Update of {auth_repo_name or 'repository'} failed due to error: {e}"
         )
 
-    update_data = Update()
-
     if auth_repo_name is None or auth_repo_name not in repos_update_data:
         # this must mean that an error occurred
-        if root_error is not None:
-            raise root_error
-        else:
-            raise UpdateFailedError(f"Update of {auth_repo_name} failed")
+        if root_error is None:
+            root_error = UpdateFailedError(f"Update of {auth_repo_name} failed")
+        update_data = Update(
+            event=_format_event(Event.FAILED),
+            error_msg=str(root_error),
+            auth_repo_name=auth_repo_name or "",
+        )
+        root_error.update_data = unstructure(update_data)
+        raise root_error
 
     # after all repositories have been updated
     # update information is in repos_update_data
@@ -419,9 +423,11 @@ def _update_or_clone_repository(config: UpdateConfig):
 
     log_repo_updates(update_data)
 
+    update_data = unstructure(update_data)
     if root_error:
+        root_error.update_data = update_data
         raise root_error
-    return unstructure(update_data)
+    return update_data
 
 
 def _process_repo_update(
