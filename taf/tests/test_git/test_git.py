@@ -6,7 +6,12 @@ from pygit2 import AlreadyExistsError
 from taf.models.types import Commitish
 import pytest
 import tempfile
-from taf.exceptions import GitError, NothingToCommitError, PygitError
+from taf.exceptions import (
+    GitAccessDeniedException,
+    GitError,
+    NothingToCommitError,
+    PygitError,
+)
 import taf.git as git_module
 from taf.git import GitRepository
 from taf.tests.utils import nested_git_repository
@@ -797,6 +802,42 @@ def test_fetch(origin_repo: GitRepository, clone_repository: GitRepository):
     branches = clone_repository.branches(all=True)
     assert branch1 not in branches and branch2 not in branches
     assert f"origin/{branch1}" in branches and f"origin/{branch2}" in branches
+
+
+def test_fetch_retries_on_failure_then_succeeds(repository: GitRepository, monkeypatch):
+    calls = []
+
+    def fake_git(*args, **kwargs):
+        calls.append(1)
+        if len(calls) < 3:
+            raise GitError(repository, message="connection reset")
+
+    monkeypatch.setattr(repository, "_git", fake_git)
+    sleeps = []
+    monkeypatch.setattr(git_module.time, "sleep", lambda s: sleeps.append(s))
+
+    repository.fetch()
+
+    assert len(calls) == 3
+    assert sleeps == [1, 2]
+
+
+def test_fetch_raises_after_exhausting_retries(repository: GitRepository, monkeypatch):
+    calls = []
+
+    def fake_git(*args, **kwargs):
+        calls.append(1)
+        raise GitError(repository, message="connection reset")
+
+    monkeypatch.setattr(repository, "_git", fake_git)
+    sleeps = []
+    monkeypatch.setattr(git_module.time, "sleep", lambda s: sleeps.append(s))
+
+    with pytest.raises(GitAccessDeniedException):
+        repository.fetch()
+
+    assert len(calls) == 6
+    assert sleeps == [1, 2, 4, 8, 16]
 
 
 def test_fetch_from_local(repository: GitRepository, clone_repository: GitRepository):

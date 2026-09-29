@@ -1388,6 +1388,7 @@ class GitRepository:
                         log_error=True,
                         reraise_error=True,
                     )
+                return
             except Exception as e:
                 if attempt == max_retries:
                     self.raise_git_access_error(operation="fetch", error_msg=str(e))
