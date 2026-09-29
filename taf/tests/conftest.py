@@ -3,6 +3,9 @@ import pytest
 import json
 import re
 import shutil
+import subprocess
+import tempfile
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Optional
 
@@ -11,7 +14,7 @@ from taf.auth_repo import AuthenticationRepository
 from taf.tuf.keys import load_signer_from_file
 
 # from taf.tests import TEST_WITH_REAL_YK
-from taf.utils import on_rm_error
+from taf.utils import on_rm_error, run
 
 TEST_DATA_PATH = Path(__file__).parent / "data"
 TEST_DATA_REPOS_PATH = TEST_DATA_PATH / "repos"
@@ -35,9 +38,73 @@ WITH_DELEGATIONS_NO_YUBIKEY = (
 REPOSITORIES_JSON_PATH = TEST_INIT_DATA_PATH / "repositories.json"
 MIRRORS_JSON_PATH = TEST_INIT_DATA_PATH / "mirrors.json"
 
+#: Branch name `git init` gives test repositories.
+TESTS_DEFAULT_BRANCH = "main"
+
+
+def run_ignoring_failure(*command: str) -> str:
+    """Output of ``command``, or "" when it exits non-zero."""
+    try:
+        return run(*command) or ""
+    except subprocess.CalledProcessError:
+        return ""
+
+
+@contextmanager
+def deterministic_git_environment_context():
+    """Isolate the git environment the tests run in. Yields the config path.
+
+    These variables are read by the ``git`` subprocess only; libgit2 honors
+    none of them, so pygit2 code paths still see the developer's real global config
+    and still discover repositories above ``taf/tests``.
+
+    ``GIT_CEILING_DIRECTORIES`` stops repository discovery at ``taf/tests``.
+    Discovery walks upward and test repositories live inside the TAF checkout,
+    so without it git answers about TAF's own repository whenever it is run
+    against a path that is not a repository yet.
+
+    ``GIT_CONFIG_GLOBAL`` points at a generated config and
+    ``GIT_CONFIG_NOSYSTEM`` shuts out ``/etc/gitconfig``, so settings such as
+    ``init.defaultBranch`` and the Git LFS filters come from here rather than
+    from the machine. The developer's identity is carried over - resolved before
+    the redirect, so it is what git would have used - because committing needs
+    it.
+    """
+    identity = {
+        key: run_ignoring_failure("git", "config", "--get", f"user.{key}")
+        for key in ("name", "email")
+    }
+
+    monkeypatch = pytest.MonkeyPatch()
+    config_dir = Path(tempfile.mkdtemp(prefix="taf-tests-gitconfig-"))
+    config_path = config_dir / "gitconfig"
+
+    lines = ["[init]", f"\tdefaultBranch = {TESTS_DEFAULT_BRANCH}"]
+    if identity["name"] or identity["email"]:
+        lines.append("[user]")
+        for key, value in identity.items():
+            if value:
+                lines.append(f"\t{key} = {value}")
+    config_path.write_text("\n".join(lines) + "\n")
+
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(config_path))
+    monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
+    monkeypatch.setenv("GIT_CEILING_DIRECTORIES", str(TEST_DATA_PATH.parent))
+    try:
+        yield config_path
+    finally:
+        monkeypatch.undo()
+        shutil.rmtree(config_dir, ignore_errors=True)
+
 
 @pytest.fixture(scope="session", autouse=True)
-def repo_dir():
+def deterministic_git_environment():
+    with deterministic_git_environment_context() as config_path:
+        yield config_path
+
+
+@pytest.fixture(scope="session", autouse=True)
+def repo_dir(deterministic_git_environment):
     path = CLIENT_DIR_PATH
     if path.is_dir():
         shutil.rmtree(path, onerror=on_rm_error)

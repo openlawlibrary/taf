@@ -18,6 +18,7 @@ def repository():
     path.mkdir(exist_ok=True, parents=True)
     repo = GitRepository(path=path)
     repo.init_repo()
+    repo.default_branch = repo.get_default_branch()
     try:
         (path / "test1.txt").write_text("Some example text 1")
         repo.commit(message="Add test1.txt")
