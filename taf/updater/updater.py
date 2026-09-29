@@ -394,11 +394,10 @@ def _update_or_clone_repository(config: UpdateConfig):
         # this must mean that an error occurred
         if root_error is None:
             root_error = UpdateFailedError(f"Update of {auth_repo_name} failed")
-        update_data = Update(
-            event=_format_event(Event.FAILED),
-            error_msg=str(root_error),
-            auth_repo_name=auth_repo_name or "",
-        )
+        update_data = Update()
+        update_data.event = _format_event(Event.FAILED)
+        update_data.error_msg = str(root_error)
+        update_data.auth_repo_name = auth_repo_name or ""
         root_error.update_data = unstructure(update_data)
         raise root_error
 
