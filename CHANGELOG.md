@@ -24,6 +24,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Populate `UpdateFailedError.update_data` on failure instead of leaving it unset ([807])
+- Name the cause in the unauthenticated-commit mismatch error ([807])
 - Apply `exclude_filter` to repositories returned from the shared cache, not just freshly loaded ones ([804])
 - Fix `list_targets` crash comparing a target repo's last signed commit against local branches ([804])
 - A repository created or cloned at a path inside another repository no longer reports the enclosing repository's state, and a linked worktree or submodule is recognized as a repository of its own ([797])
@@ -44,6 +46,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Surface the underlying git error when a clone fails, instead of hiding it behind a generic access message ([762])
 - Correct the clone access error that rendered as "Cannot None ..." and stop misattributing a local failure to an access/authentication problem ([762])
 
+[807]: https://github.com/openlawlibrary/taf/pull/807
 [804]: https://github.com/openlawlibrary/taf/pull/804
 [769]: https://github.com/openlawlibrary/taf/pull/769
 [797]: https://github.com/openlawlibrary/taf/pull/797
