@@ -4,6 +4,7 @@ from taf.auth_repo import AuthenticationRepository
 from taf.git import GitRepository
 from taf.tests.test_updater.conftest import (
     SetupManager,
+    add_new_role_and_target_repo,
     add_unauthenticated_commits_to_all_target_repos,
     add_valid_target_commits,
     add_valid_unauthenticated_commits,
@@ -44,6 +45,47 @@ def test_update_valid_happy_path(origin_auth_repo, client_dir):
 
     setup_manager = SetupManager(origin_auth_repo)
     setup_manager.add_task(add_valid_target_commits)
+    setup_manager.execute_tasks()
+
+    update_and_check_commit_shas(
+        OperationType.UPDATE,
+        origin_auth_repo,
+        client_dir,
+    )
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        },
+    ],
+    indirect=True,
+)
+def test_update_after_adding_new_role_and_target_repo(origin_auth_repo, client_dir):
+    """Update after adding a new role with a new target repo under it - the
+    new target repo has no last_validated_commit entry yet."""
+    clone_repositories(
+        origin_auth_repo,
+        client_dir,
+    )
+
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(add_valid_target_commits)
+    setup_manager.execute_tasks()
+
+    update_and_check_commit_shas(
+        OperationType.UPDATE,
+        origin_auth_repo,
+        client_dir,
+    )
+
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(
+        add_new_role_and_target_repo,
+        kwargs={"target_name": "target_via_new_role", "role_name": "root3"},
+    )
     setup_manager.execute_tasks()
 
     update_and_check_commit_shas(
