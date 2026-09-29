@@ -7,6 +7,7 @@ from taf.tests.test_updater.conftest import (
     LVC_NOT_IN_REMOTE_PATTERN,
     TARGET_MISSING_BRANCH_PATTERN,
     TARGET_MISSMATCH_PATTERN,
+    TARGET_MISSMATCH_UNAUTHENTICATED_PATTERN,
     UNCOMMITTED_CHANGES,
     OLD_LVC_FORMAT_ERROR_PATTERN,
     SetupManager,
@@ -26,6 +27,9 @@ from taf.tests.test_updater.update_utils import (
     update_invalid_repos_and_check_if_repos_exist,
 )
 from taf.updater.types.update import OperationType
+from taf.updater.updater import UpdateConfig, update_repository
+from taf.updater.lifecycle_handlers import Event
+from taf.exceptions import UpdateFailedError
 
 from taf.git import GitRepository
 
@@ -72,6 +76,38 @@ def test_update_invalid_target_repositories_contain_unsigned_commits(
     ],
     indirect=True,
 )
+def test_update_invalid_unauthenticated_commit_error_names_the_cause(
+    origin_auth_repo, client_dir
+):
+    clone_repositories(
+        origin_auth_repo,
+        client_dir,
+    )
+
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(add_valid_target_commits)
+    setup_manager.add_task(add_unauthenticated_commits_to_all_target_repos)
+    setup_manager.add_task(add_valid_target_commits)
+    setup_manager.execute_tasks()
+
+    update_invalid_repos_and_check_if_repos_exist(
+        OperationType.UPDATE,
+        origin_auth_repo,
+        client_dir,
+        TARGET_MISSMATCH_UNAUTHENTICATED_PATTERN,
+        True,
+    )
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        },
+    ],
+    indirect=True,
+)
 def test_update_with_uncommitted_target_changes_and_upstream_updates_fails(
     origin_auth_repo, client_dir
 ):
@@ -93,6 +129,46 @@ def test_update_with_uncommitted_target_changes_and_upstream_updates_fails(
         UNCOMMITTED_CHANGES,
         True,
     )
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        },
+    ],
+    indirect=True,
+)
+def test_update_failure_populates_update_data_on_raised_error(
+    origin_auth_repo, client_dir
+):
+    clone_repositories(
+        origin_auth_repo,
+        client_dir,
+    )
+
+    create_file_without_committing(origin_auth_repo, client_dir)
+
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(add_valid_target_commits)
+    setup_manager.execute_tasks()
+
+    config = UpdateConfig(
+        operation=OperationType.UPDATE,
+        remote_url=str(origin_auth_repo.path),
+        update_from_filesystem=True,
+        path=str(client_dir / origin_auth_repo.name),
+        library_dir=str(client_dir),
+    )
+
+    with pytest.raises(UpdateFailedError) as exc_info:
+        update_repository(config)
+
+    update_data = exc_info.value.update_data
+    assert update_data is not None
+    assert update_data["event"] == f"event/{Event.FAILED.value}"
+    assert update_data["error_msg"]
 
 
 @pytest.mark.parametrize(
