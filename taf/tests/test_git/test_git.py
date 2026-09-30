@@ -395,6 +395,15 @@ def test_detached_head(repository: GitRepository):
     assert repository.is_detached_head
 
 
+def test_determine_default_branch_is_none_when_remote_is_empty(
+    clone_repository: GitRepository, empty_remote: GitRepository
+):
+    clone_repository.urls = [str(empty_remote.path)]
+    clone_repository.clear_default_branch()
+
+    assert clone_repository._determine_default_branch() is None
+
+
 def test_all_commits_on_branch(repository: GitRepository):
     initial_commit = repository.initial_commit
     commit1 = repository.commit_empty("test commit1")
@@ -477,6 +486,22 @@ def test_commit_before_commit(repository: GitRepository):
 def test_get_commit_date(repository: GitRepository):
     commit1 = repository.commit_empty("test commit1")
     assert repository.get_commit_date(commit1) == str(datetime.date.today())
+
+
+def test_get_default_branch_when_remote_head_is_unknown(
+    repository: GitRepository, origin_repo: GitRepository
+):
+    origin_repo.set_head_to_branch("no-such-branch")
+    repository.add_remote("origin", str(origin_repo.path))
+
+    assert repository.get_default_branch() == repository.get_current_branch()
+
+
+def test_get_default_branch_raises_when_remote_is_empty(
+    repository: GitRepository, empty_remote: GitRepository
+):
+    with pytest.raises(GitError):
+        repository.get_default_branch(str(empty_remote.path))
 
 
 def test_get_first_commit_on_branch(repository: GitRepository):

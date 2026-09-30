@@ -387,7 +387,9 @@ class GitRepository:
             result = self._git("remote show origin", reraise_error=True)
             match = re.search(r"HEAD branch:(.*)", result)
             if match is not None:
-                return match.group(1).strip()
+                remote_head = match.group(1).strip()
+                if remote_head != "(unknown)":
+                    return remote_head
         except (GitError, IndexError) as e:
             self._log_debug(
                 f"Could not get HEAD branch with git remote show origin at {self.path}: {e}"
@@ -468,6 +470,11 @@ class GitRepository:
             reraise_error=True,
         )
         branch = branch.split("\t", 1)[0]
+        if not branch.split():
+            raise GitError(
+                self,
+                message=f"Could not get default branch from remote {url}. It has no HEAD",
+            )
         branch = branch.split()[-1]
         return _remote_branch_re.sub("", branch)
 

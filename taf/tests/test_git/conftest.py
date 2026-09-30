@@ -62,3 +62,12 @@ def empty_repository():
     yield repo
     repo.cleanup()
     shutil.rmtree(path, onerror=on_rm_error)
+
+
+@pytest.fixture
+def empty_remote(tmp_path):
+    path = tmp_path / "empty_remote"
+    path.mkdir(parents=True)
+    remote = GitRepository(path=path)
+    remote.init_repo(bare=True)
+    return remote
