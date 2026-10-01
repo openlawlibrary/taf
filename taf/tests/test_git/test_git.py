@@ -19,7 +19,6 @@ from taf.exceptions import (
 import taf.git as git_module
 from taf.git import GitRepository
 from taf.tests.test_git.conftest import (
-    head_and_parent,
     push_commit_then_reset,
     push_new_branch,
 )
@@ -34,7 +33,8 @@ def test_initial_commit(repository):
 
 
 def test_is_commit_an_ancestor_of_a_commit_or_branch(repository: GitRepository):
-    head, parent = head_and_parent(repository)
+    parent = repository.commit_empty("parent commit")
+    head = repository.commit_empty("head commit")
     branch = repository.get_current_branch()
 
     assert repository.is_commit_an_ancestor_of_a_commit_or_branch(parent, head.hash)
@@ -539,7 +539,8 @@ def test_reset_to_commit_when_reset_remote_tracking(
 
 
 def test_resolve_commit(repository: GitRepository):
-    head, parent = head_and_parent(repository)
+    parent = repository.commit_empty("parent commit")
+    head = repository.commit_empty("head commit")
 
     assert repository.resolve_commit(head) is head
     assert repository.resolve_commit(head.hash) == head
@@ -873,7 +874,8 @@ def test_top_commit_of_branch(repository: GitRepository):
 
 
 def test_update_branch_refs(repository: GitRepository):
-    head, parent = head_and_parent(repository)
+    parent = repository.commit_empty("parent commit")
+    repository.commit_empty("head commit")
     repository.create_branch("feature")
 
     repository.update_branch_refs("feature", parent)
@@ -894,7 +896,10 @@ def test_update_local_branch(cloned_repository: GitRepository):
 
 def test_update_ref_for_bare_repository(origin_repo: GitRepository):
     branch = origin_repo.get_current_branch()
-    head, parent = head_and_parent(origin_repo)
+    head = origin_repo.head_commit()
+    assert head is not None
+    parent = origin_repo.commit_before_commit(head)
+    assert parent is not None
 
     origin_repo.update_ref_for_bare_repository(branch, parent)
 
@@ -1207,7 +1212,8 @@ def test_find_first_branch_matching_pattern(repository: GitRepository):
 
 
 def test_force_move_branch(repository: GitRepository):
-    head, parent = head_and_parent(repository)
+    parent = repository.commit_empty("parent commit")
+    head = repository.commit_empty("head commit")
     repository.create_branch("moved")
     assert repository.top_commit_of_branch("moved") == head
 

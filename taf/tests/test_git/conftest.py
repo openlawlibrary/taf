@@ -1,6 +1,6 @@
 from pathlib import Path
 import shutil
-from typing import Optional, Tuple
+from typing import Optional
 import pytest
 from taf.git import GitRepository
 from taf.models.types import Commitish
@@ -91,11 +91,3 @@ def push_commit_then_reset(repo: GitRepository) -> Commitish:
     repo.push()
     repo.reset_num_of_commits(1, hard=True)
     return pushed_commit
-
-
-def head_and_parent(repo: GitRepository) -> Tuple[Commitish, Commitish]:
-    head = repo.head_commit()
-    assert head is not None
-    parent = repo.commit_before_commit(head)
-    assert parent is not None
-    return head, parent
