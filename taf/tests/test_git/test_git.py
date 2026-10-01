@@ -493,6 +493,9 @@ def test_get_default_branch_when_remote_head_is_unknown(
 ):
     origin_repo.set_head_to_branch("no-such-branch")
     repository.add_remote("origin", str(origin_repo.path))
+    # clear the value cached at construction so detection runs against the
+    # remote whose HEAD is now unknown
+    repository.clear_default_branch()
 
     assert repository.get_default_branch() == repository.get_current_branch()
 
@@ -904,6 +907,64 @@ def test_default_branch_from_origin_head(
 def test_default_branch_from_head_no_remote(repository: GitRepository):
     # no origin remote: falls back to local HEAD shorthand
     assert repository._get_default_branch_from_local() == repository.default_branch
+
+
+def test_get_default_branch_keeps_original_after_head_moves(
+    repository: GitRepository,
+):
+    # determined once, at construction
+    original = repository.default_branch
+    assert original is not None
+
+    repository.checkout_branch("feature", create=True)
+    assert repository.get_current_branch() == "feature"
+
+    # keeps returning the original default, not the branch HEAD now points at
+    assert repository.get_default_branch() == original
+
+    # clearing forces fresh detection, which (no remote) now follows the moved
+    # HEAD - what the stored value was guarding against
+    repository.clear_default_branch()
+    assert repository.get_default_branch() == "feature"
+
+
+def test_validate_detected_branch_name_rejects_option_like_names(
+    repository: GitRepository,
+):
+    for bad in ("--upload-pack=sh", "-x", "", "has space"):
+        with pytest.raises(GitError):
+            repository._validate_detected_branch_name(bad)
+    for good in ("main", "master", "publication/2019-01-01"):
+        assert repository._validate_detected_branch_name(good) == good
+
+
+def test_get_default_branch_rejects_option_like_remote_head(
+    repository: GitRepository, origin_repo: GitRepository
+):
+    # a malicious remote can point its HEAD at a ref whose name looks like a
+    # git option; that name must not be adopted as the default branch
+    commit = repository.head_commit()
+    assert commit is not None
+    ref = "refs/heads/--upload-pack=sh"
+    origin_repo._git("update-ref {} {}", ref, commit.hash)
+    origin_repo._git("symbolic-ref HEAD {}", ref)
+
+    with pytest.raises(GitError):
+        repository.get_default_branch(str(origin_repo.path))
+
+
+def test_get_last_remote_commit_does_not_honor_option_like_branch(
+    origin_repo: GitRepository, clone_repository: GitRepository, tmp_path
+):
+    clone_repository.urls = [str(origin_repo.path)]
+    clone_repository.clone()
+    marker = tmp_path / "pwned"
+    result = clone_repository.get_last_remote_commit(
+        clone_repository.get_remote_url(),
+        branch=f"--upload-pack=touch {marker}",
+    )
+    assert result is None
+    assert not marker.exists()
 
 
 def test_is_git_repository_cached_until_clone(repository, tmp_path):

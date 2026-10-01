@@ -127,9 +127,11 @@ class GitRepository:
         self.urls = self._validate_urls([str(url) for url in urls]) if urls else None
         self.allow_unsafe = allow_unsafe
         self.custom = custom or {}
-        if default_branch is None:
-            default_branch = self._determine_default_branch()
+        # set the attribute before determining it, so get_default_branch can
+        # read and store it during determination
         self.default_branch = default_branch
+        if self.default_branch is None:
+            self.default_branch = self._determine_default_branch()
 
     _pygit = None
 
@@ -690,7 +692,8 @@ class GitRepository:
                 # finally, check remote branch
                 if self.has_remote():
                     return branch_name in self._git(
-                        f"ls-remote --heads origin {branch_name}",
+                        "ls-remote --heads origin --end-of-options {}",
+                        branch_name,
                         log_error_msg=f"Repo {self.name}: could check if the branch exists in the remote repository",
                         reraise_error=True,
                     )
@@ -1287,12 +1290,37 @@ class GitRepository:
 
     def get_default_branch(self, url: Optional[str] = None) -> str:
         """Get the default branch of the repository. If url is provided, return the
-        default branch from the remote. Otherwise, return the default
-        branch from the local repository."""
+        default branch from the remote. Otherwise, return the default branch of
+        the local repository, determining it once and storing it on the instance.
+
+        The local default branch is kept in `self.default_branch`: later calls
+        return that value rather than re-reading live git state, which can be
+        wrong once HEAD has moved to another branch. Use `clear_default_branch`
+        to force a fresh detection."""
         if url is not None:
             url = url.strip()
-            return self._get_default_branch_from_remote(url)
-        return self._get_default_branch_from_local()
+            return self._validate_detected_branch_name(
+                self._get_default_branch_from_remote(url)
+            )
+        if self.default_branch is None:
+            self.default_branch = self._validate_detected_branch_name(
+                self._get_default_branch_from_local()
+            )
+        return self.default_branch
+
+    def _validate_detected_branch_name(self, branch: str) -> str:
+        """Refuse a detected default branch name that git could read as an
+        option. The default branch is taken from what a remote reports (its
+        HEAD), so a malicious remote could point HEAD at a ref named something
+        like `--upload-pack=<command>`; passed to git as an argument that
+        becomes an option and runs a command. A real branch name never starts
+        with a dash or contains whitespace, so such a value is rejected."""
+        if not branch or branch.startswith("-") or any(c.isspace() for c in branch):
+            raise GitError(
+                self,
+                message=f"Refusing unsafe default branch name {branch!r}",
+            )
+        return branch
 
     def get_json(
         self, commit: Commitish, path: str, raw: Optional[bool] = False
@@ -1389,7 +1417,7 @@ class GitRepository:
                     if branch is None:
                         branch = ""
                     self._git(
-                        "fetch {} {}",
+                        "fetch {} --end-of-options {}",
                         remote,
                         branch,
                         log_error=True,
@@ -1554,7 +1582,7 @@ class GitRepository:
                 "Could not fetch the last remote commit. URL not found"
             )
         last_commit = self._git(
-            "--no-pager ls-remote {} {}", url, branch, log_error=True
+            "--no-pager ls-remote {} --end-of-options {}", url, branch, log_error=True
         )
         if last_commit:
             last_commit = last_commit.split("\t", 1)[0]
