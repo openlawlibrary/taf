@@ -147,7 +147,7 @@ class MultipleRepositoriesNotCleanError(TAFError):
 class NoRemoteError(GitError):
     def __init__(self, repo):
         message = f"No remotes configured for repository {repo.name}"
-        super().__init__(message)
+        super().__init__(repo, message=message)
 
 
 class ScriptExecutionError(TAFError):
