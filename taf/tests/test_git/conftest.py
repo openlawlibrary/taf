@@ -1,7 +1,9 @@
 from pathlib import Path
 import shutil
+from typing import Optional
 import pytest
 from taf.git import GitRepository
+from taf.models.types import Commitish
 from taf.exceptions import NothingToCommitError
 from taf.utils import on_rm_error
 from taf.tests.conftest import TEST_DATA_REPOS_PATH
@@ -62,3 +64,30 @@ def empty_repository():
     yield repo
     repo.cleanup()
     shutil.rmtree(path, onerror=on_rm_error)
+
+
+@pytest.fixture
+def cloned_repository(origin_repo, clone_repository):
+    clone_repository.urls = [str(origin_repo.path)]
+    clone_repository.clone()
+    return clone_repository
+
+
+def push_new_branch(
+    repo: GitRepository, branch: str, with_commit: bool = False
+) -> Optional[Commitish]:
+    """Push a new branch to origin and return to the branch that was checked out."""
+    default_branch = repo.get_current_branch()
+    repo.checkout_branch(branch, create=True)
+    commit = repo.commit_empty(f"commit on {branch}") if with_commit else None
+    repo.push(branch=branch)
+    repo.checkout_branch(default_branch)
+    return commit
+
+
+def push_commit_then_reset(repo: GitRepository) -> Commitish:
+    """Push a new commit, then move the local branch back so it is behind origin."""
+    pushed_commit = repo.commit_empty("upstream commit")
+    repo.push()
+    repo.reset_num_of_commits(1, hard=True)
+    return pushed_commit
