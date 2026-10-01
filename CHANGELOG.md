@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Add test coverage for `GitRepository` methods that had none ([808])
 - Gracefully handle SIGINT/SIGTERM during an update, running cleanup instead of leaving temp state behind ([769])
 - Allow overriding the temp directory used when cloning repositories via an anv var ([771])
 - Sign and discover keys across all YubiKey PIV slots, not just SIGNATURE ([767])
@@ -24,6 +25,11 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Fix `clone_or_pull()` dropping the branch argument to `fetch`/`pull` ([808])
+- Fix `fetch()` retrying after a successful attempt ([808])
+- Fix `NoRemoteError` crashing instead of raising ([808])
+- Fix `remove_remote()` leaving a stale cached remote list ([808])
+- Fix `set_upstream()` dropping the branch name ([808])
 - Populate `UpdateFailedError.update_data` on failure instead of leaving it unset ([807])
 - Name the cause in the unauthenticated-commit mismatch error ([807])
 - Apply `exclude_filter` to repositories returned from the shared cache, not just freshly loaded ones ([804])
@@ -46,6 +52,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Surface the underlying git error when a clone fails, instead of hiding it behind a generic access message ([762])
 - Correct the clone access error that rendered as "Cannot None ..." and stop misattributing a local failure to an access/authentication problem ([762])
 
+[808]: https://github.com/openlawlibrary/taf/pull/808
 [807]: https://github.com/openlawlibrary/taf/pull/807
 [804]: https://github.com/openlawlibrary/taf/pull/804
 [769]: https://github.com/openlawlibrary/taf/pull/769
