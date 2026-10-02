@@ -10,19 +10,12 @@ from taf.api.targets import register_target_files
 from taf.auth_repo import AuthenticationRepository
 from taf.tests.tuf.test_keys.conftest import (
     insert_in_order,
+    pin_manager_for,
     write_signing_keystore,
     write_target,
 )
 from taf.tuf.keys import load_signer_from_file
-from taf.yubikey.yubikey_manager import PinManager
 import taf.yubikey.yubikey as yk
-
-
-def _pin_manager(*devices) -> PinManager:
-    pin_manager = PinManager()
-    for device in devices:
-        pin_manager.add_pin(device.serial, device.pin)
-    return pin_manager
 
 
 @pytest.mark.parametrize("device_a_inserted_first", [True, False])
@@ -47,7 +40,7 @@ def test_read_and_check_yubikeys_assigns_distinct_names_to_two_devices_of_same_r
     result = yk._read_and_check_yubikeys(
         role="targets",
         taf_repo=taf_repo,
-        pin_manager=_pin_manager(device1, device2),
+        pin_manager=pin_manager_for(device1, device2),
         pin_confirm=False,
         pin_repeat=False,
         prompt_message=None,
@@ -80,7 +73,7 @@ def test_read_and_check_yubikeys_skips_unauthorized_device_for_delegated_role(
     result = yk._read_and_check_yubikeys(
         role="delegated_role",
         taf_repo=taf_repo,
-        pin_manager=_pin_manager(delegated_role_device, unauthorized_device),
+        pin_manager=pin_manager_for(delegated_role_device, unauthorized_device),
         pin_confirm=False,
         pin_repeat=False,
         prompt_message=None,
@@ -116,7 +109,7 @@ def test_sign_delegated_role_with_unauthorized_yubikey_inserted(
     if not authorized_inserted_first:
         insert_in_order(unauthorized_device, delegated_role_device)
 
-    pin_manager = _pin_manager(delegated_role_device, unauthorized_device)
+    pin_manager = pin_manager_for(delegated_role_device, unauthorized_device)
     taf_repo = create_delegated_auth_repo(pin_manager)
 
     metadata_path = taf_repo.path / "metadata"
@@ -160,7 +153,7 @@ def test_sign_two_delegated_roles_each_with_its_own_yubikey_in_one_command(
     if not device_a_inserted_first:
         insert_in_order(device_inner, delegated_role_device)
 
-    pin_manager = _pin_manager(delegated_role_device, device_inner)
+    pin_manager = pin_manager_for(delegated_role_device, device_inner)
     taf_repo = create_delegated_auth_repo(pin_manager)
 
     metadata_path = taf_repo.path / "metadata"
