@@ -1504,9 +1504,7 @@ def test_get_default_branch_rejects_option_like_remote_head(
         repository.get_default_branch(str(origin_repo.path))
 
 
-def test_fetch_rejects_option_like_branch(
-    cloned_repository: GitRepository, tmp_path
-):
+def test_fetch_rejects_option_like_branch(cloned_repository: GitRepository, tmp_path):
     marker = tmp_path / "pwned"
     with pytest.raises(InvalidBranchError):
         cloned_repository.fetch(branch=f"--upload-pack=touch {marker}")
