@@ -67,6 +67,15 @@ def empty_repository():
 
 
 @pytest.fixture
+def empty_remote(tmp_path):
+    path = tmp_path / "empty_remote"
+    path.mkdir(parents=True)
+    remote = GitRepository(path=path)
+    remote.init_repo(bare=True)
+    return remote
+
+
+@pytest.fixture
 def cloned_repository(origin_repo, clone_repository):
     clone_repository.urls = [str(origin_repo.path)]
     clone_repository.clone()
