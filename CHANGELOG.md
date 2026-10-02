@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning][semver].
 ### Added
 
 - Add test coverage for `GitRepository` methods that had none ([808])
+- Add test coverage for signing with role keys outside the YubiKey SIGNATURE slot ([811])
 - Gracefully handle SIGINT/SIGTERM during an update, running cleanup instead of leaving temp state behind ([769])
 - Allow overriding the temp directory used when cloning repositories via an anv var ([771])
 - Sign and discover keys across all YubiKey PIV slots, not just SIGNATURE ([767])
@@ -52,6 +53,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Surface the underlying git error when a clone fails, instead of hiding it behind a generic access message ([762])
 - Correct the clone access error that rendered as "Cannot None ..." and stop misattributing a local failure to an access/authentication problem ([762])
 
+[811]: https://github.com/openlawlibrary/taf/pull/811
 [808]: https://github.com/openlawlibrary/taf/pull/808
 [807]: https://github.com/openlawlibrary/taf/pull/807
 [804]: https://github.com/openlawlibrary/taf/pull/804
