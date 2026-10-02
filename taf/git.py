@@ -24,6 +24,7 @@ from taf.exceptions import (
     TAFError,
     CloneRepoException,
     FetchException,
+    InvalidBranchError,
     InvalidRepositoryError,
     GitError,
     UpdateFailedError,
@@ -58,6 +59,18 @@ EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 # Per-process cache for default branch detection.
 # A repository's default branch never changes during a single run.
 _default_branch_cache: Dict[str, Optional[str]] = {}
+
+
+def validate_branch_name(branch: str) -> str:
+    """Raise InvalidBranchError if git could read the branch name as an option.
+
+    A branch name passed to git as an argument that starts with a dash is read
+    as an option - for example `--upload-pack=<command>` runs a command, and a
+    remote can report such a name as its HEAD. A real branch name never starts
+    with a dash or contains whitespace."""
+    if not branch or branch.startswith("-") or any(c.isspace() for c in branch):
+        raise InvalidBranchError(f"Invalid branch name {branch!r}")
+    return branch
 
 
 class GitRepository:
@@ -127,13 +140,22 @@ class GitRepository:
         self.urls = self._validate_urls([str(url) for url in urls]) if urls else None
         self.allow_unsafe = allow_unsafe
         self.custom = custom or {}
-        # set the attribute before determining it, so get_default_branch can
-        # read and store it during determination
         self.default_branch = default_branch
         if self.default_branch is None:
             self.default_branch = self._determine_default_branch()
 
     _pygit = None
+    _default_branch: Optional[str] = None
+
+    @property
+    def default_branch(self) -> Optional[str]:
+        return self._default_branch
+
+    @default_branch.setter
+    def default_branch(self, branch: Optional[str]) -> None:
+        if branch is not None:
+            validate_branch_name(branch)
+        self._default_branch = branch
 
     @property
     def pygit(self):
@@ -397,10 +419,12 @@ class GitRepository:
                 f"Could not get HEAD branch with git remote show origin at {self.path}: {e}"
             )
             pass
-        # step 3: HEAD
-        branch = self._get_head_branch()
-        if branch is not None:
-            return branch
+        # step 3: HEAD, only if it is the only branch - with several branches
+        # the checked-out one is not necessarily the default
+        if len(self.branches()) <= 1:
+            branch = self._get_head_branch()
+            if branch is not None:
+                return branch
         raise GitError(
             self,
             message="Could not determine default branch from local repository",
@@ -692,7 +716,7 @@ class GitRepository:
                 # finally, check remote branch
                 if self.has_remote():
                     return branch_name in self._git(
-                        "ls-remote --heads origin --end-of-options {}",
+                        "ls-remote --heads origin {}",
                         branch_name,
                         log_error_msg=f"Repo {self.name}: could check if the branch exists in the remote repository",
                         reraise_error=True,
@@ -1299,28 +1323,10 @@ class GitRepository:
         to force a fresh detection."""
         if url is not None:
             url = url.strip()
-            return self._validate_detected_branch_name(
-                self._get_default_branch_from_remote(url)
-            )
+            return validate_branch_name(self._get_default_branch_from_remote(url))
         if self.default_branch is None:
-            self.default_branch = self._validate_detected_branch_name(
-                self._get_default_branch_from_local()
-            )
+            self.default_branch = self._get_default_branch_from_local()
         return self.default_branch
-
-    def _validate_detected_branch_name(self, branch: str) -> str:
-        """Refuse a detected default branch name that git could read as an
-        option. The default branch is taken from what a remote reports (its
-        HEAD), so a malicious remote could point HEAD at a ref named something
-        like `--upload-pack=<command>`; passed to git as an argument that
-        becomes an option and runs a command. A real branch name never starts
-        with a dash or contains whitespace, so such a value is rejected."""
-        if not branch or branch.startswith("-") or any(c.isspace() for c in branch):
-            raise GitError(
-                self,
-                message=f"Refusing unsafe default branch name {branch!r}",
-            )
-        return branch
 
     def get_json(
         self, commit: Commitish, path: str, raw: Optional[bool] = False
@@ -1408,6 +1414,8 @@ class GitRepository:
         branch: Optional[str] = None,
         remote: Optional[str] = "origin",
     ) -> None:
+        if branch:
+            validate_branch_name(branch)
         max_retries = 5
         for attempt in range(max_retries + 1):
             try:
@@ -1417,7 +1425,7 @@ class GitRepository:
                     if branch is None:
                         branch = ""
                     self._git(
-                        "fetch {} --end-of-options {}",
+                        "fetch {} {}",
                         remote,
                         branch,
                         log_error=True,
@@ -1583,7 +1591,7 @@ class GitRepository:
                 "Could not fetch the last remote commit. URL not found"
             )
         last_commit = self._git(
-            "--no-pager ls-remote {} --end-of-options {}", url, branch, log_error=True
+            "--no-pager ls-remote {} {}", url, branch, log_error=True
         )
         if last_commit:
             last_commit = last_commit.split("\t", 1)[0]
@@ -2173,7 +2181,7 @@ class GitRepository:
             result = self.get_default_branch()
             _default_branch_cache[cache_key] = result
             return result
-        except GitError as e:
+        except (GitError, InvalidBranchError) as e:
             errors.append(e)
             pass
 
@@ -2184,7 +2192,7 @@ class GitRepository:
                     result = self.get_default_branch(url)
                     _default_branch_cache[cache_key] = result
                     return result
-                except GitError as e:
+                except (GitError, InvalidBranchError) as e:
                     errors.append(e)
                     pass
 
