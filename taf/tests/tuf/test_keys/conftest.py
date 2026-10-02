@@ -1,6 +1,8 @@
 import pytest
 import shutil
+from pathlib import Path
 
+from tuf.api.metadata import Metadata
 from yubikit.piv import SLOT
 
 import taf.yubikey.yubikey as yk
@@ -188,3 +190,22 @@ def write_signing_keystore(tmp_path, source_keystore, names=("snapshot", "timest
             (source_keystore / f"{name}.pub").read_bytes()
         )
     return signing_keystore
+
+
+def pin_manager_for(*devices):
+    pin_manager = PinManager()
+    for device in devices:
+        pin_manager.add_pin(device.serial, device.pin)
+    return pin_manager
+
+
+def verify_and_get_versions(repo_path, *roles):
+    """Verify each role's metadata against root and return its version."""
+    metadata_path = Path(repo_path, "metadata")
+    root_md = Metadata.from_file(str(metadata_path / "root.json"))
+    versions = {}
+    for role in roles:
+        role_md = Metadata.from_file(str(metadata_path / f"{role}.json"))
+        root_md.verify_delegate(role, role_md)
+        versions[role] = role_md.signed.version
+    return versions
