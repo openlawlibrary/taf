@@ -1007,7 +1007,7 @@ class GitRepository:
         Return old and new HEAD.
         """
         try:
-            old_head = self.head_commit()
+            old_head = self.head_commit() if self.is_git_repository_root else None
         except GitError:
             # repo does not exist
             old_head = None
@@ -1028,9 +1028,9 @@ class GitRepository:
             try:
                 for branch in branches:
                     if only_fetch:
-                        self._git("fetch", "origin", f"{branch}:{branch}")
+                        self._git("fetch origin {}:{}", branch, branch)
                     else:
-                        self._git("pull", "origin", branch)
+                        self._git("pull origin {}", branch)
                     self._log_info(f"successfully fetched branch {branch}")
             except GitError as e:
                 if "fatal" in str(e):
@@ -1423,6 +1423,7 @@ class GitRepository:
                         log_error=True,
                         reraise_error=True,
                     )
+                return
             except Exception as e:
                 if attempt == max_retries:
                     self.raise_git_access_error(operation="fetch", error_msg=str(e))
@@ -1947,6 +1948,8 @@ class GitRepository:
                 self._log_warning(
                     f"Could not remove remote {remote_name}. It was renamed to 'local'. Remove it manually"
                 )
+        finally:
+            self._remotes = None
 
     def remote_exists(self, remote_name):
         repo = self.pygit_repo
@@ -2060,7 +2063,7 @@ class GitRepository:
         except KeyError:
             return
 
-        self._git("branch -u origin/{}", branch_name)
+        self._git("branch -u origin/{} {}", branch_name, branch_name)
 
     def something_to_commit(self) -> bool:
         """Checks if there are any uncommitted changes"""
