@@ -204,8 +204,9 @@ class FakePivController:
             data = data.encode("utf-8")
 
         slot_data = self._slots.get(slot)
-        priv_key = slot_data["priv_key"] if slot_data else self._driver.priv_key
-        return priv_key.sign(data, padding, hash)
+        if not slot_data or slot_data.get("priv_key") is None:
+            raise ApduError(b"", SW.FILE_NOT_FOUND)
+        return slot_data["priv_key"].sign(data, padding, hash)
 
     def verify_pin(self, pin):
         if self._driver.pin != pin:
