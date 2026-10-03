@@ -749,15 +749,20 @@ def test_get_default_branch_keeps_stored_value_when_no_remote(
     assert repository.get_default_branch() == original
 
 
-def test_get_default_branch_raises_with_several_branches_when_no_remote(
-    repository: GitRepository,
-):
-    assert not repository.has_remote()
-    repository.checkout_branch("feature", create=True)
-    repository.clear_default_branch()
+def test_get_default_branch_raises_with_several_branches_when_no_remote(tmp_path):
+    path = tmp_path / "repo"
+    path.mkdir()
+    created = GitRepository(path=path)
+    created.init_repo()
+    created.commit_empty("initial commit")
+    created.checkout_branch("feature", create=True)
 
+    repo = GitRepository(path=path)
+
+    assert not repo.has_remote()
+    assert repo.default_branch is None
     with pytest.raises(GitError):
-        repository.get_default_branch()
+        repo.get_default_branch()
 
 
 def test_get_default_branch_uses_remote_when_head_moves(

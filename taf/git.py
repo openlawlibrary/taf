@@ -61,18 +61,6 @@ EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 _default_branch_cache: Dict[str, Optional[str]] = {}
 
 
-def validate_branch_name(branch: str) -> str:
-    """Raise InvalidBranchError if git could read the branch name as an option.
-
-    A branch name passed to git as an argument that starts with a dash is read
-    as an option - for example `--upload-pack=<command>` runs a command, and a
-    remote can report such a name as its HEAD. A real branch name never starts
-    with a dash or contains whitespace."""
-    if not branch or branch.startswith("-") or any(c.isspace() for c in branch):
-        raise InvalidBranchError(f"Invalid branch name {branch!r}")
-    return branch
-
-
 class GitRepository:
     def __init__(
         self,
@@ -1314,13 +1302,8 @@ class GitRepository:
 
     def get_default_branch(self, url: Optional[str] = None) -> str:
         """Get the default branch of the repository. If url is provided, return the
-        default branch from the remote. Otherwise, return the default branch of
-        the local repository, determining it once and storing it on the instance.
-
-        The local default branch is kept in `self.default_branch`: later calls
-        return that value rather than re-reading live git state, which can be
-        wrong once HEAD has moved to another branch. Use `clear_default_branch`
-        to force a fresh detection."""
+        default branch from the remote. Otherwise, return the local default
+        branch, detected once and then reused."""
         if url is not None:
             url = url.strip()
             return validate_branch_name(self._get_default_branch_from_remote(url))
@@ -2451,3 +2434,15 @@ def repository_exists(url):
     except requests.RequestException as e:
         print(f"Error checking repository URL: {e}")
         return False
+
+
+def validate_branch_name(branch: str) -> str:
+    """Raise InvalidBranchError if git could read the branch name as an option.
+
+    A branch name passed to git as an argument that starts with a dash is read
+    as an option - for example `--upload-pack=<command>` runs a command, and a
+    remote can report such a name as its HEAD. A real branch name never starts
+    with a dash or contains whitespace."""
+    if not branch or branch.startswith("-") or any(c.isspace() for c in branch):
+        raise InvalidBranchError(f"Invalid branch name {branch!r}")
+    return branch
