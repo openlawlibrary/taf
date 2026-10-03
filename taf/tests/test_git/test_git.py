@@ -11,13 +11,14 @@ import time
 from taf.exceptions import (
     GitAccessDeniedException,
     GitError,
+    InvalidBranchError,
     NoRemoteError,
     NothingToCommitError,
     PygitError,
     UpdateFailedError,
 )
 import taf.git as git_module
-from taf.git import GitRepository
+from taf.git import GitRepository, validate_branch_name
 from taf.tests.test_git.conftest import (
     push_commit_then_reset,
     push_new_branch,
@@ -248,16 +249,20 @@ def test_is_git_repository_root_non_bare(repository: GitRepository):
     assert repository.is_git_repository_root
 
 
-def test_is_git_repository_root_linked_worktree(repository: GitRepository, tmp_path):
+def test_is_git_repository_root_linked_worktree(
+    origin_repo: GitRepository, cloned_repository: GitRepository, tmp_path
+):
     """A linked worktree is a repository root, though its git directory lives
-    under the repository it belongs to."""
+    under the repository it belongs to. Its default branch comes from the
+    remote, not from the branch the worktree has checked out."""
     worktree_path = Path(tmp_path) / "worktree"
-    repository._git("worktree add {} -b wtbranch", str(worktree_path))
+    cloned_repository._git("worktree add {} -b wtbranch", str(worktree_path))
 
     worktree = GitRepository(path=worktree_path)
 
     assert worktree.is_git_repository_root
-    assert worktree.default_branch == "wtbranch"
+    assert worktree.get_current_branch() == "wtbranch"
+    assert worktree.default_branch == origin_repo.default_branch
 
 
 def test_is_git_repository_root_submodule(repository: GitRepository, tmp_path):
@@ -718,6 +723,9 @@ def test_get_default_branch_when_remote_head_is_unknown(
 ):
     origin_repo.set_head_to_branch("no-such-branch")
     repository.add_remote("origin", str(origin_repo.path))
+    # clear the value cached at construction so detection runs against the
+    # remote whose HEAD is now unknown
+    repository.clear_default_branch()
 
     assert repository.get_default_branch() == repository.get_current_branch()
 
@@ -727,6 +735,47 @@ def test_get_default_branch_raises_when_remote_is_empty(
 ):
     with pytest.raises(GitError):
         repository.get_default_branch(str(empty_remote.path))
+
+
+def test_get_default_branch_keeps_stored_value_when_no_remote(
+    repository: GitRepository,
+):
+    assert not repository.has_remote()
+    original = repository.default_branch
+    assert original is not None
+
+    repository.checkout_branch("feature", create=True)
+
+    assert repository.get_default_branch() == original
+
+
+def test_get_default_branch_raises_with_several_branches_when_no_remote(tmp_path):
+    path = tmp_path / "repo"
+    path.mkdir()
+    created = GitRepository(path=path)
+    created.init_repo()
+    created.commit_empty("initial commit")
+    created.checkout_branch("feature", create=True)
+
+    repo = GitRepository(path=path)
+
+    assert not repo.has_remote()
+    assert repo.default_branch is None
+    with pytest.raises(GitError):
+        repo.get_default_branch()
+
+
+def test_get_default_branch_uses_remote_when_head_moves(
+    origin_repo: GitRepository, clone_repository: GitRepository
+):
+    clone_repository.urls = [str(origin_repo.path)]
+    clone_repository.clone()
+    assert clone_repository.has_remote()
+
+    clone_repository.checkout_branch("feature", create=True)
+    clone_repository.clear_default_branch()
+
+    assert clone_repository.get_default_branch() == origin_repo.default_branch
 
 
 def test_get_first_commit_on_branch(repository: GitRepository):
@@ -1428,6 +1477,43 @@ def test_default_branch_from_origin_head(
 def test_default_branch_from_head_no_remote(repository: GitRepository):
     # no origin remote: falls back to local HEAD shorthand
     assert repository._get_default_branch_from_local() == repository.default_branch
+
+
+def test_validate_branch_name_rejects_option_like_names():
+    for bad in ("--upload-pack=sh", "-x", "", "has space"):
+        with pytest.raises(InvalidBranchError):
+            validate_branch_name(bad)
+    for good in ("main", "master", "publication/2019-01-01"):
+        assert validate_branch_name(good) == good
+
+
+def test_default_branch_rejects_option_like_name(repository: GitRepository):
+    with pytest.raises(InvalidBranchError):
+        repository.default_branch = "--upload-pack=sh"
+    with pytest.raises(InvalidBranchError):
+        GitRepository(path=repository.path, default_branch="--upload-pack=sh")
+
+
+def test_get_default_branch_rejects_option_like_remote_head(
+    repository: GitRepository, origin_repo: GitRepository
+):
+    # a malicious remote can point its HEAD at a ref whose name looks like a
+    # git option; that name must not be adopted as the default branch
+    commit = repository.head_commit()
+    assert commit is not None
+    ref = "refs/heads/--upload-pack=sh"
+    origin_repo._git("update-ref {} {}", ref, commit.hash)
+    origin_repo._git("symbolic-ref HEAD {}", ref)
+
+    with pytest.raises(InvalidBranchError):
+        repository.get_default_branch(str(origin_repo.path))
+
+
+def test_fetch_rejects_option_like_branch(cloned_repository: GitRepository, tmp_path):
+    marker = tmp_path / "pwned"
+    with pytest.raises(InvalidBranchError):
+        cloned_repository.fetch(branch=f"--upload-pack=touch {marker}")
+    assert not marker.exists()
 
 
 def test_is_git_repository_cached_until_clone(repository, tmp_path):
