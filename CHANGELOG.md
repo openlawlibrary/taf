@@ -25,6 +25,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Fix default branch detection returning the checked-out branch ([810])
+- Reject unsafe branch names reported by a remote ([810])
 - Fix `clone_or_pull()` dropping the branch argument to `fetch`/`pull` ([808])
 - Fix `fetch()` retrying after a successful attempt ([808])
 - Fix `NoRemoteError` crashing instead of raising ([808])
@@ -52,6 +54,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Surface the underlying git error when a clone fails, instead of hiding it behind a generic access message ([762])
 - Correct the clone access error that rendered as "Cannot None ..." and stop misattributing a local failure to an access/authentication problem ([762])
 
+[810]: https://github.com/openlawlibrary/taf/pull/810
 [808]: https://github.com/openlawlibrary/taf/pull/808
 [807]: https://github.com/openlawlibrary/taf/pull/807
 [804]: https://github.com/openlawlibrary/taf/pull/804
