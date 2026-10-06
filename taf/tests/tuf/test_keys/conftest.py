@@ -4,6 +4,7 @@ import shutil
 from yubikit.piv import SLOT
 
 import taf.yubikey.yubikey as yk
+from taf.api.targets import register_target_files
 from taf.tests.conftest import create_authentication_repository
 from taf.tools.yubikey.yubikey_utils import FakeYubiKey, _yk_piv_ctrl_mock
 from taf.utils import on_rm_error
@@ -188,3 +189,36 @@ def write_signing_keystore(tmp_path, source_keystore, names=("snapshot", "timest
             (source_keystore / f"{name}.pub").read_bytes()
         )
     return signing_keystore
+
+
+def pin_manager_for(*devices):
+    pin_manager = PinManager()
+    for device in devices:
+        pin_manager.add_pin(device.serial, device.pin)
+    return pin_manager
+
+
+def verify_and_get_versions(auth_repo, *roles):
+    """Verify each role's metadata against root and return its version."""
+    root_md = auth_repo.open("root")
+    versions = {}
+    for role in roles:
+        role_md = auth_repo.open(role)
+        root_md.verify_delegate(role, role_md)
+        versions[role] = role_md.signed.version
+    return versions
+
+
+def sign_target_update(auth_repo, signing_keystore, target_path="a-new-target.txt"):
+    """Write a target file at target_path (relative to the targets directory),
+    register it and update snapshot and timestamp, signing with whatever
+    signing_keystore and the inserted YubiKeys provide."""
+    write_target(auth_repo.targets_path / target_path)
+    register_target_files(
+        str(auth_repo.path),
+        auth_repo.pin_manager,
+        keystore=str(signing_keystore),
+        update_snapshot_and_timestamp=True,
+        push=False,
+    )
+    assert target_path in auth_repo.get_signed_target_files()
