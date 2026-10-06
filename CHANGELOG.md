@@ -9,8 +9,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
-- Add test coverage for `GitRepository` methods that had none ([808])
 - Add test coverage for signing with role keys outside the YubiKey SIGNATURE slot ([811])
+- Add test coverage for `GitRepository` methods that had none ([808])
 - Gracefully handle SIGINT/SIGTERM during an update, running cleanup instead of leaving temp state behind ([769])
 - Allow overriding the temp directory used when cloning repositories via an anv var ([771])
 - Sign and discover keys across all YubiKey PIV slots, not just SIGNATURE ([767])
