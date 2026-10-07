@@ -199,12 +199,6 @@ class UpdateConfig:
             "docs": "Local directory for script testing, not in the authentication repository. Optional."
         },
     )
-    checkout: bool = field(
-        default=True,
-        metadata={
-            "docs": "Whether to checkout last validated commits after update. Optional."
-        },
-    )
     clone_urls: list = field(
         default=None,
         metadata={"docs": "List of URLs to clone repositories from. Optional."},
@@ -270,7 +264,11 @@ class UpdateConfig:
                     self.library_dir = Path(".").resolve()
 
         if self.operation == OperationType.UPDATE:
-            if not self.only_validate:
+            if not self.only_validate and self.exclude_filter is not None:
+                taf_logger.warning(
+                    "exclude_filter is ignored when updating - the filter saved "
+                    "by the previous clone or update is used instead"
+                )
                 self.exclude_filter = None
             if self.path is None:
                 self.path = Path(".").resolve()
