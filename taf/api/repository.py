@@ -340,6 +340,14 @@ def _perform_checks(
         if target is None:
             raise ResetFailedError(f"Error, target {repo_name} could not be loaded!")
 
+        # Fail early if the target commit is not on the target branch:
+        target_branch = target["branch"]
+        target_commit = Commitish.from_hash(target["commit"])
+        if target_commit not in repo.all_commits_on_branch(target_branch):
+            raise ResetFailedError(
+                f"Target repo {repo.name} commit {target_commit.hash} not found on branch ({target_branch})."
+            )
+
         if not bare and not force:
             # Fail early if there are uncommited changes or unstaged files
             if repo.something_to_commit():
