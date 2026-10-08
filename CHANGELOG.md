@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 ## [Unreleased]
 
+## [0.41.0]
+
 ### Added
 
 - Add test coverage for signing with role keys outside the YubiKey SIGNATURE slot ([811])
@@ -1978,7 +1980,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
-[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.40.0...HEAD
+[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.41.0...HEAD
+[0.41.0]: https://github.com/openlawlibrary/taf/compare/v0.40.0...v0.41.0
 [0.40.0]: https://github.com/openlawlibrary/taf/compare/v0.39.3...v0.40.0
 [0.39.3]: https://github.com/openlawlibrary/taf/compare/v0.39.2...v0.39.3
 [0.39.2]: https://github.com/openlawlibrary/taf/compare/v0.39.1...v0.39.2
