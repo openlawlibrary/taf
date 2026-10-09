@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning][semver].
 
 ## [Unreleased]
 
+### Changed
+
+- Warn when `exclude_filter` is passed to an update instead of just ignoring it ([815])
+
+### Removed
+
+- Unused `checkout` option of `UpdateConfig` ([815])
+
+### Fixed
+
+- Check that each target repository's commit is on its branch before resetting ([815])
+
+[815]: https://github.com/openlawlibrary/taf/pull/815
+
 ## [0.41.0]
 
 ### Added

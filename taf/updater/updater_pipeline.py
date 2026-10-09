@@ -459,7 +459,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         self.out_of_band_authentication = Commitish.from_hash(
             update_config.out_of_band_authentication
         )
-        self.checkout = update_config.checkout
         self.bare = update_config.bare
         self.excluded_target_names = []
         self.exclude_filter = update_config.exclude_filter

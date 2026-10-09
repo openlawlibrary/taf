@@ -512,6 +512,35 @@ def test_reset_repo_target_repo_detached_head_expect_fail(origin_auth_repo, clie
     ],
     indirect=True,
 )
+def test_reset_repo_target_commit_not_on_target_branch_expect_fail(
+    origin_auth_repo, client_dir
+):
+    client_auth_repo = prepare_repo_for_reset(origin_auth_repo, client_dir)
+    commit_to_reset_to = client_auth_repo.all_commits_on_branch()[-2]
+
+    all_target_repositories = load_target_repositories(client_auth_repo, client_dir)
+    for target_name, target_repo in all_target_repositories.items():
+        if "target1" in target_name:
+            # point the branch at an unrelated commit, so the commit recorded
+            # for commit_to_reset_to is no longer on it
+            target_repo.checkout_orphan_branch("unrelated")
+            unrelated_commit = target_repo.commit_empty("unrelated commit")
+            assert target_repo.force_move_branch(
+                target_repo.default_branch, unrelated_commit
+            )
+    with pytest.raises(ResetFailedError, match="not found on branch"):
+        reset_repository(client_auth_repo, commit_to_reset_to, False, False)
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        },
+    ],
+    indirect=True,
+)
 def test_reset_repo_commit_none_after_partial_target_validation_uses_safe_auth_lvc(
     origin_auth_repo, client_dir
 ):
