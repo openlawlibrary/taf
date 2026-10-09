@@ -68,6 +68,7 @@ kwargs = {
         "pyOpenSSL==24.2.*",
         "logdecorator==2.*",
         "tomli==2.0.*",
+        "rich==15.*",
     ],
     "extras_require": {
         "ci": ci_require,
