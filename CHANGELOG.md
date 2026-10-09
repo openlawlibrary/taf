@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Show live progress of each repository in the terminal during `taf repo clone`, `update` and `validate` ([816])
 - Add test coverage for signing with role keys outside the YubiKey SIGNATURE slot ([811])
 - Add test coverage for `GitRepository` methods that had none ([808])
 - Gracefully handle SIGINT/SIGTERM during an update, running cleanup instead of leaving temp state behind ([769])
@@ -55,6 +56,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Surface the underlying git error when a clone fails, instead of hiding it behind a generic access message ([762])
 - Correct the clone access error that rendered as "Cannot None ..." and stop misattributing a local failure to an access/authentication problem ([762])
 
+[816]: https://github.com/openlawlibrary/taf/pull/816
 [811]: https://github.com/openlawlibrary/taf/pull/811
 [810]: https://github.com/openlawlibrary/taf/pull/810
 [808]: https://github.com/openlawlibrary/taf/pull/808
