@@ -39,11 +39,29 @@ _STATE_STYLES = {
 }
 
 
+# what a running repository is shown as doing, for the pipeline steps that take
+# noticeable time; quicker steps keep showing the previous activity
+_STEP_ACTIVITIES = {
+    "clone_auth_to_temp": "cloning",
+    "clone_or_fetch_users_auth_repo": "fetching",
+    "clone_target_repositories_to_temp": "cloning",
+    "get_target_repositories_commits": "fetching",
+    "run_tuf_updater": "validating",
+    "validate_last_validated_commit": "validating",
+    "validate_target_repositories": "validating",
+    "validate_and_set_additional_commits_of_target_repositories": "validating",
+    "update_users_target_repositories": "merging",
+    "merge_commits": "merging",
+    "merge_auth_commits": "merging",
+}
+
+
 class Row:
     def __init__(self, label: Callable[[], str]):
         self._label = label
         self.state = RowState.WAITING
         self.step: Optional[str] = None
+        self.activity: Optional[str] = None
         self.start_time: Optional[float] = None
         self.end_time: Optional[float] = None
 
@@ -57,6 +75,13 @@ class Row:
 
     def set_step(self, step_name: str):
         self.step = step_name.replace("_", " ")
+        self.activity = _STEP_ACTIVITIES.get(step_name, self.activity)
+
+    @property
+    def status(self) -> str:
+        if self.state == RowState.RUNNING and self.activity:
+            return self.activity
+        return self.state.value
 
     def finish(self, failed: bool):
         self.state = RowState.ERROR if failed else RowState.COMPLETE
@@ -74,7 +99,6 @@ class LiveDisplay:
     def __init__(self):
         self._rows: List[Row] = []
         self._messages: List[Text] = []
-        self.show_messages = True
         self._lock = threading.Lock()
 
     def add_message(self, message) -> None:
@@ -127,7 +151,7 @@ class LiveDisplay:
             elapsed = row.elapsed
             cells = [
                 row.label,
-                Text(row.state.value, style=_STATE_STYLES[row.state]),
+                Text(row.status, style=_STATE_STYLES[row.state]),
             ]
             if show_steps:
                 cells.append(row.step if row.state == RowState.RUNNING else "")
@@ -137,7 +161,7 @@ class LiveDisplay:
 
     def __rich__(self) -> RenderableType:
         table = self._table()
-        lines = self._recent_message_lines() if self.show_messages else []
+        lines = self._recent_message_lines()
         if not lines:
             return table
         return Group(table, Panel(Group(*lines), title="Log", border_style="dim"))
@@ -158,8 +182,8 @@ def add_row(label: Callable[[], str]) -> Row:
 @contextmanager
 def show(enabled: bool = True):
     """Show the live display for the duration of the block. Log output is collected
-    in a panel under the table while the block runs, and printed in full above the
-    final table when it ends."""
+    in a panel under the table while the block runs. When the block ends the display
+    is cleared and the log output is printed in full, as it would be without it."""
     global _active
     if not enabled:
         yield None
@@ -172,12 +196,13 @@ def show(enabled: bool = True):
         # entered before Live, so the logger is restored after Live has put
         # back the real stdout it replaces while running
         with console_logging_to(display.add_message):
-            with Live(display, console=console, refresh_per_second=4) as live:
-                try:
+            try:
+                with Live(
+                    display, console=console, refresh_per_second=4, transient=True
+                ):
                     yield display
-                finally:
-                    display.show_messages = False
-                    for message in display.messages:
-                        live.console.print(message)
+            finally:
+                for message in display.messages:
+                    console.print(message)
     finally:
         _active = None
