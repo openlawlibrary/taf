@@ -214,22 +214,27 @@ def _add_console_logger(sink, **kwargs):
     )
 
 
+def _switch_console_logger(sink, **kwargs):
+    """Point console logging at `sink`. loguru can't change where an existing
+    handler writes, so the console handler is replaced."""
+    taf_logger.remove(console_loggers.pop("log"))
+    _add_console_logger(sink, **kwargs)
+
+
 @contextmanager
 def console_logging_to(write):
     """Send console log output to `write` for the duration of the block, keeping
     its colors, then switch back to stdout."""
     try:
-        taf_logger.remove(console_loggers.pop("log"))
+        _switch_console_logger(write, colorize=True)
     except (KeyError, ValueError):
         # console logging is off (never enabled, or disable_console_logging was called)
         yield
         return
-    _add_console_logger(write, colorize=True)
     try:
         yield
     finally:
-        taf_logger.remove(console_loggers.pop("log"))
-        _add_console_logger(sys.stdout)
+        _switch_console_logger(sys.stdout)
 
 
 def initialize_logger_handlers():
