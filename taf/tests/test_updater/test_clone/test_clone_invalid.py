@@ -1,5 +1,8 @@
+import json
+
 import pytest
 from taf.auth_repo import AuthenticationRepository
+from taf.constants import INFO_JSON_PATH
 from taf.exceptions import UpdateFailedError
 from taf.tests.test_updater.conftest import (
     INVALID_KEYS_PATTERN,
@@ -239,6 +242,33 @@ def test_clone_invalid_disallowing_unauthenticated_commits_with_pending_gap(
     client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
     # make sure that the last validated commit does not exist
     check_if_last_validated_commit_exists(client_auth_repo, True)
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        }
+    ],
+    indirect=True,
+)
+def test_clone_invalid_name_changed_in_unsigned_commit(origin_auth_repo, client_dir):
+    info_json_path = origin_auth_repo.path / INFO_JSON_PATH
+    info_json_path.write_text(json.dumps({"namespace": "other", "name": "auth"}))
+    origin_auth_repo.commit("Change info.json without signing")
+
+    update_invalid_repos_and_check_if_repos_exist(
+        OperationType.CLONE,
+        origin_auth_repo,
+        client_dir,
+        UPDATE_ERROR_PATTERN,
+        expect_partial_update=True,
+        auth_repo_name_exists=False,
+    )
+
+    assert not (client_dir / "other").exists()
+    assert (client_dir / origin_auth_repo.name).is_dir()
 
 
 @pytest.mark.parametrize(

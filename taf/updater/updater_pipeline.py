@@ -969,7 +969,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                         self.state.validation_auth_repo, top_commit_of_validation_repo
                     )
                 )
-                self.auth_path = Path(self.library_dir, self.state.auth_repo_name)
 
             if (
                 self.state.users_auth_repo
