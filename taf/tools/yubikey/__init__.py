@@ -43,6 +43,8 @@ def check_pin_command():
                 is_valid, retries = is_valid_pin(pin, serial=serial)
                 if not is_valid:
                     click.echo(f"Invalid PIN. You have {retries} retries left")
+                    return
+            click.echo("PIN is valid")
         except Exception as e:
             click.echo(f"Error: {e}")
             return

@@ -87,9 +87,11 @@ def _yk_piv_ctrl(serial=None):
     taf_logger.debug(f"Entering _yk_piv_ctrl context manager with serial={serial}")
     sessions = []
     devices_info = []
+    found_serials = []
     try:
         for dev, info in list_all_devices():
             taf_logger.debug(f"Found device with info serial={info.serial}")
+            found_serials.append(info.serial)
             if serial is None or info.serial == serial:
                 connection = dev.open_connection(SmartCardConnection)
                 try:
@@ -102,6 +104,13 @@ def _yk_piv_ctrl(serial=None):
                     connection.close()  # Ensure we close connection on error
                     raise e
         if serial is not None:
+            if not sessions:
+                if not found_serials:
+                    raise YubikeyError("No YubiKeys were detected.")
+                raise YubikeyError(
+                    f"YubiKey with serial number {serial} was not detected. "
+                    f"Detected serial numbers: {', '.join(str(s) for s in found_serials)}"
+                )
             session, serial = sessions[0]
             taf_logger.debug(f"Yielding single session for serial={serial}")
             yield [(session, serial)]
