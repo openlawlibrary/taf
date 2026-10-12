@@ -216,6 +216,7 @@ class Pipeline:
         self.current_step = None
         self.run_mode = run_mode
         self.display_row: Optional[live_display.Row] = None
+        self.step_activities: Dict[Any, str] = {}
 
     @safe_cleanup
     def run(self):
@@ -232,7 +233,9 @@ class Pipeline:
                 ):  # runs method like object
                     self.current_step = step
                     if self.display_row is not None:
-                        self.display_row.set_step(step.__name__)
+                        self.display_row.set_step(
+                            step.__name__, self.step_activities.get(step)
+                        )
                     update_status = step()
                     combined_status = combine_statuses(
                         self.state.update_status, update_status
@@ -485,6 +488,21 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         self.local_repos_consistent = True
         self.repos_synced_with_remote = False
         self.display_row = live_display.add_row(self.display_label)
+        # what a running repository is shown as doing, for the steps that take
+        # noticeable time
+        self.step_activities = {
+            self.clone_auth_to_temp: "cloning",
+            self.clone_or_fetch_users_auth_repo: "fetching",
+            self.clone_target_repositories_to_temp: "cloning",
+            self.get_target_repositories_commits: "fetching",
+            self.run_tuf_updater: "validating",
+            self.validate_last_validated_commit: "validating",
+            self.validate_target_repositories: "validating",
+            self.validate_and_set_additional_commits_of_target_repositories: "validating",
+            self.update_users_target_repositories: "merging",
+            self.merge_commits: "merging",
+            self.merge_auth_commits: "merging",
+        }
 
     def display_label(self) -> str:
         if self.state.auth_repo_name:

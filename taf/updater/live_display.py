@@ -39,23 +39,6 @@ _STATE_STYLES = {
 }
 
 
-# what a running repository is shown as doing, for the pipeline steps that take
-# noticeable time; quicker steps keep showing the previous activity
-_STEP_ACTIVITIES = {
-    "clone_auth_to_temp": "cloning",
-    "clone_or_fetch_users_auth_repo": "fetching",
-    "clone_target_repositories_to_temp": "cloning",
-    "get_target_repositories_commits": "fetching",
-    "run_tuf_updater": "validating",
-    "validate_last_validated_commit": "validating",
-    "validate_target_repositories": "validating",
-    "validate_and_set_additional_commits_of_target_repositories": "validating",
-    "update_users_target_repositories": "merging",
-    "merge_commits": "merging",
-    "merge_auth_commits": "merging",
-}
-
-
 class Row:
     def __init__(self, label: Callable[[], str]):
         self._label = label
@@ -73,9 +56,11 @@ class Row:
         self.state = RowState.RUNNING
         self.start_time = time.monotonic()
 
-    def set_step(self, step_name: str):
+    def set_step(self, step_name: str, activity: Optional[str] = None):
+        """Set the step that is being run. If the step has no activity of its
+        own, the previous activity keeps being shown."""
         self.step = step_name.replace("_", " ")
-        self.activity = _STEP_ACTIVITIES.get(step_name, self.activity)
+        self.activity = activity or self.activity
 
     @property
     def status(self) -> str:
