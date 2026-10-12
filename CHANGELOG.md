@@ -17,8 +17,10 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Use the repository name from the last validated commit when cloning without a path ([817])
 - Check that each target repository's commit is on its branch before resetting ([815])
 
+[817]: https://github.com/openlawlibrary/taf/pull/817
 [815]: https://github.com/openlawlibrary/taf/pull/815
 
 ## [0.41.0]
