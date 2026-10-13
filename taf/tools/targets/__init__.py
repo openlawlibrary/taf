@@ -3,7 +3,7 @@ from pathlib import Path
 import sys
 import click
 from taf.api.targets import (
-    list_targets,
+    print_targets,
     add_target_repo,
     register_target_files,
     remove_target_repo,
@@ -15,7 +15,6 @@ from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import TAFError
 from taf.tools.cli import catch_cli_exception, common_repo_edit_options, find_repository
 from taf.models.types import Commitish
-from taf.log import taf_logger
 from taf.tools.repo import pin_managed
 
 
@@ -224,8 +223,7 @@ def list_targets_command():
         help="Authentication repository's location. If not specified, set to the current directory",
     )
     def list(path):
-        targets_status = list_targets(path)
-        taf_logger.log("NOTICE", json.dumps(targets_status, indent=4))
+        print_targets(path)
 
     return list
 

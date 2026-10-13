@@ -12,13 +12,20 @@ from contextlib import contextmanager
 from enum import Enum
 from typing import Callable, List, Optional
 
-from rich.console import Console, Group, RenderableType
+from rich.console import Group, RenderableType
 from rich.live import Live
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
 import taf.settings as settings
+from taf.display import (
+    STYLE_ATTENTION,
+    STYLE_ERROR,
+    STYLE_INACTIVE,
+    STYLE_OK,
+    default_console,
+)
 from taf.log import console_logging_to
 
 MAX_MESSAGE_LINES = 8
@@ -32,10 +39,10 @@ class RowState(Enum):
 
 
 _STATE_STYLES = {
-    RowState.WAITING: "dim",
-    RowState.RUNNING: "yellow",
-    RowState.ERROR: "red",
-    RowState.COMPLETE: "green",
+    RowState.WAITING: STYLE_INACTIVE,
+    RowState.RUNNING: STYLE_ATTENTION,
+    RowState.ERROR: STYLE_ERROR,
+    RowState.COMPLETE: STYLE_OK,
 }
 
 
@@ -175,7 +182,7 @@ def show(enabled: bool = True):
         return
 
     display = LiveDisplay()
-    console = Console()
+    console = default_console()
     _active = display
     try:
         # entered before Live, so the logger is restored after Live has put

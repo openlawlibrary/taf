@@ -14,7 +14,17 @@ from taf.api.roles import (
 )
 from taf.api.utils._conf import read_keys_name_mapping
 from taf.api.utils._git import check_if_clean_and_synced
+from rich.console import Console
+from rich.text import Text
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME, TARGETS_DIRECTORY_NAME
+from taf.display import (
+    STYLE_ATTENTION,
+    STYLE_OK,
+    default_console,
+    print_properties,
+    up_to_date,
+    yes_no,
+)
 from taf.exceptions import TAFError
 from taf.git import GitRepository
 from taf.messages import git_commit_message
@@ -324,6 +334,77 @@ def list_targets(
             repo_output["something-to-commit"] = repo.something_to_commit()
 
     return output
+
+
+def print_targets_status(
+    targets_status: Dict, console: Optional[Console] = None, depth: int = 0
+) -> None:
+    """
+    Prints the target repositories of an authentication repository and their states.
+
+    Arguments:
+        targets_status: States of the target repositories, as returned by `list_targets`.
+        console (optional): Where to print. The terminal by default.
+        depth (optional): How far to indent what is printed.
+
+    Side Effects:
+       None
+
+    Returns:
+        None
+    """
+    console = console or default_console()
+    for name, status in targets_status.items():
+        properties = [("Cloned", yes_no(status.get("cloned"), ok_when=True))]
+        if status.get("cloned"):
+            unsigned_branches = status.get("unsigned") or []
+            if unsigned_branches:
+                unsigned = Text(", ".join(unsigned_branches), style=STYLE_ATTENTION)
+            else:
+                unsigned = Text("no", style=STYLE_OK)
+            properties += [
+                ("Bare", yes_no(status.get("bare"))),
+                ("Up to date", up_to_date(status)),
+                ("Unsigned commits", unsigned),
+                (
+                    "Uncommitted changes",
+                    yes_no(status.get("something-to-commit"), ok_when=False),
+                ),
+            ]
+        properties.append(
+            (
+                "Unauthenticated commits",
+                Text(
+                    "allowed"
+                    if status.get("unauthenticated-allowed")
+                    else "not allowed"
+                ),
+            )
+        )
+        print_properties(console, "Target repository", name, properties, depth)
+
+
+def print_targets(path: str, console: Optional[Console] = None) -> None:
+    """
+    Prints the target repositories of an authentication repository and their states
+    (see `list_targets`).
+
+    Arguments:
+        path: Authentication repository's location
+        console (optional): Where to print. The terminal by default.
+
+    Side Effects:
+       None
+
+    Returns:
+        None
+    """
+    console = console or default_console()
+    targets_status = list_targets(path)
+    if not targets_status:
+        console.print("No target repositories")
+        return
+    print_targets_status(targets_status, console)
 
 
 @log_on_start(INFO, "Signing target files", logger=taf_logger)
