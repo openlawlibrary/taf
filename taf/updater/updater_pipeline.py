@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Optional
 from attr import attrs, define, field
 
 from taf.api.repository import reset_repository
+from taf.updater import live_display
 from taf.git import GitError
 from taf.git import GitRepository
 from taf.git import _default_branch_cache
@@ -214,11 +215,15 @@ class Pipeline:
         self.steps = steps
         self.current_step = None
         self.run_mode = run_mode
+        self.display_row: Optional[live_display.Row] = None
+        self.step_activities: Dict[Any, str] = {}
 
     @safe_cleanup
     def run(self):
         self.state.errors = []
         self.state.warnings = []
+        if self.display_row is not None:
+            self.display_row.start()
         for step, step_run_mode, should_run_fn in self.steps:
             try:
                 if (
@@ -227,6 +232,10 @@ class Pipeline:
                     should_run_fn()
                 ):  # runs method like object
                     self.current_step = step
+                    if self.display_row is not None:
+                        self.display_row.set_step(
+                            step.__name__, self.step_activities.get(step)
+                        )
                     update_status = step()
                     combined_status = combine_statuses(
                         self.state.update_status, update_status
@@ -242,7 +251,13 @@ class Pipeline:
                 break
             except KeyboardInterrupt as e:
                 self.handle_error(e)
+                if self.display_row is not None:
+                    self.display_row.finish(failed=True)
                 raise
+        if self.display_row is not None:
+            self.display_row.finish(
+                failed=self.state.event == Event.FAILED or bool(self.state.errors)
+            )
 
     def handle_error(self, e):
         self.state.event = Event.FAILED
@@ -471,6 +486,29 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         self._output = None
         self.local_repos_consistent = True
         self.repos_synced_with_remote = False
+        self.display_row = live_display.add_row(self.display_label)
+        # what a running repository is shown as doing, for the steps that take
+        # noticeable time
+        self.step_activities = {
+            self.clone_auth_to_temp: "cloning",
+            self.clone_or_fetch_users_auth_repo: "fetching",
+            self.clone_target_repositories_to_temp: "cloning",
+            self.get_target_repositories_commits: "fetching",
+            self.run_tuf_updater: "validating",
+            self.validate_last_validated_commit: "validating",
+            self.validate_target_repositories: "validating",
+            self.validate_and_set_additional_commits_of_target_repositories: "validating",
+            self.update_users_target_repositories: "merging",
+            self.merge_commits: "merging",
+            self.merge_auth_commits: "merging",
+        }
+
+    def display_label(self) -> str:
+        if self.state.auth_repo_name:
+            return self.state.auth_repo_name
+        if self.auth_path:
+            return f"{self.auth_path.parent.name}/{self.auth_path.name}"
+        return str(self.urls[0])
 
     @property
     def output(self):

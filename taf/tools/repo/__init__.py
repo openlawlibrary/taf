@@ -9,6 +9,7 @@ from taf.auth_repo import AuthenticationRepository
 from taf.exceptions import TAFError, UpdateFailedError
 from taf.log import initialize_logger_handlers, taf_logger
 from taf.tools.cli import catch_cli_exception, find_repository
+from taf.updater import live_display
 from taf.updater.types.update import UpdateType
 from taf.updater.updater import (
     OperationType,
@@ -61,10 +62,11 @@ def _call_updater(config, format_output, result_file):
     A helper function which calls update or clone repository
     """
     try:
-        if config.operation == OperationType.CLONE:
-            updater_output = clone_repository(config)
-        else:
-            updater_output = update_repository(config)
+        with live_display.show(enabled=not format_output and sys.stdout.isatty()):
+            if config.operation == OperationType.CLONE:
+                updater_output = clone_repository(config)
+            else:
+                updater_output = update_repository(config)
 
         if result_file:
             result_file_path = Path(result_file)
@@ -561,17 +563,18 @@ def validate_repo_command():
         bare = auth_repo.is_bare_repository
         if from_latest:
             from_commit = auth_repo.last_validated_commit
-        validate_repository(
-            path,
-            library_dir,
-            from_commit,
-            exclude_filter,
-            strict,
-            bare,
-            no_targets,
-            no_deps,
-            not upstream,
-        )
+        with live_display.show(enabled=sys.stdout.isatty()):
+            validate_repository(
+                path,
+                library_dir,
+                from_commit,
+                exclude_filter,
+                strict,
+                bare,
+                no_targets,
+                no_deps,
+                not upstream,
+            )
 
     return validate
 

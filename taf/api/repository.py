@@ -1,7 +1,6 @@
-import json
 from logging import ERROR, INFO
 import shutil
-from typing import Optional, Dict
+from typing import Dict, Iterator, Optional, Tuple
 import click
 from logdecorator import log_on_end, log_on_error, log_on_start
 from taf.git import GitRepository
@@ -13,9 +12,16 @@ from pathlib import Path
 from taf.api.roles import (
     initialize_roles_and_keystore,
 )
-from taf.api.targets import list_targets, register_target_files
+from rich.console import Console
+from rich.text import Text
+from taf.api.targets import (
+    list_targets,
+    print_targets_status,
+    register_target_files,
+)
 
 from taf.auth_repo import AuthenticationRepository
+from taf.display import default_console, print_properties, up_to_date, yes_no
 from taf.exceptions import TAFError, ResetFailedError
 from taf.keys import load_sorted_keys_of_new_roles
 import taf.repositoriesdb as repositoriesdb
@@ -149,15 +155,69 @@ def _check_if_can_create_repository(path: Path) -> bool:
     return True
 
 
-def taf_status(path: str, library_dir: Optional[str] = None, indent: int = 0) -> None:
+def get_status(path: str, library_dir: Optional[str] = None) -> Optional[Dict]:
     """
-    Prints a list of target repositories of an authentication repository, their states,
-    and the dependencies of the authentication repository.
+    Returns the state of an authentication repository, of its target repositories
+    and of its dependencies.
 
     Arguments:
         path: Authentication repository's location
         library_dir (optional): Path to the library's root directory. Determined based on the authentication repository's path if not provided.
-        indent (optional): Indentation level for nested dependencies.
+
+    Side Effects:
+       None
+
+    Returns:
+        A dictionary containing the repository's name, path and state, the states of its
+        target repositories (see `list_targets`) and a list of the same dictionaries for
+        its dependencies. None if the repository is empty.
+    """
+    auth_repo = AuthenticationRepository(path=path)
+    head_commit = auth_repo.head_commit()
+    if head_commit is None:
+        return None
+
+    has_remote = auth_repo.has_remote()
+    status: Dict = {
+        "name": auth_repo.name,
+        "path": str(auth_repo.path.resolve()),
+        "head-commit": str(head_commit),
+        "bare": auth_repo.is_bare_repository,
+        "has-remote": has_remote,
+        "up-to-date": auth_repo.synced_with_remote() if has_remote else None,
+        "something-to-commit": auth_repo.something_to_commit(),
+        "targets": dict(list_targets(path=path)),
+        "dependencies": [],
+    }
+
+    repositoriesdb.load_dependencies(auth_repo, library_dir=library_dir)
+    dependencies = repositoriesdb.get_auth_repositories(auth_repo, head_commit)
+    for dep_repo in dependencies.values():
+        dependency_status = get_status(str(dep_repo.path), library_dir)
+        if dependency_status is not None:
+            status["dependencies"].append(dependency_status)
+    return status
+
+
+def _with_dependencies(status: Dict, depth: int = 0) -> Iterator[Tuple[Dict, int]]:
+    """Go through the status of a repository and of all of its dependencies,
+    each followed by its own dependencies, together with how deeply it is nested."""
+    yield status, depth
+    for dependency_status in status["dependencies"]:
+        yield from _with_dependencies(dependency_status, depth + 1)
+
+
+def taf_status(
+    path: str, library_dir: Optional[str] = None, console: Optional[Console] = None
+) -> None:
+    """
+    Prints the state of an authentication repository and of its target repositories,
+    followed by the same for each of its dependencies.
+
+    Arguments:
+        path: Authentication repository's location
+        library_dir (optional): Path to the library's root directory. Determined based on the authentication repository's path if not provided.
+        console (optional): Where to print. The terminal by default.
 
     Side Effects:
        None
@@ -165,33 +225,29 @@ def taf_status(path: str, library_dir: Optional[str] = None, indent: int = 0) ->
     Returns:
         None
     """
-    # Get the authentication repository status
-    print()
-    auth_repo = AuthenticationRepository(path=path)
-    head_commit = auth_repo.head_commit()
-    if head_commit is None:
-        print("Repository is empty")
+    console = console or default_console()
+    status = get_status(path, library_dir)
+    if status is None:
+        console.print("Repository is empty")
         return
-
-    # Print authentication repository status
-    indent_str = " " * indent
-    print(f"{indent_str}Authentication Repository: {auth_repo.path.resolve()}")
-    print(f"{indent_str}Head Commit: {head_commit}")
-    print(f"{indent_str}Bare: {auth_repo.is_bare_repository}")
-    print(f"{indent_str}Up to Date: {auth_repo.synced_with_remote()}")
-    print(f"{indent_str}Something to commit: {auth_repo.something_to_commit()}")
-    print(f"{indent_str}Target Repositories Status:")
-    # Call the list_targets function
-    print(json.dumps(list_targets(path=path), indent=1))
-
-    # Load dependencies using repositoriesdb.get_auth_repositories
-    repositoriesdb.load_dependencies(auth_repo, library_dir=library_dir)
-    dependencies = repositoriesdb.get_auth_repositories(auth_repo, head_commit)
-    if dependencies:
-        print(f"{indent_str}Dependencies:")
-        for dep_repo in dependencies.values():
-            print(f"{indent_str}- {dep_repo.name}")
-            taf_status(str(dep_repo.path), library_dir, indent + 3)
+    for repo_status, depth in _with_dependencies(status):
+        print_properties(
+            console,
+            "Authentication repository",
+            repo_status["name"],
+            [
+                ("Path", Text(repo_status["path"])),
+                ("Head commit", Text(repo_status["head-commit"])),
+                ("Bare", yes_no(repo_status["bare"])),
+                ("Up to date", up_to_date(repo_status)),
+                (
+                    "Uncommitted changes",
+                    yes_no(repo_status["something-to-commit"], ok_when=False),
+                ),
+            ],
+            depth,
+        )
+        print_targets_status(repo_status["targets"], console, depth + 1)
 
 
 def reset_repository(
