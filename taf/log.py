@@ -4,6 +4,7 @@ import time
 import logging
 import zipfile
 import datetime
+from contextlib import contextmanager
 from typing import Dict, Optional, TextIO, Union
 from pathlib import Path
 
@@ -207,6 +208,35 @@ def _add_file_logger(key: str, path: str, level) -> None:
     file_loggers[key] = taf_logger.add(sink, format=_FILE_FORMAT_STRING, level=level)
 
 
+def _add_console_logger(sink, **kwargs):
+    console_loggers["log"] = taf_logger.add(
+        sink, format=formatter, level=VERBOSITY_LEVELS[settings.VERBOSITY], **kwargs
+    )
+
+
+def _switch_console_logger(sink, **kwargs):
+    """Point console logging at `sink`. loguru can't change where an existing
+    handler writes, so the console handler is replaced."""
+    taf_logger.remove(console_loggers.pop("log"))
+    _add_console_logger(sink, **kwargs)
+
+
+@contextmanager
+def console_logging_to(write):
+    """Send console log output to `write` for the duration of the block, keeping
+    its colors, then switch back to stdout."""
+    try:
+        _switch_console_logger(write, colorize=True)
+    except (KeyError, ValueError):
+        # console logging is off (never enabled, or disable_console_logging was called)
+        yield
+        return
+    try:
+        yield
+    finally:
+        _switch_console_logger(sys.stdout)
+
+
 def initialize_logger_handlers():
     taf_logger.remove()
     # python-tuf logs things like "No signature for keyid ..." at INFO level
@@ -218,9 +248,7 @@ def initialize_logger_handlers():
         logging.DEBUG if settings.VERBOSITY >= 2 else logging.WARNING
     )
     if settings.ENABLE_CONSOLE_LOGGING:
-        console_loggers["log"] = taf_logger.add(
-            sys.stdout, format=formatter, level=VERBOSITY_LEVELS[settings.VERBOSITY]
-        )
+        _add_console_logger(sys.stdout)
 
     if settings.ENABLE_FILE_LOGGING:
         log_location = _get_log_location()

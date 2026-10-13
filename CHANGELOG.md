@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- Print a confirmation when `taf yubikey check-pin` finds the PIN valid ([818])
 - Warn when `exclude_filter` is passed to an update instead of just ignoring it ([815])
 
 ### Removed
@@ -25,8 +26,12 @@ and this project adheres to [Semantic Versioning][semver].
 - Fix outdated keys-description examples in the help of `repo create`, `keystore generate` and `roles add-multiple` ([819])
 - Use the repository name from the last validated commit when cloning without a path ([817])
 - Check that each target repository's commit is on its branch before resetting ([815])
+- Show a useful error instead of an indexing error when a YubiKey serial number is given but no matching YubiKey is detected ([818])
+- Use the repository name from the last validated commit when cloning without a path ([817])
+- Check that each target repository's commit is on its branch before resetting ([815])
 
 [819]: https://github.com/openlawlibrary/taf/pull/819
+[818]: https://github.com/openlawlibrary/taf/pull/818
 [817]: https://github.com/openlawlibrary/taf/pull/817
 [815]: https://github.com/openlawlibrary/taf/pull/815
 
@@ -34,6 +39,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Show live progress of each repository in the terminal during `taf repo clone`, `update` and `validate` ([816])
 - Add test coverage for signing with role keys outside the YubiKey SIGNATURE slot ([811])
 - Add test coverage for `GitRepository` methods that had none ([808])
 - Gracefully handle SIGINT/SIGTERM during an update, running cleanup instead of leaving temp state behind ([769])
@@ -80,6 +86,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Surface the underlying git error when a clone fails, instead of hiding it behind a generic access message ([762])
 - Correct the clone access error that rendered as "Cannot None ..." and stop misattributing a local failure to an access/authentication problem ([762])
 
+[816]: https://github.com/openlawlibrary/taf/pull/816
 [811]: https://github.com/openlawlibrary/taf/pull/811
 [810]: https://github.com/openlawlibrary/taf/pull/810
 [808]: https://github.com/openlawlibrary/taf/pull/808
