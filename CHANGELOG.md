@@ -24,8 +24,6 @@ and this project adheres to [Semantic Versioning][semver].
 
 - Fix adding multiple roles from a config file when the parent of a new role is defined in the same file or when `parent_role` is not specified ([819])
 - Fix outdated keys-description examples in the help of `repo create`, `keystore generate` and `roles add-multiple` ([819])
-- Use the repository name from the last validated commit when cloning without a path ([817])
-- Check that each target repository's commit is on its branch before resetting ([815])
 - Show a useful error instead of an indexing error when a YubiKey serial number is given but no matching YubiKey is detected ([818])
 - Use the repository name from the last validated commit when cloning without a path ([817])
 - Check that each target repository's commit is on its branch before resetting ([815])
