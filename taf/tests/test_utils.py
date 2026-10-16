@@ -3,11 +3,13 @@ import os
 import pytest
 from pathlib import Path
 
+import taf.utils as taf_utils
 from taf.utils import (
     TempPartition,
     _background_cleanup_threads,
     format_command_args,
     normalize_line_endings,
+    patch_os_replace_with_windows_retry,
     safely_save_json_to_disk,
     safely_move_file,
 )
@@ -26,6 +28,64 @@ def test_format_command_args_drops_empty_args():
 def test_format_command_args_fills_multiple_placeholders_in_one_token():
     tokens = format_command_args("update-ref refs/heads/{}/{} {}", "a", "b", "c")
     assert tokens == ["update-ref", "refs/heads/a/b", "c"]
+
+
+@pytest.fixture
+def windows(monkeypatch):
+    monkeypatch.setattr(taf_utils.platform, "system", lambda: "Windows")
+    monkeypatch.setattr(taf_utils, "_os_replace_patched", False)
+
+
+def _counting_replace(fail_times):
+    calls = {"n": 0}
+
+    def replace(src, dst, *args, **kwargs):
+        calls["n"] += 1
+        if calls["n"] <= fail_times:
+            raise PermissionError
+        return "ok"
+
+    return replace, calls
+
+
+def test_patch_os_replace_with_windows_retry_is_noop_off_windows(monkeypatch):
+    monkeypatch.setattr(taf_utils.platform, "system", lambda: "Linux")
+    original = os.replace
+
+    patch_os_replace_with_windows_retry()
+
+    assert os.replace is original
+
+
+def test_patch_os_replace_with_windows_retry_retries_transient_failure(
+    windows, monkeypatch
+):
+    replace, calls = _counting_replace(fail_times=2)
+    monkeypatch.setattr(os, "replace", replace)
+    patch_os_replace_with_windows_retry(retries=5, delay=0)
+
+    assert os.replace("a", "b") == "ok"
+    assert calls["n"] == 3
+
+
+def test_patch_os_replace_with_windows_retry_reraises_persistent_failure(
+    windows, monkeypatch
+):
+    replace, calls = _counting_replace(fail_times=float("inf"))
+    monkeypatch.setattr(os, "replace", replace)
+    patch_os_replace_with_windows_retry(retries=3, delay=0)
+
+    with pytest.raises(PermissionError):
+        os.replace("a", "b")
+    assert calls["n"] == 3
+
+
+def test_patch_os_replace_with_windows_retry_is_idempotent(windows):
+    patch_os_replace_with_windows_retry()
+    wrapped = os.replace
+    patch_os_replace_with_windows_retry()
+
+    assert os.replace is wrapped
 
 
 def test_normalize_line_ending_extra_lines():
