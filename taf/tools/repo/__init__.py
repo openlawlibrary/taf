@@ -161,7 +161,6 @@ def create_repo_command():
                 "root": {
                     "number": 3,
                     "length": 2048,
-                    "passwords": ["password1", "password2", "password3"],
                     "threshold": 2,
                     "yubikey": true
                 },
