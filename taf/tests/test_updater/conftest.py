@@ -28,6 +28,7 @@ from taf.log import disable_console_logging
 from taf.tests.test_updater.update_utils import load_target_repositories
 from taf.api.roles import add_roles
 from taf.api.targets import (
+    _save_top_commit_of_repo_to_target,
     add_target_repo,
     register_target_files,
     update_target_repos_from_repositories_json,
@@ -1013,6 +1014,17 @@ def update_target_repository(
 
     if commit_message is not None:
         target_repo.commit(commit_message)
+
+
+def point_target_to_unsigned_commit(
+    auth_repo: AuthenticationRepository, target_repos: list, target_name: str
+):
+    for target_repo in target_repos:
+        if target_name in target_repo.name:
+            _save_top_commit_of_repo_to_target(
+                target_repo.library_dir, target_repo.name, auth_repo.path
+            )
+    auth_repo.commit("Point target to unsigned commit")
 
 
 def remove_commits(

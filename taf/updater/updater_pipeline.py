@@ -26,6 +26,7 @@ from taf.exceptions import (
     MultipleRepositoriesNotCleanError,
     ResetFailedError,
 )
+from taf.updater.git_trusted_metadata_set import GitTrustedMetadataSet
 from taf.updater.handlers import GitUpdater
 from taf.updater.lifecycle_handlers import Event
 from taf.updater.types.update import OperationType, UpdateType
@@ -2639,13 +2640,18 @@ def _run_tuf_updater(git_fetcher, auth_repo_name):
     last_validated_commit = None
     try:
         while not git_fetcher.update_done():
-            updater = _init_updater()
-            current_commit = _update_tuf_current_revision(
-                git_fetcher, updater, auth_repo_name
-            )
-            del updater
-            if current_commit is not None:
-                last_validated_commit = current_commit
+            current_commit = None
+            while current_commit is None:
+                updater = _init_updater()
+                current_commit = _update_tuf_current_revision(
+                    git_fetcher, updater, auth_repo_name
+                )
+                del updater
+                if current_commit is None:
+                    # metadata expired and TUF stopped before validating the rest
+                    # of the commit, so validate it again without checking expiration
+                    git_fetcher._patch_tuf_metadata_set(GitTrustedMetadataSet)
+            last_validated_commit = current_commit
     except UpdateFailedError as e:
         return last_validated_commit, e
 
@@ -2657,6 +2663,13 @@ def _update_tuf_current_revision(git_fetcher, updater, auth_repo_name):
     try:
         auth_repo_name = auth_repo_name or ""
         updater.refresh()
+        # TUF only loads the delegated roles it needs to find a target file
+        validation_auth_repo = git_fetcher.validation_auth_repo
+        with validation_auth_repo.repository_at_revision(current_commit):
+            for role in validation_auth_repo.get_all_targets_roles():
+                updater._load_targets(
+                    role, validation_auth_repo.find_delegated_roles_parent(role)
+                )
         taf_logger.debug(
             f"{auth_repo_name}: Validated metadata files at revision {current_commit}"
         )
@@ -2674,8 +2687,7 @@ def _update_tuf_current_revision(git_fetcher, updater, auth_repo_name):
             taf_logger.debug(
                 f"{auth_repo_name}: Successfully validated target file {target_filepath} at {current_commit}"
             )
-        if settings.strict:
-            _validate_metadata_on_disk(git_fetcher)
+        _validate_metadata_on_disk(git_fetcher)
         return current_commit
     except Exception as e:
         metadata_expired = EXPIRED_METADATA_ERROR in type(
@@ -2734,16 +2746,7 @@ def _validate_metadata_on_disk(git_fetcher):
             git_fetcher._metadata_store_key(metadata_file_name)
         )
         if tuf_metadata_content is None:
-            # this validation causes an issue with one of the first
-            # commits of our production repositories and it should
-            # not be enabled until we specify a later commit of those
-            # repositories as the initial valid ones
-            # this error happens when a metadata file is added, but
-            # snapshot is not updated
-            # raise UpdateFailedError(
-            #     f"Invalid metadata file {metadata_file_name}"
-            # )
-            continue
+            raise UpdateFailedError(f"Invalid metadata file {metadata_file_name}")
         metadata_content = git_fetcher.get_current_metadata_data(
             metadata_file_name, raw=True
         )
