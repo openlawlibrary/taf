@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- Check that each commit's metadata files are the ones TUF validated without requiring `--strict` ([821])
 - Print a confirmation when `taf yubikey check-pin` finds the PIN valid ([818])
 - Warn when `exclude_filter` is passed to an update instead of just ignoring it ([815])
 
@@ -18,10 +19,12 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Validate delegated roles that have no target files yet, and the rest of the newest commit when its metadata has expired ([821])
 - Show a useful error instead of an indexing error when a YubiKey serial number is given but no matching YubiKey is detected ([818])
 - Use the repository name from the last validated commit when cloning without a path ([817])
 - Check that each target repository's commit is on its branch before resetting ([815])
 
+[821]: https://github.com/openlawlibrary/taf/pull/821
 [818]: https://github.com/openlawlibrary/taf/pull/818
 [817]: https://github.com/openlawlibrary/taf/pull/817
 [815]: https://github.com/openlawlibrary/taf/pull/815
