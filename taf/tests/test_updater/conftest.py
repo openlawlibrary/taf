@@ -960,8 +960,10 @@ def update_target_repo_without_committing(target_repos: list, target_name: str):
 def update_timestamp_metadata_invalid_signature(
     auth_repo: AuthenticationRepository,
 ):
+    update_metadata_invalid_signature(auth_repo, Timestamp.type)
 
-    role = Timestamp.type
+
+def update_metadata_invalid_signature(auth_repo: AuthenticationRepository, role: str):
     with manage_repo_and_signers(
         auth_repo,
         [role],

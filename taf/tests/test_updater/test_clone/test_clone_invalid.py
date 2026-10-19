@@ -6,6 +6,7 @@ from taf.constants import INFO_JSON_PATH
 from taf.exceptions import UpdateFailedError
 from taf.tests.test_updater.conftest import (
     INVALID_KEYS_PATTERN,
+    INVALID_METADATA_PATTERN,
     METADATA_EXPIRED,
     NO_INFO_JSON,
     TARGET_COMMIT_AFTER_LAST_VALIDATED_PATTERN,
@@ -24,6 +25,7 @@ from taf.tests.test_updater.conftest import (
     point_target_to_unsigned_commit,
     set_allow_unauthenticated_commits,
     swap_last_two_commits,
+    update_metadata_invalid_signature,
     update_expiration_dates,
     update_role_metadata_without_signing,
     update_timestamp_metadata_invalid_signature,
@@ -335,6 +337,37 @@ def test_clone_invalid_name_changed_in_unsigned_commit(origin_auth_repo, client_
 
     assert not (client_dir / "other").exists()
     assert (client_dir / origin_auth_repo.name).is_dir()
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        }
+    ],
+    indirect=True,
+)
+def test_clone_invalid_snapshot_changed_without_updating_timestamp(
+    origin_auth_repo, client_dir
+):
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(
+        update_metadata_invalid_signature, kwargs={"role": "snapshot"}
+    )
+    setup_manager.execute_tasks()
+
+    update_invalid_repos_and_check_if_repos_exist(
+        OperationType.CLONE,
+        origin_auth_repo,
+        client_dir,
+        INVALID_METADATA_PATTERN,
+        True,
+    )
+    client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
+    assert (
+        client_auth_repo.last_validated_commit != origin_auth_repo.head_commit().value
+    )
 
 
 @pytest.mark.parametrize(
