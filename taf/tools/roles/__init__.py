@@ -26,13 +26,14 @@ def add_roles_command():
 
     Configuration file (JSON) can specify:
     - 'parent_role' (string): The parent role under which the new role will be delegated. Default is 'targets'.
-    - 'delegated_path' (array of strings): Paths to be delegated to the new role. Must specify at least one if using a config file.
-    - 'keys_number' (integer): Number of signing keys. Default is 1.
+    - 'paths' (array of strings): Paths to be delegated to the new role. Must specify at least one if using a config file.
+    - 'number' (integer): Number of signing keys. Default is 1.
     - 'threshold' (integer): Number of keys required to sign. Default is 1.
     - 'yubikey' (boolean): Whether to use a YubiKey for signing. Default is false.
     - 'scheme' (string): Signature scheme, e.g., 'rsa-pkcs1v15-sha256'. Default is 'rsa-pkcs1v15-sha256'.
+    - 'yubikeys' (array of strings): Names of the YubiKeys used for signing, defined in the 'yubikeys' section.
 
-    The structure of the configuration file is the very similar tohe structure of the one use when creating the repository,
+    The structure of the configuration file is very similar to the structure of the one used when creating the repository,
     but does not have to contain all roles, just the ones that should be added. If roles that already
     exist are also defined, they will be skipped. If the role's parent is not the main targets role,
     it's necessary to specify it using the "parent_role" option
@@ -41,7 +42,7 @@ def add_roles_command():
     {
     "yubikeys": {
         "user1": {
-        "public": "<public_key>",
+        "public": "-----BEGIN PUBLIC KEY-----...",
         "scheme": "rsa-pkcs1v15-sha256",
         "present": false
         },
@@ -50,11 +51,11 @@ def add_roles_command():
         }
     },
     "roles": {
-        "<role name>": {
+        "delegated_role": {
         "parent_role": "targets",
         "paths": [
-            "</delegated_path_inside_targets1>",
-            "</delegated_path_inside_targets2>"
+            "delegated_path_inside_targets1/*",
+            "delegated_path_inside_targets2/*"
         ],
         "number": 2,
         "threshold": 1,
