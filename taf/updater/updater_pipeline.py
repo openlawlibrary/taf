@@ -2654,6 +2654,10 @@ def _run_tuf_updater(git_fetcher, auth_repo_name):
             last_validated_commit = current_commit
     except UpdateFailedError as e:
         return last_validated_commit, e
+    finally:
+        git_fetcher._patch_tuf_metadata_set(
+            git_fetcher._original_tuf_trusted_metadata_set
+        )
 
     return last_validated_commit, None
 
