@@ -632,6 +632,7 @@ class MetadataRepository(Repository):
             parent = role.parent.name
             parent_obj = target_roles.get(parent)
             for signer in signers[role.name]:
+                key_id = _get_legacy_keyid(signer.public_key)
                 self.signer_cache[role.name][key_id] = signer
             delegated_role = DelegatedRole(
                 name=role.name,
