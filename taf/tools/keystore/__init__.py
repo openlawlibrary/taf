@@ -7,7 +7,7 @@ from taf.tools.cli import catch_cli_exception
 def generate_keys_command():
     @click.command(
         help="""Generate keystore files and save them to the specified location given a dictionary containing
-        information about each role - total number of keys, their lengths and keystore files' passwords.
+        information about each role - total number of keys, their lengths and thresholds.
         It is necessary to either directly specify this dictionary when calling this command or
         to provide a path to a `.json` file which contains the needed information.
 
@@ -18,7 +18,6 @@ def generate_keys_command():
                 "root": {
                     "number": 3,
                     "length": 2048,
-                    "passwords": ["password1", "password2", "password3"],
                     "threshold": 2
                 },
                 "targets": {
@@ -27,10 +26,11 @@ def generate_keys_command():
                 "snapshot": {},
                 "timestamp": {}
             },
-            "keystore: keystore-location
+            "keystore": "keystore_path"
         }
 
-        Default number of keys and threshold are 1, length 3072 and password is an empty string.
+        Default number of keys and threshold are 1 and length is 3072. Passwords of the keystore
+        files are entered when the keys are generated.
         If keystore location is specified through the keystore input parameter and not listed
         in keys-description dictionary, keys will be saved to ./keystore"""
     )

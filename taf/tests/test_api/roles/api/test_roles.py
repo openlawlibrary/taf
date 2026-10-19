@@ -128,6 +128,53 @@ def test_add_multiple_roles(
     assert auth_repo.find_delegated_roles_parent("delegated_role") == "targets"
 
 
+def test_add_multiple_roles_when_parent_is_not_specified(
+    auth_repo: AuthenticationRepository,
+    pin_manager: PinManager,
+    roles_keystore: str,
+):
+    add_roles(
+        path=str(auth_repo.path),
+        pin_manager=pin_manager,
+        keystore=roles_keystore,
+        roles_key_infos={"roles": {"new_role": {"paths": ["new-path"]}}},
+        push=False,
+    )
+    assert "new_role" in auth_repo.get_all_targets_roles()
+    assert auth_repo.find_delegated_roles_parent("new_role") == "targets"
+
+
+def test_add_multiple_roles_when_parent_is_a_new_role(
+    auth_repo: AuthenticationRepository,
+    pin_manager: PinManager,
+    roles_keystore: str,
+):
+    # the parent of a new role can be another role defined in the same
+    # description, even if it is listed after it
+    initial_commits_num = len(auth_repo.list_pygit_commits())
+    add_roles(
+        path=str(auth_repo.path),
+        pin_manager=pin_manager,
+        keystore=roles_keystore,
+        roles_key_infos={
+            "roles": {
+                "new_inner_role": {
+                    "parent_role": "new_role",
+                    "paths": ["new-path/inner"],
+                },
+                "new_role": {"parent_role": "targets", "paths": ["new-path"]},
+            }
+        },
+        push=False,
+    )
+    assert len(auth_repo.list_pygit_commits()) == initial_commits_num + 1
+    target_roles = auth_repo.get_all_targets_roles()
+    assert "new_role" in target_roles
+    assert "new_inner_role" in target_roles
+    assert auth_repo.find_delegated_roles_parent("new_role") == "targets"
+    assert auth_repo.find_delegated_roles_parent("new_inner_role") == "new_role"
+
+
 def test_add_role_paths(
     auth_repo_with_delegations: AuthenticationRepository,
     roles_keystore: str,

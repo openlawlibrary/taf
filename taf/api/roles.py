@@ -1,6 +1,7 @@
 from logging import DEBUG, ERROR
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple
 import click
+import copy
 from collections import defaultdict
 import json
 from pathlib import Path
@@ -728,14 +729,44 @@ def _read_val(input_type, name, param=None, required=False):
             pass
 
 
-def _transform_roles_dict(data: dict, auth_repo: AuthenticationRepository):
+def _transform_roles_dict(data: dict, key_names: Iterable[str]):
     """
     Transforms simplified role data into a structured format consistent with keys_store_description.
     It facilitates easier additions of new roles by allowing input data to be simplified.
-    """
-    key_names = auth_repo.keys_name_mappings.values()
+    key_names are the names of the keys that the repository already knows about.
 
-    transformed_data = data.copy()
+    Each role is placed under its parent. If parent_role is not specified, the parent is targets:
+
+    >>> transformed = _transform_roles_dict(
+    ...     {"roles": {"new_role": {"paths": ["dir1/*"]}}}, key_names=[]
+    ... )
+    >>> transformed["roles"]["targets"]
+    {'delegations': {'new_role': {'paths': ['dir1/*']}}}
+
+    The parent can be another new role, regardless of the order in which they are listed:
+
+    >>> transformed = _transform_roles_dict(
+    ...     {
+    ...         "roles": {
+    ...             "inner_role": {"parent_role": "new_role", "paths": ["dir1/inner/*"]},
+    ...             "new_role": {"parent_role": "targets", "paths": ["dir1/*"]},
+    ...         }
+    ...     },
+    ...     key_names=[],
+    ... )
+    >>> transformed["roles"]["targets"]
+    {'delegations': {'new_role': {'paths': ['dir1/*'], 'delegations': {'inner_role': {'paths': ['dir1/inner/*']}}}}}
+
+    Or a role which already exists in the repository:
+
+    >>> transformed = _transform_roles_dict(
+    ...     {"roles": {"inner_role": {"parent_role": "existing_role", "paths": ["dir1/*"]}}},
+    ...     key_names=[],
+    ... )
+    >>> transformed["roles"]["targets"]
+    {'delegations': {'existing_role': {'delegations': {'inner_role': {'paths': ['dir1/*']}}}}}
+    """
+    transformed_data = copy.deepcopy(data)
 
     yubikeys_data = transformed_data.get("yubikeys", {})
     for key_name in key_names:
@@ -745,23 +776,27 @@ def _transform_roles_dict(data: dict, auth_repo: AuthenticationRepository):
     transformed_roles: Dict = {"root": {}, "snapshot": {}, "timestamp": {}}
 
     if "roles" in data:
-        for role_name, role_data in data["roles"].items():
-            parent_role = role_data.pop("parent_role")
+        new_roles = transformed_data["roles"]
+        targets_delegations: Dict = {}
+        transformed_roles["targets"] = {"delegations": targets_delegations}
+        parent_roles = {
+            role_name: role_data.pop("parent_role", "targets")
+            for role_name, role_data in new_roles.items()
+        }
 
+        for role_name, role_data in new_roles.items():
+            parent_role = parent_roles[role_name]
             if parent_role == "targets":
-                if "targets" not in transformed_roles:
-                    transformed_roles["targets"] = {"delegations": {}}
-                transformed_roles["targets"]["delegations"][role_name] = role_data
+                targets_delegations[role_name] = role_data
+            elif parent_role in new_roles:
+                parent_data = new_roles[parent_role]
+                parent_data.setdefault("delegations", {})[role_name] = role_data
             else:
-                if "targets" not in transformed_roles:
-                    transformed_roles["targets"] = {"delegations": {}}
-                if parent_role not in transformed_roles["targets"]["delegations"]:
-                    transformed_roles["targets"]["delegations"][parent_role] = {
-                        "delegations": {}
-                    }
-                transformed_roles["targets"]["delegations"][parent_role]["delegations"][
-                    role_name
-                ] = role_data
+                # the parent is a role which already exists in the repository
+                parent_data = targets_delegations.setdefault(
+                    parent_role, {"delegations": {}}
+                )
+                parent_data["delegations"][role_name] = role_data
 
         transformed_data["roles"] = transformed_roles
 
@@ -780,7 +815,9 @@ def _initialize_roles_and_keystore_for_existing_repo(
     if not roles_key_infos_dict and enter_info:
         roles_key_infos_dict = _enter_roles_infos(None, roles_key_infos)
     elif roles_key_infos_dict:
-        roles_key_infos_dict = _transform_roles_dict(roles_key_infos_dict, auth_repo)
+        roles_key_infos_dict = _transform_roles_dict(
+            roles_key_infos_dict, auth_repo.keys_name_mappings.values()
+        )
     roles_keys_data = from_dict(roles_key_infos_dict, RolesKeysData)
     keystore = keystore or roles_keys_data.keystore
     if keystore is None and path is not None:
