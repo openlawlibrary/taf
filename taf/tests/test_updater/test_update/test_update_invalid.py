@@ -9,15 +9,19 @@ from taf.tests.test_updater.conftest import (
     TARGET_MISSMATCH_PATTERN,
     TARGET_MISSMATCH_UNAUTHENTICATED_PATTERN,
     UNCOMMITTED_CHANGES,
+    UPDATE_ERROR_PATTERN,
     OLD_LVC_FORMAT_ERROR_PATTERN,
     SetupManager,
+    add_unauthenticated_commit_to_target_repo,
     add_unauthenticated_commits_to_all_target_repos,
     add_valid_target_commits,
     create_file_without_committing,
     delete_target_branch,
+    point_target_to_unsigned_commit,
     set_last_validated_commit_of_auth_repo,
     switch_target_branch_and_sign,
     update_expiration_dates,
+    update_role_metadata_without_signing,
     update_timestamp_metadata_invalid_signature,
     replace_with_old_last_validated_commit_format,
 )
@@ -32,6 +36,111 @@ from taf.updater.lifecycle_handlers import Event
 from taf.exceptions import UpdateFailedError
 
 from taf.git import GitRepository
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        }
+    ],
+    indirect=True,
+)
+def test_update_invalid_metadata_added_without_updating_snapshot(
+    origin_auth_repo, client_dir
+):
+    clone_repositories(origin_auth_repo, client_dir)
+
+    metadata_dir = origin_auth_repo.path / "metadata"
+    (metadata_dir / "new_role.json").write_text(
+        (metadata_dir / "targets.json").read_text()
+    )
+    origin_auth_repo.commit("Add metadata without updating snapshot")
+
+    update_invalid_repos_and_check_if_repos_exist(
+        OperationType.UPDATE,
+        origin_auth_repo,
+        client_dir,
+        UPDATE_ERROR_PATTERN,
+        True,
+    )
+    client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
+    assert (
+        client_auth_repo.last_validated_commit != origin_auth_repo.head_commit().value
+    )
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        }
+    ],
+    indirect=True,
+)
+def test_update_invalid_metadata_changed_without_updating_snapshot(
+    origin_auth_repo, client_dir
+):
+    clone_repositories(origin_auth_repo, client_dir)
+
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(
+        update_role_metadata_without_signing, kwargs={"role": "targets"}
+    )
+    setup_manager.execute_tasks()
+    origin_auth_repo.commit("Update targets metadata without updating snapshot")
+
+    update_invalid_repos_and_check_if_repos_exist(
+        OperationType.UPDATE,
+        origin_auth_repo,
+        client_dir,
+        UPDATE_ERROR_PATTERN,
+        True,
+    )
+    client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
+    assert (
+        client_auth_repo.last_validated_commit != origin_auth_repo.head_commit().value
+    )
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "date": "2020-01-01",
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        }
+    ],
+    indirect=True,
+)
+def test_update_invalid_target_changed_in_unsigned_commit_when_metadata_expired(
+    origin_auth_repo, client_dir
+):
+    clone_repositories(origin_auth_repo, client_dir)
+
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(update_expiration_dates, kwargs={"date": "2021-01-01"})
+    setup_manager.add_task(
+        add_unauthenticated_commit_to_target_repo, kwargs={"target_name": "target1"}
+    )
+    setup_manager.add_task(
+        point_target_to_unsigned_commit, kwargs={"target_name": "target1"}
+    )
+    setup_manager.execute_tasks()
+
+    update_invalid_repos_and_check_if_repos_exist(
+        OperationType.UPDATE,
+        origin_auth_repo,
+        client_dir,
+        UPDATE_ERROR_PATTERN,
+        True,
+    )
+    client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
+    assert (
+        client_auth_repo.last_validated_commit != origin_auth_repo.head_commit().value
+    )
 
 
 @pytest.mark.parametrize(
