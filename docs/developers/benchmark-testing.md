@@ -25,7 +25,7 @@ For further options, see https://pytest-benchmark.readthedocs.io/en/latest/usage
 
 ## CI Integration
 
-The CI workflow is designed to perform benchmark tests on direct pushes to branches. It uses `pytest` with benchmark plugins to assess performance regressions or improvements. To accommodate varying performance expectations across features or branches, a JSON file named `benchmark_thresholds.json` is used to specify custom benchmark thresholds.
+The CI workflow runs the benchmark tests after the regular tests, once for each supported Python version. The regular test run skips them (`--benchmark-skip`), so they only run once. On every branch except master, the results are compared with master's latest results for the same Python version. To accommodate varying performance expectations across features or branches, a JSON file named `benchmark_thresholds.json` is used to specify custom benchmark thresholds.
 
 ## How Benchmark Testing Works
 
@@ -53,5 +53,6 @@ The benchmark threshold can be defined for each branch to accommodate specific p
 
 ## Artifact Handling
 
-- **Uploading Artifacts**: After benchmarks are run, the resulting `0001_output.json` file is uploaded as an artifact to GitHub Actions, allowing it to be used in future benchmark comparisons.
-- **Downloading Artifacts**: In subsequent CI runs, the previously saved benchmark artifact (`0001_output.json`) for the master branch is downloaded before tests are run.
+- **Uploading Artifacts**: On master, the benchmarks are not compared. The resulting `0001_output.json` file is uploaded as the `benchmark-results-<python version>` artifact and becomes the new baseline. This way a branch that was allowed to be slower does not fail again once it is merged.
+- **Downloading Artifacts**: On other branches, the latest master artifact for the same Python version is downloaded into `.benchmarks/` before the benchmarks run. If there is none, the benchmarks run without comparison.
+- **Keeping Artifacts Alive**: GitHub deletes artifacts after 90 days, so the workflow also runs on master on the 1st of every month and can be started manually (`workflow_dispatch`).

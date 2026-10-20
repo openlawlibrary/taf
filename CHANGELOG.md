@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning][semver].
 ### Added
 
 - Add doctests for the attrs models and tests which check that the keys-description examples in the docs and in the commands' help are valid ([819])
+- Integrate benchmark tests into CI ([597])
 
 ### Changed
 
@@ -32,6 +33,7 @@ and this project adheres to [Semantic Versioning][semver].
 [818]: https://github.com/openlawlibrary/taf/pull/818
 [817]: https://github.com/openlawlibrary/taf/pull/817
 [815]: https://github.com/openlawlibrary/taf/pull/815
+[597]: https://github.com/openlawlibrary/taf/pull/597
 
 ## [0.41.0]
 
@@ -540,7 +542,6 @@ and this project adheres to [Semantic Versioning][semver].
 - Add log rotation and log size limit ([613])
 - Add yubikey debug logging statements ([613])
 - Implement get all auth repos logic ([599])
-- Integrate benchmark tests into CI ([597])
 - Add Commitish model ([596])
 - Aadd tests for part of the git module ([596])
 - Add a command for setting names of keys ([594])

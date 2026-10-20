@@ -6,6 +6,11 @@ on:
     types: [closed]
   release:
     types: [created]
+  schedule:
+    # GitHub deletes artifacts after 90 days, so master's benchmark results
+    # are uploaded again every month even if nothing is merged
+    - cron: '0 0 1 * *'
+  workflow_dispatch: {}
 
 env:
   VERSIONS: "['3.10', '3.11', '3.12', '3.13']"
@@ -30,13 +35,12 @@ jobs:
     strategy:
       matrix:
         python-version: ${{ fromJSON(needs.set_python_versions.outputs.all_versions) }}
-
+    permissions:
+      contents: read
+      # needed to find and download master's benchmark results
+      actions: read
     env:
-      ARTIFACT_NAME: benchmark-results${{ matrix.python-version }}
-      BRANCH_NAME: 'master'
-      BENCHMARKS_DIR: '/home/runner/work/taf/taf/.benchmarks/'
-      ARTIFACT_PATH: '/home/runner/work/taf/taf/.benchmarks/archive.zip'
-
+      ARTIFACT_NAME: benchmark-results-${{ matrix.python-version }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 #@v4
 
@@ -65,63 +69,48 @@ jobs:
       - name: Run pre-commit and test with pytest
         run: |
           pre-commit run --all-files
-          pytest taf/tests
+          pytest taf/tests --benchmark-skip
 
-      - name: Set Benchmark Threshold from File
+      # master is not compared, it only records new results. A branch that was
+      # allowed to be slower would otherwise fail again after being merged and
+      # the stored results would never be updated.
+      - name: Find master's latest benchmark results
+        id: baseline
+        if: github.ref != 'refs/heads/master'
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          CURRENT_BRANCH=${GITHUB_REF#refs/heads/}
-
-          THRESHOLD=$(jq --arg branch "$CURRENT_BRANCH" '.[$branch]' ./benchmark_thresholds.json)
-
-          if [ "$THRESHOLD" == "null" ]; then
-            THRESHOLD=10  # Default threshold if not specified
+          run_id=$(gh api "repos/${{ github.repository }}/actions/artifacts?name=$ARTIFACT_NAME&per_page=100" \
+            --jq '[.artifacts[] | select(.workflow_run.head_branch == "master" and (.expired | not))] | sort_by(.created_at) | last | .workflow_run.id // empty')
+          echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+          if [ -z "$run_id" ]; then
+            echo "No benchmark results found for master, running without comparison"
           fi
-          echo "BENCHMARK_THRESHOLD=$THRESHOLD" >> $GITHUB_ENV
-          echo "Using benchmark threshold: $THRESHOLD"
 
-      - name: Display Benchmark Threshold
-        run: echo "Benchmark Threshold is $BENCHMARK_THRESHOLD"
-
-      - name: Fetch the latest artifact by name and branch
-        id: get_artifact
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea #@v7.01
+      - name: Download master's benchmark results
+        if: steps.baseline.outputs.run_id
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c #@v8.0.1
         with:
-          script: |
-            const { fetchArtifact, downloadArtifact } = require('./.github/workflows/artifactsActions.js');
-            const result = await fetchArtifact(core, github, context.repo);
-            if (result && result.artifactId) {
-              downloadArtifact(github, context.repo, result.artifactId);
-            } else {
-              console.log('No artifact ID available for download');
-            }
+          name: ${{ env.ARTIFACT_NAME }}
+          run-id: ${{ steps.baseline.outputs.run_id }}
+          github-token: ${{ github.token }}
+          path: .benchmarks
 
-
-      - name: 'Unzip artifact'
-        if: steps.get_artifact.outputs.artifact_id
-        run: unzip $ARTIFACT_PATH -d $BENCHMARKS_DIR
-
-      - name: List extracted files
-        if: steps.get_artifact.outputs.artifact_id
-        run: ls -l $BENCHMARKS_DIR
-  
-      - name: Run benchmark with comparison
-        if: steps.get_artifact.outputs.artifact_id
+      - name: Run benchmark tests
+        env:
+          BRANCH: ${{ github.head_ref || github.ref_name }}
+          BASELINE_RUN_ID: ${{ steps.baseline.outputs.run_id }}
         run: |
-          python -m pytest --benchmark-only --benchmark-json=0001_output.json --benchmark-compare --benchmark-compare-fail=mean:${BENCHMARK_THRESHOLD}%
+          if [ -n "$BASELINE_RUN_ID" ]; then
+            threshold=$(jq --arg branch "$BRANCH" '.[$branch] // 10' benchmark_thresholds.json)
+            echo "Comparing against master with a threshold of $threshold%"
+            compare_args="--benchmark-compare --benchmark-compare-fail=mean:$threshold%"
+          fi
+          pytest taf/tests --benchmark-only --benchmark-json=0001_output.json $compare_args
 
-      - name: Run benchmark without comparison
-        if: steps.get_artifact.outputs.artifact_id == '' || steps.get_artifact.outputs.artifact_id == null
-        run: |
-          python -m pytest --benchmark-only --benchmark-json=0001_output.json
-
-      # Use a step to extract the branch name from github.ref
-      - name: Extract Branch Name
-        id: extract_branch
-        run: echo "::set-output name=branch::$(echo ${GITHUB_REF#refs/heads/})"
-
-      - name: Archive benchmark results
-        if: steps.extract_branch.outputs.branch == env.BRANCH_NAME
-        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 #@v4.6.1
+      - name: Upload benchmark results
+        if: github.ref == 'refs/heads/master'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a #@v7.0.1
         with:
           name: ${{ env.ARTIFACT_NAME }}
           path: 0001_output.json
