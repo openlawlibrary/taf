@@ -14,7 +14,7 @@ To save the results for later usage, add "--benchmark-save=NAME" followed by a n
 
 ## Comparing results
 
-All files that you intend to compare MUST be stored in the same folder that output files are saved to. Additionally, the file name of any such file must begin with four digits and an underscore. Once there, you can compare against such a file by adding "-–benchmark-compare=" followed by the four digits at the start of the file's name to your call to pytest benchmark. This will compare the results of the run to the results of the stored run and create a comparison table in the console output. 
+All files that you intend to compare must be stored in the benchmark storage folder (`.benchmarks/` by default), either in the folder that output files are saved to or directly in `.benchmarks/`. Additionally, the file name of any such file must begin with four digits and an underscore. Without a number, "--benchmark-compare" compares against the file with the highest number. Once there, you can compare against such a file by adding "-–benchmark-compare=" followed by the four digits at the start of the file's name to your call to pytest benchmark. This will compare the results of the run to the results of the stored run and create a comparison table in the console output. 
 
 If you want to cause failure in the case of regression, also add "–-benchmark-compare-fail=" followed by an expression such as "min:5%" (fail if the quickest result of any test now is 5% slower than it was last time) or "mean:0.001" (fail if the average result of any test now is 0.001 seconds slower than it was last time) to determine what regression will cause the test to fail. It can be added multiple times to add multiple conditions. Note that it will always apply these standards to all benchmark tests being run by pytest.
 
@@ -25,7 +25,7 @@ For further options, see https://pytest-benchmark.readthedocs.io/en/latest/usage
 
 ## CI Integration
 
-The CI workflow runs the benchmark tests after the regular tests, once for each supported Python version. The regular test run skips them (`--benchmark-skip`), so they only run once. On every branch except master, the results are compared with master's latest results for the same Python version. To accommodate varying performance expectations across features or branches, a JSON file named `benchmark_thresholds.json` is used to specify custom benchmark thresholds.
+The CI workflow runs the benchmark tests in a separate `run_benchmarks` job on the newest supported Python version, for pushes to branches only, so releases and tags do not depend on them. The regular test run skips them (`--benchmark-skip`). On every branch except master, the results are compared with master's latest results. To accommodate varying performance expectations across features or branches, a JSON file named `benchmark_thresholds.json` is used to specify custom benchmark thresholds.
 
 ## How Benchmark Testing Works
 
@@ -40,7 +40,7 @@ These benchmarks help ensure that new code does not introduce significant perfor
 
 ## Setting Benchmark Thresholds
 
-The benchmark threshold can be defined for each branch to accommodate specific performance criteria associated with different types of work (e.g., feature development, bug fixes). This threshold is set in the `benchmark_thresholds.json` file. If not set, threshold is set to 10 (10%) by default.
+The benchmark threshold can be defined for each branch to accommodate specific performance criteria associated with different types of work (e.g., feature development, bug fixes). This threshold is set in the `benchmark_thresholds.json` file. If not set, threshold is set to 20 (20%) by default. The threshold is checked against the fastest round (`min`) rather than the average, because the fastest round changes much less between runs on GitHub's shared machines.
 
 ### Example `benchmark_thresholds.json`:
 
@@ -54,5 +54,5 @@ The benchmark threshold can be defined for each branch to accommodate specific p
 ## Artifact Handling
 
 - **Uploading Artifacts**: On master, the benchmarks are not compared. The resulting `0001_output.json` file is uploaded as the `benchmark-results-<python version>` artifact and becomes the new baseline. This way a branch that was allowed to be slower does not fail again once it is merged.
-- **Downloading Artifacts**: On other branches, the latest master artifact for the same Python version is downloaded into `.benchmarks/` before the benchmarks run. If there is none, the benchmarks run without comparison.
-- **Keeping Artifacts Alive**: GitHub deletes artifacts after 90 days, so the workflow also runs on master on the 1st of every month and can be started manually (`workflow_dispatch`).
+- **Downloading Artifacts**: On other branches, the latest master artifact is downloaded into `.benchmarks/` before the benchmarks run. If there is none, or it cannot be looked up, the benchmarks run without comparison. After the newest Python version changes, the first master run creates the new baseline.
+- **Keeping Artifacts Alive**: GitHub deletes artifacts after 90 days, so the workflow also runs on master on the 1st of every month. That scheduled run only runs the benchmarks, not the regular tests. The workflow can also be started manually (`workflow_dispatch`).

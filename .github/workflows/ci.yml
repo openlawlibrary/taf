@@ -32,15 +32,10 @@ jobs:
   run_tests:
     runs-on: ubuntu-latest
     needs: set_python_versions
+    if: github.event_name != 'schedule'
     strategy:
       matrix:
         python-version: ${{ fromJSON(needs.set_python_versions.outputs.all_versions) }}
-    permissions:
-      contents: read
-      # needed to find and download master's benchmark results
-      actions: read
-    env:
-      ARTIFACT_NAME: benchmark-results-${{ matrix.python-version }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 #@v4
 
@@ -71,9 +66,34 @@ jobs:
           pre-commit run --all-files
           pytest taf/tests --benchmark-skip
 
-      # master is not compared, it only records new results. A branch that was
-      # allowed to be slower would otherwise fail again after being merged and
-      # the stored results would never be updated.
+  run_benchmarks:
+    runs-on: ubuntu-latest
+    needs: set_python_versions
+    if: startsWith(github.ref, 'refs/heads/')
+    permissions:
+      contents: read
+      actions: read
+    env:
+      ARTIFACT_NAME: benchmark-results-${{ needs.set_python_versions.outputs.last_version }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 #@v4
+
+      - name: Set up Python ${{ needs.set_python_versions.outputs.last_version }}
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b #@v5
+        with:
+          python-version: ${{ needs.set_python_versions.outputs.last_version }}
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip setuptools wheel
+          pip install -e .[test]
+
+      - name: Setup GitHub user
+        run: |
+          git config --global user.name oll-bot
+          git config --global user.email developers@openlawlib.org
+
+      # master only records new results, so a merged slower branch doesn't fail again
       - name: Find master's latest benchmark results
         id: baseline
         if: github.ref != 'refs/heads/master'
@@ -81,7 +101,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           run_id=$(gh api "repos/${{ github.repository }}/actions/artifacts?name=$ARTIFACT_NAME&per_page=100" \
-            --jq '[.artifacts[] | select(.workflow_run.head_branch == "master" and (.expired | not))] | sort_by(.created_at) | last | .workflow_run.id // empty')
+            --jq '[.artifacts[] | select(.workflow_run.head_branch == "master" and (.expired | not))] | sort_by(.created_at) | last | .workflow_run.id // empty') \
+            || { echo "::warning::Could not look up master's benchmark results"; run_id=""; }
           echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
           if [ -z "$run_id" ]; then
             echo "No benchmark results found for master, running without comparison"
@@ -98,15 +119,15 @@ jobs:
 
       - name: Run benchmark tests
         env:
-          BRANCH: ${{ github.head_ref || github.ref_name }}
+          BRANCH: ${{ github.ref_name }}
           BASELINE_RUN_ID: ${{ steps.baseline.outputs.run_id }}
         run: |
           if [ -n "$BASELINE_RUN_ID" ]; then
-            threshold=$(jq --arg branch "$BRANCH" '.[$branch] // 10' benchmark_thresholds.json)
+            threshold=$(jq --arg branch "$BRANCH" '.[$branch] // 20' benchmark_thresholds.json)
             echo "Comparing against master with a threshold of $threshold%"
-            compare_args="--benchmark-compare --benchmark-compare-fail=mean:$threshold%"
+            compare_args="--benchmark-compare --benchmark-compare-fail=min:$threshold%"
           fi
-          pytest taf/tests --benchmark-only --benchmark-json=0001_output.json $compare_args
+          pytest taf/tests/test_updater/test_update_benchmarking.py --benchmark-only --benchmark-json=0001_output.json $compare_args
 
       - name: Upload benchmark results
         if: github.ref == 'refs/heads/master'

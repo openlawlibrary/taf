@@ -569,7 +569,6 @@ and this project adheres to [Semantic Versioning][semver].
 [604]: https://github.com/openlawlibrary/taf/pull/604
 [603]: https://github.com/openlawlibrary/taf/pull/603
 [599]: https://github.com/openlawlibrary/taf/pull/599
-[597]: https://github.com/openlawlibrary/taf/pull/597
 [596]: https://github.com/openlawlibrary/taf/pull/596
 [595]: https://github.com/openlawlibrary/taf/pull/595
 [594]: https://github.com/openlawlibrary/taf/pull/594
