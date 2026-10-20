@@ -2,16 +2,17 @@ import attrs
 import datetime
 from typing import List, Optional
 
-
 TARGETS_DIRECTORY_NAME = "targets"
 METADATA_DIRECTORY_NAME = "metadata"
 
 
 DEFAULT_RSA_SIGNATURE_SCHEME = "rsa-pkcs1v15-sha256"
+DEFAULT_ECDSA_SIGNATURE_SCHEME = "ecdsa-sha2-nistp256"
 
 CAPSTONE = "capstone"
 PROTECTED_DIRECTORY_NAME = "protected"
 INFO_JSON_PATH = f"{TARGETS_DIRECTORY_NAME}/{PROTECTED_DIRECTORY_NAME}/info.json"
+KEYS_MAPPING_PATH = f"{TARGETS_DIRECTORY_NAME}/keys-mapping.json"
 
 
 @attrs.define

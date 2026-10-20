@@ -16,7 +16,10 @@ class LazyGroup(click.Group):
         return super().get_command(ctx, cmd_name)
 
     def _lazy_load(self, cmd_name):
-        module_name, function_name = self.lazy_subcommands[cmd_name].rsplit(".", 1)
+        function = self.lazy_subcommands[cmd_name]()
+        if not function:
+            return
+        module_name, function_name = function.rsplit(".", 1)
         module = importlib.import_module(module_name)
         function = getattr(module, function_name)
         group = click.Group(name=cmd_name)
@@ -34,11 +37,12 @@ class LazyGroup(click.Group):
                 cmd = self._lazy_load(subcommand)
             else:
                 cmd = self.get_command(ctx, subcommand)
-                if cmd is None:
-                    continue
+            if cmd is None:
+                continue
+
             help = cmd.get_short_help_str()
             rows.append((subcommand, help))
 
         if rows:
-            with formatter.section('Commands'):
+            with formatter.section("Commands"):
                 formatter.write_dl(rows)

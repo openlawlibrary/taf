@@ -1,15 +1,293 @@
 from contextlib import contextmanager
+import functools
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import Callable, Dict, List, Optional, Union
 
-from taf.api.utils._conf import find_keystore
+from taf.api.utils._conf import (
+    build_keys_name_mapping,
+    find_keystore,
+    find_taf_directory,
+)
 from taf.auth_repo import AuthenticationRepository
-from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
-from taf.exceptions import PushFailedError, TAFError
+from taf.config import load_config
+from taf.exceptions import InvalidConfigError, PushFailedError, TAFError
 from taf.keys import load_signers
-from taf.log import taf_logger
 from taf.messages import git_commit_message
 from taf.constants import METADATA_DIRECTORY_NAME
+from taf.log import taf_logger
+from taf.tuf.keys import _get_legacy_keyid
+
+
+def key_management(
+    roles: Optional[List[str]] = None,
+    roles_fn: Optional[Callable[[Dict[str, str]], List[str]]] = None,
+) -> Callable:
+    """
+    Decorator that:
+    - Captures dynamic PIN arguments
+    - Ensures necessary signers are loaded.
+    - Cleans up PIN manager
+    - Reads key name mappings if `keys_description` is provided.
+
+    Parameters:
+    - path (str): Path to the authentication repository.
+    - roles (Optional[List[str]]): List of predefined roles to be loaded.
+    - roles_fn (Optional[Callable[[Dict[str, str]], List[str]]]): Function that determines roles to be loaded.
+    - keystore_path (Optional[str]): Path to the keystore.
+    - keys_description (Optional[str]): Path to a key description file.
+
+    Returns:
+    - Callable: Decorated function with authentication management.
+    """
+    from taf.yubikey.yubikey_manager import manage_pins
+
+    roles = roles or []
+
+    def decorator(func: Callable) -> Callable:
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            if kwargs.get("auth_repo") is not None:
+                auth_repo = kwargs.pop("auth_repo")
+            else:
+                path = kwargs.pop("path")
+                auth_repo = AuthenticationRepository(path=path)
+
+            with manage_pins() as pin_manager:
+                auth_repo.pin_manager = pin_manager
+                auth_repo = _setup_auth_repo_and_signers(
+                    auth_repo, roles, roles_fn, **kwargs
+                )
+                kwargs["auth_repo"] = auth_repo
+                return func(*args, **kwargs)
+
+        return wrapper
+
+    return decorator
+
+
+@contextmanager
+def key_management_context(
+    roles: Optional[List[str]] = None,
+    roles_fn: Optional[Callable[[Dict[str, str]], List[str]]] = None,
+    **kwargs,
+):
+    """
+    Context manager that does the same as the key_management decorator,
+    returning the auth_repo instance instead of decorating a function.
+    """
+    from taf.yubikey.yubikey_manager import manage_pins
+
+    roles = roles or []
+    if kwargs.get("auth_repo") is not None:
+        auth_repo = kwargs.pop("auth_repo")
+        path = auth_repo.path
+    else:
+        path = kwargs.pop("path")
+        auth_repo = AuthenticationRepository(path=path)
+
+    with manage_pins() as pin_manager:
+        auth_repo.pin_manager = pin_manager
+        auth_repo = _setup_auth_repo_and_signers(auth_repo, roles, roles_fn, **kwargs)
+        yield auth_repo
+
+
+def read_keys_name_mapping_from_auth(auth_repo: AuthenticationRepository) -> Dict:
+    """
+    Read the keys name mapping from the authentication repository.
+    """
+    taf_dir = find_taf_directory(auth_repo.path)
+    if taf_dir is None:
+        return {}
+
+    try:
+        cfg = load_config(taf_dir / "config.toml")
+        if cfg.root is None:
+            raise FileNotFoundError("No root authentication repository found.")
+    except FileNotFoundError:
+        return {}
+    except InvalidConfigError as e:
+        taf_logger.warning(f"Invalid config.toml, skipping keys name mapping. {str(e)}")
+        return {}
+
+    root_auth_repo_name = cfg.root.name
+    archive_dir = taf_dir.parent
+    root_auth_repo = AuthenticationRepository(path=(archive_dir / root_auth_repo_name))
+    if not root_auth_repo.is_git_repository:
+        taf_logger.debug(
+            f"{root_auth_repo_name} is not a valid authentication repository."
+        )
+        return {}
+
+    raw_mapping = root_auth_repo.get_keys_mapping() or {}
+    return build_keys_name_mapping(raw_mapping)
+
+
+def _setup_auth_repo_and_signers(
+    auth_repo: AuthenticationRepository,
+    roles: Optional[List[str]],
+    roles_fn: Optional[Callable[[Dict[str, str]], List[str]]] = None,
+    **kwargs,
+):
+    """
+    Extracts the common logic for initializing the auth_repo:
+      - Get an existing auth_repo from kwargs or create a new one using the provided path.
+      - Read key name mappings
+      - Determine the complete list of roles, using roles and roles_fn.
+      - Process a single key_pin.
+      - Load signers for each role.
+
+    Returns the auth_repo instance.
+    """
+    from taf.api.yubikey import get_yk_roles
+
+    keystore_path = kwargs.get("keystore")
+
+    keys_name_mappings = read_keys_name_mapping_from_auth(auth_repo)
+    auth_repo.add_key_names(keys_name_mappings)
+
+    all_roles = list(roles or [])
+    if callable(roles_fn):
+        roles_to_update = roles_fn(kwargs)
+        if not isinstance(roles_to_update, list):
+            taf_logger.error("roles_fn must return a list")
+            raise TAFError("roles_fn must return a list")
+        all_roles.extend(roles_to_update)
+    all_roles = list(set(all_roles))
+    if not all_roles:
+        # Auto-detect roles via YubiKeys if none specified.
+        roles_per_yks = get_yk_roles(auth_repo.path)
+        for yk_roles in roles_per_yks.values():
+            for role in yk_roles:
+                if role not in all_roles:
+                    all_roles.append(role)
+    if not all_roles:
+        taf_logger.error("No roles specified")
+        raise TAFError("No roles specified")
+    taf_logger.info(f"Loading keys of roles {', '.join(all_roles)}")
+
+    key_pin = kwargs.get("key_pin")
+    key_id_pins: Dict = {}
+    if key_pin is not None:
+        key_id_pins = _resolve_key_id_pins(auth_repo, all_roles, key_pin)
+
+    use_yubikeys_to_sign = key_pin is not None
+    sorted_roles = sorted(all_roles, key=role_priority)
+    auth_repo.pin_manager.auto_continue = True
+
+    for role in sorted_roles:
+        if not auth_repo.check_if_keys_loaded(role):
+            keystore_signers, yubikey_signers = load_signers(
+                auth_repo,
+                role,
+                keystore=keystore_path,
+                key_id_pins=key_id_pins,
+                use_yubikeys_to_sign=use_yubikeys_to_sign,
+            )
+            auth_repo.add_signers_to_cache({role: keystore_signers})
+            auth_repo.add_signers_to_cache({role: yubikey_signers})
+
+    return auth_repo
+
+
+def _resolve_key_id_pins(
+    auth_repo: AuthenticationRepository, all_roles: List[str], key_pin: str
+) -> Dict:
+    """
+    Given a single --key-pin and the roles about to be loaded, figure out which
+    of the currently inserted YubiKeys the pin belongs to.
+
+    A YubiKey is a candidate if any of its occupied PIV slots holds a valid
+    signing key for at least one of `all_roles`. A single physical YubiKey
+    uses one PIN across all of its PIV slots, so if every candidate key comes
+    from the same device, the pin is bound to all of their keyids - that is
+    not ambiguous, even if more than one of its slots matched. It is only
+    ambiguous when candidate keys come from more than one distinct device. If
+    the pin can't be bound to a single device (no candidates, or candidates on
+    more than one device), it is not bound to anything and a warning is
+    logged - the caller falls back to the normal interactive PIN prompt (or
+    PIN_<serial>/PIN_<key_name> env vars) instead of erroring out.
+    """
+    import taf.yubikey.yubikey as yk
+
+    serial_nums = yk.get_serial_nums()
+    if len(serial_nums) == 0:
+        taf_logger.error("No Yubikeys found")
+        raise TAFError(
+            "Passed in a --key-pin but no YubiKeys inserted. Please insert a YubiKey and try again."
+        )
+
+    roles_of_interest = set(all_roles)
+    candidates = []
+    for serial_num in serial_nums:
+        try:
+            slot_keys = yk.get_piv_public_keys_tuf(serial=serial_num).get(
+                serial_num, {}
+            )
+        except Exception as e:
+            taf_logger.debug(
+                f"Could not read public keys of YubiKey serial={serial_num}: {e}"
+            )
+            continue
+
+        for public_key in slot_keys.values():
+            associated_roles = auth_repo.find_associated_roles_of_key(public_key)
+            if roles_of_interest.intersection(associated_roles):
+                candidates.append((serial_num, public_key))
+
+    candidate_serials = {serial_num for serial_num, _ in candidates}
+    if len(candidate_serials) == 1:
+        return {_get_legacy_keyid(public_key): key_pin for _, public_key in candidates}
+
+    serial_nums_str = [str(serial_num) for serial_num in serial_nums]
+    if not candidates:
+        taf_logger.warning(
+            f"Passed in a --key-pin, but none of the inserted YubiKeys "
+            f"({', '.join(serial_nums_str)}) are valid signing keys for "
+            f"{', '.join(all_roles)}. Ignoring --key-pin."
+        )
+    else:
+        taf_logger.warning(
+            f"Passed in a --key-pin, but multiple inserted YubiKeys "
+            f"({', '.join(str(s) for s in candidate_serials)}) are valid signing "
+            f"keys for {', '.join(all_roles)}. --key-pin is ambiguous and will be "
+            "ignored."
+        )
+    return {}
+
+
+def _map_keynames_to_keyids(
+    auth_repo: AuthenticationRepository, pin_args: Dict
+) -> Dict:
+    """
+    Finds key ids based on key names and inserts
+    key id and key pin, if specified via pin_args,
+    into a dictionary.
+    """
+    key_id_pins: Dict = {}
+    if not pin_args:
+        return key_id_pins
+
+    key_name_key_ids = auth_repo.get_key_ids_of_key_names(pin_args.keys())
+    for key_name, key_id in key_name_key_ids.items():
+        if key_name in pin_args:
+            key_id_pins[key_id] = pin_args[key_name]
+
+    if len(key_id_pins) != len(pin_args):
+        all_roles = auth_repo.get_all_roles()
+        for key_name, key_pin in pin_args.items():
+            for role_name in all_roles:
+                if role_name == key_name:
+                    key_ids = auth_repo.get_key_ids_of_role(role_name)
+                    if len(key_ids) == 1:
+                        key_id_pins[key_ids[0]] = key_pin
+
+    if len(key_id_pins) != len(pin_args):
+        not_existing_names = [
+            key_name for key_name in pin_args if key_name not in key_id_pins
+        ]
+        taf_logger.error(f"Keys {', '.join(not_existing_names)} not defined")
+        raise TAFError(f"Keys {', '.join(not_existing_names)} not defined")
+    return key_id_pins
 
 
 @contextmanager
@@ -29,7 +307,6 @@ def manage_repo_and_signers(
     auth_repo: AuthenticationRepository,
     roles: Optional[List[str]] = None,
     keystore: Optional[Union[str, Path]] = None,
-    scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
     prompt_for_keys: Optional[bool] = False,
     paths_to_reset_on_error: Optional[List[Union[str, Path]]] = None,
     load_roles: Optional[bool] = True,
@@ -51,7 +328,6 @@ def manage_repo_and_signers(
         auth_repo (AuthenticationRepository): Already instantiated authentication repository.
         roles (Optional[List[str]]): List of roles that are expected to be updated.
         keystore (Optional[Union[str, Path]]): Path to the keystore containing signing keys.
-        scheme (Optional[str]): The signature scheme.
         prompt_for_keys (Optional[bool]): If True, prompts for keys if not found. Defaults to False.
         paths_to_reset_on_error (Optional[List[Union[str, Path]]]): Paths to reset if an error occurs.
         load_roles (Optional[bool]): If True, loads signing keys of the roles specified using the argument of the same name.
@@ -79,13 +355,13 @@ def manage_repo_and_signers(
                 keystore_path = find_keystore(auth_repo.path)
             else:
                 keystore_path = Path(keystore)
-            for role in roles_to_load:
+            sorted_roles_to_load = sorted(roles_to_load, key=role_priority)
+            for role in sorted_roles_to_load:
                 if not auth_repo.check_if_keys_loaded(role):
                     keystore_signers, yubikey_signers = load_signers(
                         auth_repo,
                         role,
                         keystore=keystore_path,
-                        scheme=scheme,
                         prompt_for_keys=prompt_for_keys,
                     )
                     auth_repo.add_signers_to_cache({role: keystore_signers})
@@ -115,3 +391,29 @@ def manage_repo_and_signers(
             auth_repo.restore([str(path) for path in paths_to_reset_on_error])
 
         raise TAFError from e
+
+
+def role_priority(role):
+    """
+    Return a numeric priority for the given role. This can be used as a sort order key.
+    Example: sorted(roles, key=role_priority)
+
+    The order is:
+    0. root
+    1. targets
+    2. (delegated roles)
+    3. snapshot
+    4. timestamp
+
+    Anything not explicitly listed is considered a "delegated role."
+    """
+    if role == "root":
+        return 0
+    elif role == "targets":
+        return 1
+    elif role == "snapshot":
+        return 3
+    elif role == "timestamp":
+        return 4
+    else:
+        return 2

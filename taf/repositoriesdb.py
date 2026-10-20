@@ -1,6 +1,6 @@
+import ast
 import json
-from typing import Callable, Dict, List, Optional, Type
-import fnmatch
+from typing import Any, Callable, Dict, List, Optional, Type
 from pathlib import Path
 from taf.auth_repo import AuthenticationRepository
 from taf.constants import TARGETS_DIRECTORY_NAME
@@ -14,7 +14,6 @@ from taf.exceptions import (
 from taf.git import GitRepository
 from taf.log import taf_logger
 from taf.models.types import Commitish
-
 
 # Target repositories db
 
@@ -30,6 +29,8 @@ from taf.models.types import Commitish
 
 _repositories_dict: Dict = {}
 _dependencies_dict: Dict = {}
+
+
 REPOSITORIES_JSON_NAME = "repositories.json"
 DEPENDENCIES_JSON_NAME = "dependencies.json"
 MIRRORS_JSON_NAME = "mirrors.json"
@@ -38,9 +39,16 @@ MIRRORS_JSON_PATH = f"{TARGETS_DIRECTORY_NAME}/{MIRRORS_JSON_NAME}"
 REPOSITORIES_JSON_PATH = f"{TARGETS_DIRECTORY_NAME}/{REPOSITORIES_JSON_NAME}"
 
 
-def clear_repositories_db():
+def clear_repositories_db(auth_repo_path: Optional[Path] = None):
+    """Clear the repositories cache. If auth_repo_path is given, only that
+    repo's entry is dropped - clearing the whole cache is not safe when other
+    authentication repos (e.g. dependencies) are using it at the same time,
+    on other threads."""
     global _repositories_dict
-    _repositories_dict.clear()
+    if auth_repo_path is not None:
+        _repositories_dict.pop(auth_repo_path, None)
+    else:
+        _repositories_dict.clear()
 
 
 def clear_dependencies_db():
@@ -184,15 +192,16 @@ def load_repositories(
     only_load_targets: bool = True,
     commits: Optional[List[Commitish]] = None,
     roles: Optional[List[str]] = None,
-    excluded_target_globs: Optional[List[str]] = None,
+    exclude_filter: Optional[str] = None,
     raise_error_if_no_urls: bool = False,
 ) -> None:
     """
     Creates target repositories by reading repositories.json and targets.json files
     at the specified revisions, given an authentication repo.
-    If the the commits are not specified, targets will be created based on the HEAD pointer
+    If the commits are not specified, targets will be created based on the HEAD pointer
     of the authentication repository. It is possible to specify git repository class that
     will be created per target.
+
     Args:
         auth_repo: the authentication repository
         target_classes: a single git repository class, or a dictionary whose keys are
@@ -216,6 +225,9 @@ def load_repositories(
         roles: a list of roles whose repositories should be loaded. The repositories linked to a specific
         role are determined based on its targets, so there is no need to set only_load_targets to True.
         If only_load_targets is True and roles is not set, all roles will be taken into consideration.
+        exclude_filter: an optional Python expression string evaluated against each repository's
+        custom metadata. Repositories for which the expression is truthy are excluded from the
+        loaded set.
     """
     global _repositories_dict
     new_reps = _load_repositories(
@@ -226,7 +238,7 @@ def load_repositories(
         only_load_targets=only_load_targets,
         commits=commits,
         roles=roles,
-        excluded_target_globs=excluded_target_globs,
+        exclude_filter=exclude_filter,
         raise_error_if_no_urls=raise_error_if_no_urls,
     )
     if commits is None or len(commits) == 0:
@@ -250,13 +262,11 @@ def _load_repositories(
     only_load_targets: bool = True,
     commits: Optional[List[Commitish]] = None,
     roles: Optional[List[str]] = None,
-    excluded_target_globs: Optional[List[str]] = None,
+    exclude_filter: Optional[str] = None,
     raise_error_if_no_urls: Optional[bool] = False,
 ) -> Dict:
 
     repositories = {}
-    if excluded_target_globs is None:
-        excluded_target_globs = []
 
     if commits is None:
         auth_repo_head_commit = auth_repo.head_commit()
@@ -279,7 +289,11 @@ def _load_repositories(
     if roles is not None and len(roles):
         only_load_targets = True
 
-    skipped_targets = []
+    skipped_targets = (
+        get_repository_names_by_expression(auth_repo, filter_expr=exclude_filter)
+        if exclude_filter
+        else []
+    )
     mirrors = load_mirrors_json(auth_repo, commits[-1])
     for commit in commits:
         commit_repositories: Dict = {}
@@ -300,12 +314,6 @@ def _load_repositories(
             if name in skipped_targets:
                 continue
             if name not in targets and only_load_targets:
-                continue
-            if any(
-                fnmatch.fnmatch(name, excluded_target_glob)
-                for excluded_target_glob in excluded_target_globs
-            ):
-                skipped_targets.append(name)
                 continue
             custom = _get_custom_data(repo_data, targets.get(name))
             urls = _get_urls(mirrors, name, repo_data, raise_error_if_no_urls)
@@ -416,6 +424,69 @@ def _get_target_default_branch(
     return default_branch
 
 
+def get_repositories_by_expression(
+    auth_repo: AuthenticationRepository,
+    filter_expr: str,
+    commit: Optional[Commitish] = None,
+) -> dict[str, GitRepository]:
+    """
+    Filter repositories using a Python expression.
+
+    Args:
+        auth_repo: Authentication repository
+        commit: Commit to use
+        filter_expr: Python expression where 'repo' is the repository's custom data
+                    e.g., "repo['type'] == 'html'"
+                          "repo.get('serve') == 'latest'"
+                          "repo['type'] == 'html' and repo.get('serve') == 'historical'"
+    """
+    _validate_filter_expression(filter_expr)
+    if not commit:
+        commit = auth_repo.head_commit()
+        if commit is None:
+            raise TAFError(
+                "Could not get repositories. Commit is not specified and head commit could not be determined"
+            )
+
+    taf_logger.debug(
+        "Auth repo {}: filtering repositories by expression: {}",
+        auth_repo.path,
+        filter_expr,
+    )
+
+    filtered_repos: dict = dict()
+
+    repositories = get_repositories(auth_repo=auth_repo, commit=commit)
+
+    if not repositories:
+        return filtered_repos
+
+    # If no filter, return all
+    if not filter_expr:
+        return repositories
+
+    def _matches_filter(repo):
+        return _eval_filter_expr(filter_expr, repo.custom, auth_repo.path, repo.name)
+
+    repos = list(filter(_matches_filter, repositories.values()))
+
+    if len(repos):
+        filtered_repos = {repo.name: repo for repo in repos}
+        taf_logger.debug(
+            "Auth repo {}: found the following names {}",
+            auth_repo.path,
+            filtered_repos.keys(),
+        )
+        return filtered_repos
+
+    taf_logger.info(
+        "Auth repo {}: no repositories matched filter: {}",
+        auth_repo.path,
+        filter_expr,
+    )
+    return filtered_repos
+
+
 def get_repositories_paths_by_custom_data(
     auth_repo: AuthenticationRepository, commit: Optional[Commitish] = None, **custom
 ) -> Optional[List[str]]:
@@ -465,6 +536,80 @@ def get_repositories_paths_by_custom_data(
     )
 
 
+def get_repository_names_by_expression(
+    auth_repo: AuthenticationRepository,
+    filter_expr: str,
+    commit: Optional[Commitish] = None,
+) -> List[str]:
+    """
+    Get repository names filtered by a Python expression.
+
+    Args:
+        auth_repo: Authentication repository
+        commit: Commit to use
+        filter_expr: Python expression where 'repo' is the repository's custom data
+                    e.g., "repo['type'] == 'html'"
+                          "repo.get('serve') == 'latest'"
+                          "repo['type'] == 'html' and repo.get('serve') == 'historical'"
+
+    Returns:
+        List of repository names matching the filter
+    """
+    _validate_filter_expression(filter_expr)
+
+    filtered_names: list = []
+
+    if not commit:
+        commit = auth_repo.head_commit()
+        if commit is None:
+            raise TAFError(
+                "Could not get repositories. Commit is not specified and head commit could not be determined"
+            )
+
+    taf_logger.debug(
+        "Auth repo {}: filtering repositories by expression: {}",
+        auth_repo.path,
+        filter_expr,
+    )
+
+    repositories = auth_repo.get_json(commit, REPOSITORIES_JSON_PATH)
+    if repositories is None:
+        return filtered_names
+
+    repositories = repositories["repositories"]
+    if repositories is None:
+        return filtered_names
+
+    targets = _targets_of_roles(auth_repo, commit)
+
+    def _matches_filter(name):
+        # Add special case for repo['name'] filter expressions
+        custom_data = {
+            **_get_custom_data(repositories[name], targets.get(name)),
+            "name": name,
+        }
+        return _eval_filter_expr(filter_expr, custom_data, auth_repo.path, name)
+
+    filtered_names = (
+        list(filter(_matches_filter, repositories))
+        if filter_expr
+        else list(repositories)
+    )
+
+    if len(filtered_names):
+        taf_logger.debug(
+            "Auth repo {}: found the following names {}", auth_repo.path, filtered_names
+        )
+        return filtered_names
+
+    taf_logger.info(
+        "Auth repo {}: no repositories matched filter: {}",
+        auth_repo.path,
+        filter_expr,
+    )
+    return filtered_names
+
+
 def get_deduplicated_auth_repositories(
     auth_repo: AuthenticationRepository,
     commits: Optional[List[Commitish]],
@@ -475,17 +620,19 @@ def get_deduplicated_auth_repositories(
 def get_deduplicated_repositories(
     auth_repo: AuthenticationRepository,
     commits: Optional[List[Commitish]] = None,
-    excluded_target_globs: Optional[List[str]] = None,
+    exclude_filter: Optional[str] = None,
     library_dir: Optional[str] = None,
     raise_error_if_no_urls=False,
+    only_load_targets: bool = True,
 ) -> Dict[str, GitRepository]:
     return _get_deduplicated_target_or_auth_repositories(
         auth_repo,
         commits,
         False,
-        excluded_target_globs,
+        exclude_filter,
         library_dir,
         raise_error_if_no_urls,
+        only_load_targets,
     )
 
 
@@ -493,9 +640,10 @@ def _get_deduplicated_target_or_auth_repositories(
     auth_repo: AuthenticationRepository,
     commits: Optional[List[Commitish]],
     load_auth: Optional[bool] = False,
-    excluded_target_globs: Optional[List[str]] = None,
+    exclude_filter: Optional[str] = None,
     library_dir: Optional[str] = None,
     raise_error_if_no_urls: Optional[bool] = False,
+    only_load_targets: bool = True,
 ):
     if commits is None:
         head_commit = auth_repo.head_commit()
@@ -513,8 +661,13 @@ def _get_deduplicated_target_or_auth_repositories(
                 auth_repo.path: _load_dependencies(auth_repo=auth_repo, commits=commits)
             }
     else:
-        if auth_repo.path in _repositories_dict and all(
-            commit in _repositories_dict[auth_repo.path] for commit in commits
+        # a cache hit is only valid for only_load_targets=True: the cache is
+        # only ever populated that way, so an only_load_targets=False call
+        # must not read back an already-filtered result
+        if (
+            only_load_targets
+            and auth_repo.path in _repositories_dict
+            and all(commit in _repositories_dict[auth_repo.path] for commit in commits)
         ):
             loaded_repositories_dict = _repositories_dict
         else:
@@ -522,9 +675,10 @@ def _get_deduplicated_target_or_auth_repositories(
                 auth_repo.path: _load_repositories(
                     auth_repo=auth_repo,
                     commits=commits,
-                    excluded_target_globs=excluded_target_globs,
+                    exclude_filter=exclude_filter,
                     library_dir=library_dir,
                     raise_error_if_no_urls=raise_error_if_no_urls,
+                    only_load_targets=only_load_targets,
                 )
             }
 
@@ -567,6 +721,8 @@ def _get_deduplicated_target_or_auth_repositories(
             # will overwrite older repo with newer
             repositories[name] = repo
 
+    repositories = _exclude_by_filter(repositories, exclude_filter, auth_repo.path)
+
     taf_logger.debug(
         "Auth repo {}: deduplicated list of {} repositories {}",
         auth_repo.path,
@@ -574,6 +730,26 @@ def _get_deduplicated_target_or_auth_repositories(
         ", ".join(repositories.keys()),
     )
     return repositories
+
+
+def _exclude_by_filter(
+    repositories: Dict[str, GitRepository],
+    exclude_filter: Optional[str],
+    auth_repo_path,
+) -> Dict[str, GitRepository]:
+    """Drop repositories whose custom data matches exclude_filter, evaluated
+    against each repository's own already-loaded custom data. Safe to call
+    on a result that came from the shared cache: it only looks at what's
+    already on each repository object, not at what filter (if any) was used
+    to populate the cache."""
+    if not exclude_filter:
+        return repositories
+    _validate_filter_expression(exclude_filter)
+    return {
+        name: repo
+        for name, repo in repositories.items()
+        if not _eval_filter_expr(exclude_filter, repo.custom, auth_repo_path, name)
+    }
 
 
 def get_repository(
@@ -601,7 +777,8 @@ def get_auth_repositories(
 
 
 def get_repositories(
-    auth_repo: AuthenticationRepository, commit: Optional[Commitish] = None
+    auth_repo: AuthenticationRepository,
+    commit: Optional[Commitish] = None,
 ) -> Dict[str, GitRepository]:
     return _get_repositories(auth_repo, commit)
 
@@ -776,6 +953,22 @@ def load_repositories_json(
             raise
 
 
+def get_repository_custom_at(
+    auth_repo: AuthenticationRepository,
+    repo_name: str,
+    commit: Commitish,
+    target_custom: Optional[Dict[str, Any]] = None,
+) -> Optional[Dict[str, Any]]:
+    repositories_json = load_repositories_json(auth_repo, commit)
+    if repositories_json is None:
+        return None
+    repo_data = (repositories_json.get("repositories") or {}).get(repo_name)
+    if repo_data is None:
+        return None
+    target = {"custom": target_custom} if target_custom is not None else None
+    return _get_custom_data(repo_data, target)
+
+
 def load_mirrors_json(
     auth_repo: AuthenticationRepository, commit: Commitish
 ) -> Optional[Dict]:
@@ -834,3 +1027,125 @@ def get_all_auth_repos(
             get_all_auth_repos(auth_repo, auth_repos_list)
 
     return auth_repos_list
+
+
+def _eval_filter_expr(
+    filter_expr: str, custom_data: dict, auth_repo_path, repo_label: str
+) -> bool:
+    """Evaluate filter_expr with custom_data bound to 'repo', in a namespace
+    with no builtins. Returns False (does not match) if the expression fails
+    to evaluate against this particular repo's data, logging why at debug
+    level rather than raising - one repo's malformed/unexpected custom data
+    shouldn't fail the whole filter operation."""
+    try:
+        # Safe: validated via AST + restricted namespace with no builtins
+        return eval(
+            filter_expr, {"__builtins__": {}}, {"repo": custom_data}
+        )  # nosec B307
+    except Exception as e:
+        taf_logger.debug(
+            "Auth repo {}: filter failed for {}: {}",
+            auth_repo_path,
+            repo_label,
+            e,
+        )
+        return False
+
+
+def _validate_filter_expression(filter_expr: str) -> None:
+    """
+    Validate that the filter expression only uses safe operations.
+    Raises ValueError if unsafe operations detected.
+    """
+    if not filter_expr:
+        return
+
+    taf_logger.debug("Validating filter Python expression: {}", filter_expr)
+
+    try:
+        tree = ast.parse(filter_expr, mode="eval")
+    except SyntaxError as e:
+        raise ValueError(f"Invalid Python expression: {e}")
+
+    # Dangerous attribute names that could be used for introspection/escape
+    dangerous_attrs = {
+        "__class__",
+        "__bases__",
+        "__subclasses__",
+        "__mro__",
+        "__globals__",
+        "__builtins__",
+        "__init__",
+        "__code__",
+        "__import__",
+        "__dict__",
+        "__func__",
+        "__self__",
+        "func_globals",
+        "func_code",
+        "gi_frame",
+        "gi_code",
+    }
+
+    # Define allowed node types
+    safe_nodes = (
+        ast.Expression,
+        ast.Compare,
+        ast.BoolOp,
+        ast.UnaryOp,
+        ast.Name,
+        ast.Constant,
+        ast.Subscript,
+        ast.Index,
+        ast.Load,
+        ast.Store,
+        ast.Call,
+        ast.Attribute,
+        ast.List,
+        ast.Tuple,
+        ast.Set,
+        ast.Dict,
+        # Comparison operators
+        ast.Eq,
+        ast.NotEq,
+        ast.Lt,
+        ast.LtE,
+        ast.Gt,
+        ast.GtE,
+        ast.Is,
+        ast.IsNot,
+        ast.In,
+        ast.NotIn,
+        # Boolean operators
+        ast.And,
+        ast.Or,
+        ast.Not,
+    )
+
+    # Check all nodes in the AST
+    for node in ast.walk(tree):
+        # Check node type
+        if not isinstance(node, safe_nodes):
+            raise ValueError(
+                f"Unsafe operation in filter expression: {node.__class__.__name__}. "
+                f"Only comparisons, boolean operations, and attribute access are allowed."
+            )
+
+        # Check for dangerous attribute access
+        if isinstance(node, ast.Attribute):
+            if node.attr in dangerous_attrs:
+                raise ValueError(f"Dangerous attribute access not allowed: {node.attr}")
+
+    # Check function calls - only allow dict methods
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call):
+            if not (
+                isinstance(node.func, ast.Attribute)
+                and node.func.attr in ("get", "keys", "values", "items")
+            ):
+                raise ValueError(
+                    "Function calls not allowed in filter expressions "
+                    "(except dict methods like .get())"
+                )
+
+    taf_logger.debug("Validated safe filter expression: {}", filter_expr)

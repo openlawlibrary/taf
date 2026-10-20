@@ -1,11 +1,13 @@
 import os
 import sys
+import time
 import logging
-from typing import Dict
+import zipfile
+import datetime
+from contextlib import contextmanager
+from typing import Dict, Optional, TextIO, Union
 from pathlib import Path
 
-# import tuf.log
-# import tuf.exceptions
 from loguru import logger as taf_logger
 import taf.settings as settings
 
@@ -16,7 +18,127 @@ console_loggers: Dict = {}
 file_loggers: Dict = {}
 
 NOTICE = 25
-taf_logger.level("NOTICE", no=NOTICE, color="<yellow>", icon="!")
+
+# How long to stop retrying a failed rotation before trying again, in seconds.
+# Without this, a single blocked rotation (see _RotatingFileSink) would otherwise
+# be retried, and would fail again, on every subsequent log message.
+_ROTATION_RETRY_COOLDOWN = 60
+
+
+class _RotatingFileSink:
+    """
+    A loguru sink that rotates a log file by size, but tolerates the file being
+    held open by another OS process.
+
+    taf can be imported both by short-lived CLI subprocesses and by a long-running
+    host process (e.g. an IDE extension's language server) that share the same
+    log files on disk. On Windows, if one of those processes has the log file
+    open, another process cannot rename it during rotation (WinError 32:
+    "The process cannot access the file because it is being used by another
+    process"). loguru's built-in rotation isn't resilient to that: the failed
+    rename leaves its file handle closed, so the next write immediately retries
+    the same rotation and fails the same way, flooding stderr with "Logging
+    error" tracebacks for the remainder of the process's life.
+
+    This sink instead treats a failed rotation as non-fatal: it keeps appending
+    to the existing (temporarily oversized) file and only retries rotation after
+    a short cooldown, instead of on every subsequent message.
+    """
+
+    def __init__(self, path, size_limit: int, retention: int, compression: bool):
+        self._path = Path(path)
+        self._size_limit = size_limit
+        self._retention = retention
+        self._compression = compression
+        self._file: Optional[TextIO] = None
+        self._rotation_retry_at: float = 0.0
+
+    def _open(self):
+        self._path.parent.mkdir(parents=True, exist_ok=True)
+        self._file = open(self._path, "a", encoding="utf-8")
+
+    def write(self, message):
+        if self._file is None:
+            self._open()
+
+        if time.monotonic() >= self._rotation_retry_at:
+            self._file.seek(0, os.SEEK_END)
+            if self._file.tell() + len(message) > self._size_limit:
+                if not self._rotate():
+                    self._rotation_retry_at = (
+                        time.monotonic() + _ROTATION_RETRY_COOLDOWN
+                    )
+
+        self._file.write(message)
+        self._file.flush()
+
+    def _rotate(self) -> bool:
+        if self._file is not None:
+            self._file.close()
+            self._file = None
+
+        renamed_path = self._generate_rename_path()
+        try:
+            os.rename(self._path, renamed_path)
+        except OSError:
+            # Most likely another process still has this file open. Give up on
+            # rotating for now; keep appending to the existing file instead.
+            self._open()
+            return False
+
+        if self._compression:
+            self._compress(renamed_path)
+        self._enforce_retention()
+
+        self._open()
+        return True
+
+    def _generate_rename_path(self) -> Path:
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S_%f")
+        stem, suffix = self._path.stem, self._path.suffix
+        renamed_path = self._path.with_name(f"{stem}.{timestamp}{suffix}")
+        counter = 1
+        while renamed_path.exists():
+            counter += 1
+            renamed_path = self._path.with_name(f"{stem}.{timestamp}.{counter}{suffix}")
+        return renamed_path
+
+    def _compress(self, path: Path) -> None:
+        zip_path = path.with_name(path.name + ".zip")
+        try:
+            with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+                zf.write(path, path.name)
+            os.remove(path)
+        except OSError:
+            # Compression is best-effort; the rotated log is still preserved
+            # uncompressed if this fails.
+            pass
+
+    def _enforce_retention(self) -> None:
+        stem, suffix = self._path.stem, self._path.suffix
+        try:
+            logs = [
+                log_path
+                for log_path in self._path.parent.glob(f"{stem}.*{suffix}*")
+                if log_path.is_file()
+            ]
+            logs.sort(key=lambda log_path: log_path.stat().st_mtime, reverse=True)
+            for old_log in logs[self._retention :]:
+                os.remove(old_log)
+        except OSError:
+            pass
+
+    def stop(self) -> None:
+        if self._file is not None:
+            self._file.close()
+            self._file = None
+
+
+try:
+    taf_logger.level("NOTICE", no=NOTICE, color="<yellow>", icon="!")
+except (KeyError, ValueError):
+    # If the level already exists, we can ignore this error.
+    pass
 
 VERBOSITY_LEVELS = {
     0: "NOTICE",  # Default
@@ -44,35 +166,18 @@ def formatter(record):
 def disable_console_logging():
     try:
         taf_logger.remove(console_loggers["log"])
-        # disable_tuf_console_logging()
-    except ValueError:
+    except (KeyError, ValueError):
         # will be raised if this is called twice
         pass
 
 
 def disable_file_logging():
-    try:
-        taf_logger.remove(file_loggers["log"])
-        # disable_tuf_console_logging()
-    except ValueError:
-        # will be raised if this is called twice
-        pass
-
-
-# def disable_tuf_console_logging():
-#     try:
-#         tuf.log.set_console_log_level(logging.CRITICAL)
-#     except securesystemslib.exceptions.Error:
-#         pass
-
-
-# def disable_tuf_file_logging():
-#     if tuf.log.file_handler is not None:
-#         tuf.log.disable_file_logging()
-#     else:
-#         logging.getLogger("tuf").setLevel(logging.CRITICAL)
-#     logging.getLogger("securesystemslib_keys").setLevel(logging.CRITICAL)
-#     logging.getLogger("securesystemslib_util").setLevel(logging.CRITICAL)
+    for handler_id in file_loggers:
+        try:
+            taf_logger.remove(file_loggers[handler_id])
+        except (KeyError, ValueError):
+            # will be raised if this is called twice
+            pass
 
 
 def _get_log_location():
@@ -85,38 +190,86 @@ def _get_log_location():
     return location
 
 
+_ROTATION_SIZE_BYTES = 150 * 1024 * 1024
+_RETENTION_COUNT = 5
+
+
+def _add_file_logger(key: str, path: str, level) -> None:
+    sink: Union[str, _RotatingFileSink]
+    if settings.AUTO_ROTATE_LOGS:
+        sink = _RotatingFileSink(
+            path,
+            size_limit=_ROTATION_SIZE_BYTES,
+            retention=_RETENTION_COUNT,
+            compression=True,
+        )
+    else:
+        sink = path
+    file_loggers[key] = taf_logger.add(sink, format=_FILE_FORMAT_STRING, level=level)
+
+
+def _add_console_logger(sink, **kwargs):
+    console_loggers["log"] = taf_logger.add(
+        sink, format=formatter, level=VERBOSITY_LEVELS[settings.VERBOSITY], **kwargs
+    )
+
+
+def _switch_console_logger(sink, **kwargs):
+    """Point console logging at `sink`. loguru can't change where an existing
+    handler writes, so the console handler is replaced."""
+    taf_logger.remove(console_loggers.pop("log"))
+    _add_console_logger(sink, **kwargs)
+
+
+@contextmanager
+def console_logging_to(write):
+    """Send console log output to `write` for the duration of the block, keeping
+    its colors, then switch back to stdout."""
+    try:
+        _switch_console_logger(write, colorize=True)
+    except (KeyError, ValueError):
+        # console logging is off (never enabled, or disable_console_logging was called)
+        yield
+        return
+    try:
+        yield
+    finally:
+        _switch_console_logger(sys.stdout)
+
+
 def initialize_logger_handlers():
     taf_logger.remove()
+    # python-tuf logs things like "No signature for keyid ..." at INFO level
+    # through the stdlib logging module, not taf_logger, so taf's own
+    # verbosity setting doesn't normally control it. Set it here explicitly
+    # so it stays quiet by default, no matter how the rest of the process
+    # has logging configured, and only shows up once taf is set to debug.
+    logging.getLogger("tuf").setLevel(
+        logging.DEBUG if settings.VERBOSITY >= 2 else logging.WARNING
+    )
     if settings.ENABLE_CONSOLE_LOGGING:
-        console_loggers["log"] = taf_logger.add(
-            sys.stdout, format=formatter, level=VERBOSITY_LEVELS[settings.VERBOSITY]
-        )
-        # tuf.log.set_console_log_level(logging.ERROR)
-    # else:
-    # if console logging is disable, remove tuf console logger
-    # disable_tuf_console_logging()
+        _add_console_logger(sys.stdout)
 
     if settings.ENABLE_FILE_LOGGING:
         log_location = _get_log_location()
-        log_path = str(log_location / settings.LOG_FILENAME)
-        file_loggers["log"] = taf_logger.add(
-            log_path, format=_FILE_FORMAT_STRING, level=settings.FILE_LOGGING_LEVEL
+        _add_file_logger(
+            "log",
+            str(log_location / settings.LOG_FILENAME),
+            settings.FILE_LOGGING_LEVEL,
         )
 
         if settings.SEPARATE_ERRORS:
-            error_log_path = str(log_location / settings.ERROR_LOG_FILENAME)
-            file_loggers["error"] = taf_logger.add(
-                error_log_path,
-                format=_FILE_FORMAT_STRING,
-                level=settings.ERROR_LOGGING_LEVEL,
+            _add_file_logger(
+                "error",
+                str(log_location / settings.ERROR_LOG_FILENAME),
+                settings.ERROR_LOGGING_LEVEL,
             )
-    #     try:
-    #         tuf.log.set_filehandler_log_level(settings.FILE_LOGGING_LEVEL)
-    #     except tuf.exceptions.Error:
-    #         pass
-    # else:
-    # # if file logging is disabled, also disable tuf file logging
-    # disable_tuf_file_logging()
+
+        _add_file_logger(
+            "debug",
+            str(log_location / settings.DEBUG_LOG_FILENAME),
+            settings.DEBUG_LOGGING_LEVEL,
+        )
 
 
 initialize_logger_handlers()

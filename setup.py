@@ -1,7 +1,7 @@
 from setuptools import find_packages, setup
 
 PACKAGE_NAME = "taf"
-VERSION = "0.34.1"
+VERSION = "0.41.0"
 AUTHOR = "Open Law Library"
 AUTHOR_EMAIL = "info@openlawlib.org"
 DESCRIPTION = "Implementation of archival authentication"
@@ -15,27 +15,30 @@ packages = find_packages()
 
 ci_require = [
     "bandit>=1.6.0",
-    "black>=19.3b0",
+    "black==26.3.1",
     "coverage==4.5.3",
     "pre-commit>=1.18.3",
     "pytest-cov==2.7.1",
-    "freezegun==0.3.15",
+    "freezegun==1.5.*",
 ]
 
 executable_require = ["lxml"]
 
-dev_require = ["bandit>=1.6.0", "black>=19.3b0", "pre-commit>=1.18.3"]
+dev_require = ["bandit>=1.6.0", "black==26.3.1", "pre-commit>=1.18.3"]
 
 tests_require = [
     "pytest==8.*",
-    "freezegun==0.3.15",
+    "freezegun==1.5.*",
     "jsonschema==3.2.0",
     "jinja2==3.1.*",
     "pytest-mock==3.14.*",
     "pytest-benchmark==4.0.0",
 ]
 
-yubikey_require = ["yubikey-manager==5.5.*"]
+yubikey_require = [
+    "yubikey-manager==5.8.*",
+    "pyscard==2.3.*",
+]
 
 
 kwargs = {
@@ -58,12 +61,14 @@ kwargs = {
         "colorama>=0.3.9",
         "tuf==5.*",
         "cryptography==43.0.*",
-        "securesystemslib==1.*",
+        "securesystemslib==1.4.*",
         "loguru==0.7.*",
         'pygit2==1.9.*; python_version < "3.11"',
-        'pygit2==1.14.*; python_version >= "3.11"',
+        'pygit2==1.16.*; python_version >= "3.11"',
         "pyOpenSSL==24.2.*",
         "logdecorator==2.*",
+        "tomli==2.0.*",
+        "rich==15.*",
     ],
     "extras_require": {
         "ci": ci_require,
@@ -93,6 +98,7 @@ kwargs = {
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
         "Programming Language :: Python :: Implementation :: CPython",
     ],
 }

@@ -7,17 +7,39 @@ from taf.auth_repo import AuthenticationRepository
 
 from taf.api.targets import (
     add_target_repo,
+    list_targets,
     register_target_files,
+    update_and_sign_targets,
     update_target_repos_from_repositories_json,
 )
 from taf.tests.test_api.util import (
     check_if_targets_signed,
+    check_role_scheme,
     check_target_file,
 )
 from taf.yubikey.yubikey_manager import PinManager
 
-
 AUTH_REPO_NAME = "auth"
+
+
+def normalize_to_windows_file_line_endings(file_path):
+    """Utility function to normalize file line endings to Windows style (CRLF)."""
+    with open(file_path, "rb") as open_file:
+        content = open_file.read()
+    replaced_content = normalize_windows_line_endings(content)
+    if replaced_content != content:
+        with open(file_path, "wb") as open_file:
+            open_file.write(replaced_content)
+
+
+def normalize_windows_line_endings(file_content):
+    """Normalize line endings to Windows style (CRLF)."""
+    WINDOWS_LINE_ENDING = b"\n"
+    UNIX_LINE_ENDING = b"\r\n"
+    replaced_content = file_content.replace(
+        WINDOWS_LINE_ENDING, UNIX_LINE_ENDING
+    ).rstrip(UNIX_LINE_ENDING)
+    return replaced_content
 
 
 def test_register_targets_when_file_added(
@@ -79,6 +101,74 @@ def test_register_targets_when_file_removed(
     assert commits[0].message.strip() == git_commit_message("update-targets")
 
 
+def test_register_targets_when_file_modified_and_line_endings_are_touched(
+    auth_repo_when_add_repositories_json: AuthenticationRepository,
+    pin_manager: PinManager,
+    library: Path,
+    keystore_delegations: str,
+):
+    repo_path = library / "auth"
+    initial_commits_num = len(auth_repo_when_add_repositories_json.list_pygit_commits())
+
+    dir1_file_path = repo_path / TARGETS_DIRECTORY_NAME / "dir1" / "path1"
+    dir1_file_path.parent.mkdir(parents=True, exist_ok=True)
+    dir1_file_path.write_text("test\ntest")
+    dir2_file_path = repo_path / TARGETS_DIRECTORY_NAME / "dir2" / "path2"
+    dir2_file_path.parent.mkdir(parents=True, exist_ok=True)
+    dir2_file_path.write_text("test\ntest")
+
+    register_target_files(
+        repo_path,
+        pin_manager,
+        keystore_delegations,
+        update_snapshot_and_timestamp=True,
+        push=False,
+    )
+    # change the file content
+    dir2_file_path.write_text("test modified\ntest modified")
+    # convert test_txt_filepath to unix style endings
+    normalize_to_windows_file_line_endings(str(dir1_file_path))
+    normalize_to_windows_file_line_endings(str(dir2_file_path))
+
+    expected_delegated_role_version = auth_repo_when_add_repositories_json._signed_obj(
+        "delegated_role"
+    ).version
+    expected_inner_role_version = auth_repo_when_add_repositories_json._signed_obj(
+        "inner_role"
+    ).version
+    register_target_files(
+        repo_path,
+        pin_manager,
+        keystore_delegations,
+        update_snapshot_and_timestamp=True,
+        push=False,
+    )
+
+    actual_delegated_role_version = auth_repo_when_add_repositories_json._signed_obj(
+        "delegated_role"
+    ).version
+    actual_inner_role_version = auth_repo_when_add_repositories_json._signed_obj(
+        "inner_role"
+    ).version
+
+    check_if_targets_signed(
+        auth_repo_when_add_repositories_json, "inner_role", "dir2/path2"
+    )
+    # verify that other delegated role was not touched
+    # even though we've used CRLF
+    assert (
+        expected_delegated_role_version == actual_delegated_role_version
+    ), "Expected delegated_role to not be updated, but it was"
+    # verify "inner_role" signed
+    assert (
+        expected_inner_role_version + 1 == actual_inner_role_version
+    ), "Expected inner_role to be updated, but it was not"
+
+    commits = auth_repo_when_add_repositories_json.list_pygit_commits()
+    assert len(commits) == initial_commits_num + 2
+    assert commits[0].message.strip() == git_commit_message("update-targets")
+
+
 def test_update_target_repos_from_repositories_json(
     auth_repo_when_add_repositories_json: AuthenticationRepository,
     pin_manager: PinManager,
@@ -105,6 +195,56 @@ def test_update_target_repos_from_repositories_json(
     commits = auth_repo_when_add_repositories_json.list_pygit_commits()
     assert len(commits) == initial_commits_num + 1
     assert commits[0].message.strip() == git_commit_message("update-targets")
+
+
+def test_list_targets_with_locally_cloned_target_repos(
+    auth_repo_when_add_repositories_json: AuthenticationRepository,
+    pin_manager: PinManager,
+    library: Path,
+    keystore_delegations: str,
+):
+    # regression test for locally cloned target repos in list_targets
+    repo_path = library / "auth"
+    update_target_repos_from_repositories_json(
+        str(repo_path),
+        pin_manager,
+        str(library.parent),
+        keystore_delegations,
+        push=False,
+    )
+    namespace = library.name
+    output = list_targets(str(repo_path))
+    for name in ("target1", "target2", "target3"):
+        target_repo_name = f"{namespace}/{name}"
+        assert output[target_repo_name]["cloned"] is True
+        assert output[target_repo_name]["unsigned"] == []
+
+
+def test_update_and_sign_targets_when_target_type_matches(
+    auth_repo_when_add_repositories_json: AuthenticationRepository,
+    pin_manager: PinManager,
+    library: Path,
+    keystore_delegations: str,
+):
+    repo_path = library / "auth"
+    initial_commits_num = len(auth_repo_when_add_repositories_json.list_pygit_commits())
+    namespace = library.name
+    update_and_sign_targets(
+        str(repo_path),
+        pin_manager,
+        str(library.parent),
+        ["type1"],
+        keystore_delegations,
+        None,
+        push=False,
+    )
+    target_repo_name = f"{namespace}/target1"
+    target_repo_path = library.parent / target_repo_name
+    assert check_target_file(
+        target_repo_path, target_repo_name, auth_repo_when_add_repositories_json
+    )
+    commits = auth_repo_when_add_repositories_json.list_pygit_commits()
+    assert len(commits) == initial_commits_num + 1
 
 
 def test_add_target_repository_when_not_on_filesystem(
@@ -145,6 +285,38 @@ def test_add_target_repository_when_not_on_filesystem(
         "delegated_role"
     )
     assert target_repo_name in delegated_paths
+
+
+def test_add_target_repo_applies_requested_scheme_when_creating_new_role(
+    auth_repo_when_add_repositories_json: AuthenticationRepository,
+    pin_manager: PinManager,
+    library: Path,
+    roles_keystore: str,
+):
+    requested_scheme = "rsassa-pss-sha256"
+    ROLE_NAME = "role_for_custom_scheme"
+    repo_path = str(library / "auth")
+    namespace = library.name
+    target_repo_name = f"{namespace}/target_with_new_role"
+    add_target_repo(
+        repo_path,
+        pin_manager,
+        None,
+        target_repo_name,
+        ROLE_NAME,
+        None,
+        roles_keystore,
+        paths=[target_repo_name],
+        keys_number=1,
+        threshold=1,
+        yubikey=False,
+        scheme=requested_scheme,
+        push=False,
+        should_create_new_role=True,
+        skip_prompt=True,
+    )
+
+    check_role_scheme(auth_repo_when_add_repositories_json, ROLE_NAME, requested_scheme)
 
 
 def test_add_target_repository_when_on_filesystem(

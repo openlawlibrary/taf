@@ -1,12 +1,14 @@
 import pytest
 from taf.tests.test_updater.conftest import (
     SetupManager,
+    add_new_target_repo_without_target_file,
     add_unauthenticated_commit_to_target_repo,
     add_unauthenticated_commits_to_all_target_repos,
     add_valid_target_commits,
     add_valid_unauthenticated_commits,
     clone_client_repo,
     create_new_target_orphan_branches,
+    set_allow_unauthenticated_commits,
     update_and_sign_metadata_without_clean_check,
     update_expiration_dates,
     update_role_metadata_without_signing,
@@ -16,6 +18,7 @@ from taf.tests.test_updater.update_utils import (
     clone_client_target_repos_without_updater,
     update_and_check_commit_shas,
     verify_repos_exist,
+    verify_excluded_lvc_entries,
 )
 from taf.updater.types.update import OperationType, UpdateType
 
@@ -104,6 +107,74 @@ def test_clone_valid_with_unauthenticated_commits(origin_auth_repo, client_dir):
     setup_manager.add_task(add_valid_unauthenticated_commits)
     setup_manager.add_task(add_valid_target_commits)
     setup_manager.add_task(add_valid_unauthenticated_commits)
+    setup_manager.execute_tasks()
+
+    update_and_check_commit_shas(
+        OperationType.CLONE,
+        origin_auth_repo,
+        client_dir,
+        expected_repo_type=UpdateType.OFFICIAL,
+    )
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [
+                {"name": "target1", "allow_unauthenticated_commits": True},
+                {"name": "target2"},
+            ],
+        },
+    ],
+    indirect=True,
+)
+def test_clone_valid_after_disallowing_unauthenticated_commits(
+    origin_auth_repo, client_dir
+):
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(add_valid_target_commits)
+    setup_manager.add_task(add_valid_unauthenticated_commits)
+    setup_manager.add_task(add_valid_target_commits)
+    setup_manager.add_task(
+        set_allow_unauthenticated_commits,
+        kwargs={"allow": False, "target_name": "target1"},
+    )
+    setup_manager.add_task(add_valid_target_commits)
+    setup_manager.execute_tasks()
+
+    update_and_check_commit_shas(
+        OperationType.CLONE,
+        origin_auth_repo,
+        client_dir,
+        expected_repo_type=UpdateType.OFFICIAL,
+    )
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [
+                {"name": "target1", "allow_unauthenticated_commits": True},
+                {"name": "target2"},
+            ],
+        },
+    ],
+    indirect=True,
+)
+def test_clone_valid_after_removing_allow_unauthenticated_commits_key(
+    origin_auth_repo, client_dir
+):
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(add_valid_target_commits)
+    setup_manager.add_task(add_valid_unauthenticated_commits)
+    setup_manager.add_task(add_valid_target_commits)
+    setup_manager.add_task(
+        set_allow_unauthenticated_commits,
+        kwargs={"allow": None, "target_name": "target1"},
+    )
+    setup_manager.add_task(add_valid_target_commits)
     setup_manager.execute_tasks()
 
     update_and_check_commit_shas(
@@ -221,20 +292,20 @@ def test_clone_valid_when_root_version_skipped(origin_auth_repo, client_dir):
 
 
 @pytest.mark.parametrize(
-    "origin_auth_repo, excluded_target_globs",
+    "origin_auth_repo, exclude_filter",
     [
         (
             {
                 "targets_config": [{"name": "target1"}, {"name": "target2"}],
             },
-            ["*/target1"],
+            "'target1' in repo['name']",
         )
     ],
     indirect=["origin_auth_repo"],
 )
 def test_valid_clone_when_exclude_target(
     origin_auth_repo,
-    excluded_target_globs,
+    exclude_filter,
     client_dir,
 ):
     update_and_check_commit_shas(
@@ -242,7 +313,41 @@ def test_valid_clone_when_exclude_target(
         origin_auth_repo,
         client_dir,
         expected_repo_type=UpdateType.EITHER,
-        excluded_target_globs=excluded_target_globs,
+        exclude_filter=exclude_filter,
+    )
+    verify_excluded_lvc_entries(client_dir, origin_auth_repo, excluded=["target1"])
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo, exclude_filter",
+    [
+        (
+            {
+                "targets_config": [
+                    {"name": "target_type1", "custom": {"type": "type1"}},
+                    {"name": "target_type2", "custom": {"type": "type2"}},
+                    {"name": "target_type3", "custom": {"type": "type3"}},
+                ],
+            },
+            "repo['type'] in {'type1', 'type2'}",
+        )
+    ],
+    indirect=["origin_auth_repo"],
+)
+def test_valid_clone_when_exclude_target_with_set_literal(
+    origin_auth_repo,
+    exclude_filter,
+    client_dir,
+):
+    update_and_check_commit_shas(
+        OperationType.CLONE,
+        origin_auth_repo,
+        client_dir,
+        expected_repo_type=UpdateType.EITHER,
+        exclude_filter=exclude_filter,
+    )
+    verify_excluded_lvc_entries(
+        client_dir, origin_auth_repo, excluded=["target_type1", "target_type2"]
     )
 
 
@@ -372,3 +477,34 @@ def test_clone_when_no_target_file_and_commit(origin_auth_repo, client_dir):
         expected_repo_type=UpdateType.EITHER,
     )
     verify_repos_exist(client_dir, origin_auth_repo, excluded=["target2"])
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        },
+    ],
+    indirect=True,
+)
+def test_clone_repo_added_without_target_file(origin_auth_repo, client_dir):
+    # a repo listed in repositories.json with no target file signed for it
+    # yet is not cloned, regardless of allow-unauthenticated-commits - there
+    # is nothing signed to validate it against
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(
+        add_new_target_repo_without_target_file,
+        kwargs={"target_name": "target3", "allow_unauthenticated_commits": True},
+    )
+    setup_manager.execute_tasks()
+
+    update_and_check_commit_shas(
+        OperationType.CLONE,
+        origin_auth_repo,
+        client_dir,
+        expected_repo_type=UpdateType.EITHER,
+    )
+    verify_repos_exist(client_dir, origin_auth_repo, excluded=["target3"])
+    namespace = origin_auth_repo.name.split("/")[0]
+    assert not (client_dir / f"{namespace}/target3").is_dir()

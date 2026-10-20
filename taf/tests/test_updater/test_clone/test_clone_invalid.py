@@ -1,5 +1,9 @@
+import json
+
 import pytest
 from taf.auth_repo import AuthenticationRepository
+from taf.constants import INFO_JSON_PATH
+from taf.exceptions import UpdateFailedError
 from taf.tests.test_updater.conftest import (
     INVALID_KEYS_PATTERN,
     NO_INFO_JSON,
@@ -11,9 +15,12 @@ from taf.tests.test_updater.conftest import (
     WRONG_UPDATE_TYPE_TEST_REPO,
     SetupManager,
     SetupState,
+    add_unauthenticated_commit_to_target_repo,
     add_unauthenticated_commits_to_all_target_repos,
     add_valid_target_commits,
+    add_valid_unauthenticated_commits,
     clone_client_repo,
+    set_allow_unauthenticated_commits,
     swap_last_two_commits,
     update_expiration_dates,
     update_timestamp_metadata_invalid_signature,
@@ -23,6 +30,7 @@ from taf.tests.test_updater.update_utils import (
     update_invalid_repos_and_check_if_repos_exist,
 )
 from taf.updater.types.update import OperationType, UpdateType
+from taf.updater.updater import UpdateConfig, clone_repository
 
 
 @pytest.mark.parametrize(
@@ -63,6 +71,40 @@ def test_clone_invalid_target_repositories_top_commits_unsigned(
     ],
     indirect=True,
 )
+def test_clone_invalid_target_repositories_reports_all_unsigned_repos(
+    origin_auth_repo, client_dir
+):
+    # both target1 and target2 get an unauthenticated commit - the error
+    # raised for the clone must name both, not just the first one found
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(add_unauthenticated_commits_to_all_target_repos)
+    setup_manager.execute_tasks()
+
+    config = UpdateConfig(
+        operation=OperationType.CLONE,
+        remote_url=str(origin_auth_repo.path),
+        update_from_filesystem=True,
+        path=str(client_dir / origin_auth_repo.name),
+        library_dir=str(client_dir),
+        no_upstream=False,
+    )
+    with pytest.raises(UpdateFailedError) as exc_info:
+        clone_repository(config)
+
+    message = str(exc_info.value)
+    assert "target1" in message
+    assert "target2" in message
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        },
+    ],
+    indirect=True,
+)
 def test_clone_invalid_target_repositories_contain_unsigned_commits(
     origin_auth_repo, client_dir
 ):
@@ -82,6 +124,151 @@ def test_clone_invalid_target_repositories_contain_unsigned_commits(
     client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
     # make sure that the last validated commit does not exist
     check_if_last_validated_commit_exists(client_auth_repo, True)
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [
+                {"name": "target1", "allow_unauthenticated_commits": True},
+                {"name": "target2"},
+            ],
+        },
+    ],
+    indirect=True,
+)
+def test_clone_invalid_unauthenticated_commits_after_disallowing(
+    origin_auth_repo, client_dir
+):
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(add_valid_target_commits)
+    setup_manager.add_task(
+        set_allow_unauthenticated_commits,
+        kwargs={"allow": False, "target_name": "target1"},
+    )
+    setup_manager.add_task(
+        add_unauthenticated_commit_to_target_repo, kwargs={"target_name": "target1"}
+    )
+    setup_manager.add_task(add_valid_target_commits)
+    setup_manager.execute_tasks()
+
+    update_invalid_repos_and_check_if_repos_exist(
+        OperationType.CLONE,
+        origin_auth_repo,
+        client_dir,
+        TARGET_MISSMATCH_PATTERN,
+        True,
+    )
+    client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
+    # make sure that the last validated commit does not exist
+    check_if_last_validated_commit_exists(client_auth_repo, True)
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [
+                {"name": "target1", "allow_unauthenticated_commits": True},
+                {"name": "target2"},
+            ],
+        },
+    ],
+    indirect=True,
+)
+def test_clone_invalid_unauthenticated_commits_after_removing_allow_key(
+    origin_auth_repo, client_dir
+):
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(add_valid_target_commits)
+    setup_manager.add_task(
+        set_allow_unauthenticated_commits,
+        kwargs={"allow": None, "target_name": "target1"},
+    )
+    setup_manager.add_task(
+        add_unauthenticated_commit_to_target_repo, kwargs={"target_name": "target1"}
+    )
+    setup_manager.add_task(add_valid_target_commits)
+    setup_manager.execute_tasks()
+
+    update_invalid_repos_and_check_if_repos_exist(
+        OperationType.CLONE,
+        origin_auth_repo,
+        client_dir,
+        TARGET_MISSMATCH_PATTERN,
+        True,
+    )
+    client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
+    # make sure that the last validated commit does not exist
+    check_if_last_validated_commit_exists(client_auth_repo, True)
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [
+                {"name": "target1", "allow_unauthenticated_commits": True},
+                {"name": "target2"},
+            ],
+        },
+    ],
+    indirect=True,
+)
+def test_clone_invalid_disallowing_unauthenticated_commits_with_pending_gap(
+    origin_auth_repo, client_dir
+):
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(add_valid_target_commits)
+    setup_manager.add_task(add_valid_unauthenticated_commits, kwargs={"repetitions": 2})
+    setup_manager.add_task(
+        set_allow_unauthenticated_commits,
+        kwargs={
+            "allow": False,
+            "target_name": "target1",
+            "sign_target_pointers": True,
+        },
+    )
+    setup_manager.execute_tasks()
+
+    update_invalid_repos_and_check_if_repos_exist(
+        OperationType.CLONE,
+        origin_auth_repo,
+        client_dir,
+        TARGET_MISSMATCH_PATTERN,
+        True,
+    )
+    client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
+    # make sure that the last validated commit does not exist
+    check_if_last_validated_commit_exists(client_auth_repo, True)
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        }
+    ],
+    indirect=True,
+)
+def test_clone_invalid_name_changed_in_unsigned_commit(origin_auth_repo, client_dir):
+    info_json_path = origin_auth_repo.path / INFO_JSON_PATH
+    info_json_path.write_text(json.dumps({"namespace": "other", "name": "auth"}))
+    origin_auth_repo.commit("Change info.json without signing")
+
+    update_invalid_repos_and_check_if_repos_exist(
+        OperationType.CLONE,
+        origin_auth_repo,
+        client_dir,
+        UPDATE_ERROR_PATTERN,
+        expect_partial_update=True,
+        auth_repo_name_exists=False,
+    )
+
+    assert not (client_dir / "other").exists()
+    assert (client_dir / origin_auth_repo.name).is_dir()
 
 
 @pytest.mark.parametrize(

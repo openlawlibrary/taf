@@ -1,3 +1,4 @@
+import atexit
 import platform
 import click
 import errno
@@ -9,8 +10,13 @@ import stat
 import subprocess
 import tempfile
 import shutil
+import threading
 import uuid
 import sys
+
+from concurrent.futures import ThreadPoolExecutor
+
+from io import BytesIO
 from getpass import getpass
 from functools import wraps
 from pathlib import Path
@@ -64,8 +70,8 @@ def extract_x509(cert_pem):
         "country": _get_attr(x509.OID_COUNTRY_NAME),
         "state": _get_attr(x509.OID_STATE_OR_PROVINCE_NAME),
         "locality": _get_attr(x509.OID_LOCALITY_NAME),
-        "valid_from": cert.not_valid_before.strftime("%Y-%m-%d"),
-        "valid_to": cert.not_valid_after.strftime("%Y-%m-%d"),
+        "valid_from": cert.not_valid_before_utc.strftime("%Y-%m-%d"),
+        "valid_to": cert.not_valid_after_utc.strftime("%Y-%m-%d"),
     }
 
 
@@ -163,6 +169,23 @@ def read_input_dict(value):
                 return {}
 
     return value
+
+
+def format_command_args(cmd: str, *args) -> List[str]:
+    """Split a whitespace-separated command template into argv tokens, filling
+    each `{}` placeholder with the next arg so a substituted value stays a
+    single token even if it contains spaces. Empty args (e.g. an optional
+    flag passed as "") are dropped.
+    """
+    args_iter = iter(args)
+    tokens = []
+    for token in cmd.split():
+        placeholders = token.count("{}")
+        if placeholders:
+            token = token.format(*[next(args_iter) for _ in range(placeholders)])
+        if token != "":  # nosec B105
+            tokens.append(token)
+    return tokens
 
 
 def run(*command, **kwargs):
@@ -368,6 +391,26 @@ def safely_move_file(src, dst, overwrite=False):
             raise
 
 
+def secret_yes_no_prompt(message: str) -> bool:
+    """
+    Ask user a yes/no question about loading more keys in a "hidden" manner.
+    The user must type y or n explicitly. Any other input will re-prompt.
+    """
+    while True:
+        response = click.prompt(
+            message,
+            hide_input=True,
+            show_default=False,
+            type=str,
+        )
+        response = response.strip().lower()
+
+        if response in ("y", "n"):
+            return response == "y"
+        else:
+            click.echo("Invalid input. Please type 'y' or 'n'.")
+
+
 def to_tuf_datetime_format(start_date, interval):
     """Used to convert datetime to format used while writing metadata:
     e.g. "2020-05-29T21:59:34Z",
@@ -424,6 +467,9 @@ def get_file_details(
     # Getting the file hashes
     file_hashes = {}
     with storage_backend.get(filepath) as fileobj:
+        original_content = fileobj.read()
+        normalized_content = normalize_line_endings(original_content)
+        fileobj = BytesIO(normalized_content)
         for algorithm in hash_algorithms:
             digest_object = digest_fileobject(fileobj, algorithm)
             file_hashes.update({algorithm: digest_object.hexdigest()})
@@ -495,17 +541,78 @@ class timed_run:
         return wrapper_func
 
 
+_background_cleanup_threads: List[threading.Thread] = []
+
+
+def _join_background_cleanup_threads():
+    for thread in _background_cleanup_threads:
+        thread.join(timeout=10)
+
+
+atexit.register(_join_background_cleanup_threads)
+
+
+def _remove_trash_dir(trash_dir):
+    # deletion on Windows is latency-bound, so removing the immediate
+    # subdirectories in parallel gives a substantial speedup
+    trash_dir = Path(trash_dir)
+    try:
+        subdirs = [path for path in trash_dir.iterdir() if path.is_dir()]
+        with ThreadPoolExecutor(max_workers=8) as executor:
+            for _ in executor.map(
+                lambda path: shutil.rmtree(path, onerror=on_rm_error), subdirs
+            ):
+                pass
+        shutil.rmtree(trash_dir, onerror=on_rm_error)
+    except Exception as e:
+        taf_logger.warning(
+            f"Could not remove temp folder {trash_dir}: {e}. Please remove it manually."
+        )
+
+
 class TempPartition:
+    TRASH_SUFFIX = ".taf-trash"
+
     def __init__(self, ref_path):
         self.ref_partition = self.get_partition_root(ref_path)
-        temp_dir_partition = self.get_partition_root(Path(tempfile.gettempdir()))
+        configured_dir = os.environ.get("TAF_TMP")
 
-        if temp_dir_partition == self.ref_partition:
-            self.temp_dir = Path(tempfile.mkdtemp())
+        if configured_dir:
+            taf_dir = Path(configured_dir)
+            taf_dir.mkdir(parents=True, exist_ok=True)
+            self.temp_dir = Path(tempfile.mkdtemp(dir=str(taf_dir)))
         else:
-            taf_dir = self.ref_partition / ".taf"
-            taf_dir.mkdir(exist_ok=True)
-            self.temp_dir = tempfile.mkdtemp(dir=str(taf_dir))
+            temp_dir_partition = self.get_partition_root(Path(tempfile.gettempdir()))
+            if temp_dir_partition == self.ref_partition:
+                self.temp_dir = Path(tempfile.mkdtemp())
+            else:
+                taf_dir = self.ref_partition / ".taf"
+                taf_dir.mkdir(exist_ok=True)
+                self.temp_dir = Path(tempfile.mkdtemp(dir=str(taf_dir)))
+        self._sweep_stale_trash()
+
+    def _sweep_stale_trash(self):
+        # Remove leftovers of cleanups that did not finish (crash, timeout).
+        # In the same-partition case the parent is the shared system temp dir
+        # (e.g. /tmp on POSIX), where another user could have created a
+        # directory matching the trash pattern - so only delete trash we own
+        # and never follow symlinks.
+        try:
+            own_uid = os.getuid()  # POSIX only; per-user temp dirs on Windows
+        except AttributeError:
+            own_uid = None
+        try:
+            for trash in Path(self.temp_dir).parent.glob(f"*{self.TRASH_SUFFIX}"):
+                try:
+                    if trash.is_symlink():
+                        continue
+                    if own_uid is not None and os.lstat(trash).st_uid != own_uid:
+                        continue
+                    shutil.rmtree(trash, onerror=on_rm_error)
+                except Exception:
+                    pass
+        except Exception:
+            pass
 
     def get_partition_root(self, path):
         # Get the root directory of the partition containing the specified path
@@ -517,6 +624,27 @@ class TempPartition:
         # Remove the temporary directory and the ".taf" directory
         if Path(self.temp_dir).is_dir():
             shutil.rmtree(self.temp_dir, onerror=on_rm_error)
+
+    def cleanup_async(self):
+        """Move the temporary directory out of the way immediately and delete
+        it in the background, keeping the deletion (which can take tens of
+        seconds on Windows) off the update's critical path. All repositories
+        inside the temp directory must be closed before calling this."""
+        if not Path(self.temp_dir).is_dir():
+            return
+        trash_path = f"{self.temp_dir}{uuid.uuid4().hex[:8]}{self.TRASH_SUFFIX}"
+        try:
+            os.rename(self.temp_dir, trash_path)
+        except OSError:
+            # something still holds the temp dir (e.g. open repo handles) -
+            # fall back to synchronous removal
+            self.cleanup()
+            return
+        thread = threading.Thread(
+            target=_remove_trash_dir, args=(trash_path,), daemon=True
+        )
+        _background_cleanup_threads.append(thread)
+        thread.start()
 
     def __enter__(self):
         return self.temp_dir, self.partition

@@ -5,20 +5,551 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog][keepachangelog],
 and this project adheres to [Semantic Versioning][semver].
 
+## [Unreleased]
+
+### Added
+
+- Add doctests for the attrs models and tests which check that the keys-description examples in the docs and in the commands' help are valid ([819])
+
+### Changed
+
+- Print a confirmation when `taf yubikey check-pin` finds the PIN valid ([818])
+- Warn when `exclude_filter` is passed to an update instead of just ignoring it ([815])
+
+### Removed
+
+- Unused `checkout` option of `UpdateConfig` ([815])
+
+### Fixed
+
+- Fix adding multiple roles from a config file when the parent of a new role is defined in the same file or when `parent_role` is not specified ([819])
+- Fix outdated keys-description examples in the help of `repo create`, `keystore generate` and `roles add-multiple` ([819])
+- Show a useful error instead of an indexing error when a YubiKey serial number is given but no matching YubiKey is detected ([818])
+- Use the repository name from the last validated commit when cloning without a path ([817])
+- Check that each target repository's commit is on its branch before resetting ([815])
+
+[819]: https://github.com/openlawlibrary/taf/pull/819
+[818]: https://github.com/openlawlibrary/taf/pull/818
+[817]: https://github.com/openlawlibrary/taf/pull/817
+[815]: https://github.com/openlawlibrary/taf/pull/815
+
+## [0.41.0]
+
+### Added
+
+- Show live progress of each repository in the terminal during `taf repo clone`, `update` and `validate` ([816])
+- Add test coverage for signing with role keys outside the YubiKey SIGNATURE slot ([811])
+- Add test coverage for `GitRepository` methods that had none ([808])
+- Gracefully handle SIGINT/SIGTERM during an update, running cleanup instead of leaving temp state behind ([769])
+- Allow overriding the temp directory used when cloning repositories via an anv var ([771])
+- Sign and discover keys across all YubiKey PIV slots, not just SIGNATURE ([767])
+- Support choosing a YubiKey PIV slot when setting up signing keys ([759])
+
+### Changed
+
+- Remove unused `scheme` parameters ([757])
+
+### Removed
+
+- `--reset`/`--force` from `taf yubikey setup-signing-key`/`setup-test-key` - an occupied PIV slot is refused instead of being overwritten ([767])
+
+### Fixed
+
+- Fix default branch detection returning the checked-out branch ([810])
+- Reject unsafe branch names reported by a remote ([810])
+- Fix `clone_or_pull()` dropping the branch argument to `fetch`/`pull` ([808])
+- Fix `fetch()` retrying after a successful attempt ([808])
+- Fix `NoRemoteError` crashing instead of raising ([808])
+- Fix `remove_remote()` leaving a stale cached remote list ([808])
+- Fix `set_upstream()` dropping the branch name ([808])
+- Populate `UpdateFailedError.update_data` on failure instead of leaving it unset ([807])
+- Name the cause in the unauthenticated-commit mismatch error ([807])
+- Apply `exclude_filter` to repositories returned from the shared cache, not just freshly loaded ones ([804])
+- Fix `list_targets` crash comparing a target repo's last signed commit against local branches ([804])
+- A repository created or cloned at a path inside another repository no longer reports the enclosing repository's state, and a linked worktree or submodule is recognized as a repository of its own ([797])
+- The default branch comes from the repository at the path, not from one that encloses it, and is read once `init_repo` has created it ([795])
+- Fix incorrect "up-to-date" message after cloning a previously excluded repo ([782])
+- Report all target repos with disallowed unauthenticated commits, not just the first ([782])
+- Fix updater crash when a target repo is missing from last_validated_commit ([782])
+- Fix `--force` update crashing on a repo with no commits and uncommitted changes ([782])
+- Silence python-tuf's info-level log output by default ([782])
+- Warn about a repo added to repositories.json with no target file yet, instead of silently skipping it ([782])
+- Fix a dependency update wiping another dependency's data out of a shared cache ([782])
+- Determine the default branch from a local (`--from-fs`) path containing a space, instead of failing ([780])
+- Fix YubiKey caching bugs that could skip a valid signing key for a delegated role ([775])
+- Disallowing unauthenticated commits no longer invalidates already-signed history ([774])
+- Allow `--key-pin` with multiple YubiKeys inserted ([770])
+- Detect signing scheme from key material instead of assuming RSA ([757])
+- Clone no longer fails when the repository path contains a space (e.g. a Windows home directory with a space in the user name) ([762])
+- Surface the underlying git error when a clone fails, instead of hiding it behind a generic access message ([762])
+- Correct the clone access error that rendered as "Cannot None ..." and stop misattributing a local failure to an access/authentication problem ([762])
+
+[816]: https://github.com/openlawlibrary/taf/pull/816
+[811]: https://github.com/openlawlibrary/taf/pull/811
+[810]: https://github.com/openlawlibrary/taf/pull/810
+[808]: https://github.com/openlawlibrary/taf/pull/808
+[807]: https://github.com/openlawlibrary/taf/pull/807
+[804]: https://github.com/openlawlibrary/taf/pull/804
+[769]: https://github.com/openlawlibrary/taf/pull/769
+[797]: https://github.com/openlawlibrary/taf/pull/797
+[795]: https://github.com/openlawlibrary/taf/pull/795
+[782]: https://github.com/openlawlibrary/taf/pull/782
+[780]: https://github.com/openlawlibrary/taf/pull/780
+[775]: https://github.com/openlawlibrary/taf/pull/775
+[774]: https://github.com/openlawlibrary/taf/pull/774
+[771]: https://github.com/openlawlibrary/taf/pull/771
+[770]: https://github.com/openlawlibrary/taf/pull/770
+[767]: https://github.com/openlawlibrary/taf/pull/767
+[762]: https://github.com/openlawlibrary/taf/pull/762
+[759]: https://github.com/openlawlibrary/taf/pull/759
+[757]: https://github.com/openlawlibrary/taf/pull/757
+
+
+## [0.40.0]
+
+### Added
+
+- Support Python 3.13 ([800])
+
+### Changed
+
+- Update test and Git dependencies for Python 3.13 compatibility ([800])
+
+### Fixed
+
+- Interpret Git commit timezone offsets correctly when formatting commit dates ([800])
+
+
+[800]: https://github.com/openlawlibrary/taf/pull/800
+
+
+## [0.39.3]
+
+### Added
+
+### Changed
+
+### Fixed
+
+- Disallowing unauthenticated commits no longer invalidates already-signed history ([774])
+
+[774]: https://github.com/openlawlibrary/taf/pull/774
+
+## [0.39.2]
+
+### Added
+
+- Allow overriding the temp directory used when cloning repositories via the `TAF_TMP` environment variable ([771])
+
+### Changed
+
+### Fixed
+
+- Pin `securesystemslib` to `1.4.*` to unbreak key loading, which securesystemslib 1.5.0 broke ([771])
+
+[771]: https://github.com/openlawlibrary/taf/pull/771
+
+## [0.39.1]
+
+### Added
+
+### Changed
+
+### Fixed
+
+- Prevent rotating log files from flooding output with "Logging error" messages when the log file is held open by another process
+
+## [0.39.0]
+
+### Added
+
+### Changed
+
+- Reduce `taf repo clone` and `taf repo update` execution time by eliminating redundant network fetches ([743])
+- Improve TAF performance by roughly two thirds for both `clone` and `update` ([743])
+
+### Fixed
+
+- Raise clear error when a target repository is missing a branch referenced by the authentication repository's target metadata ([751])
+- Don't crash `taf yubikey setup-signing-key` when no authentication repository is involved (`taf_repo` is `None`) ([748])
+- Don't validate a new YubiKey's PIN against the card during setup, which could lock the key ([748])
+- Validate `config.toml` against a complete schema (strict `[root]`, lenient top level) and raise a clear error on invalid input ([748])
+
+[751]: https://github.com/openlawlibrary/taf/pull/751
+[748]: https://github.com/openlawlibrary/taf/pull/748
+[743]: https://github.com/openlawlibrary/taf/pull/743
+
+
+
+## [0.38.4]
+
+### Added
+
+### Changed
+
+### Fixed
+
+
+- Fix commits on branch and not other when there is no local merge branch ([744])
+- Raise clear error when default branch not found in local repo [(742)]
+- Fix false out-of-band authentication failures on update and clone ([740])
+
+[744]: https://github.com/openlawlibrary/taf/pull/744
+[742]: https://github.com/openlawlibrary/taf/pull/742
+[740]: https://github.com/openlawlibrary/taf/pull/740
+
+
+## [0.38.3]
+
+### Added
+
+### Changed
+
+### Fixed
+
+- Include expected and actual commit hashes in out-of-band authentication mismatch error message ([739])
+- Raise `PygitError` instead of `AttributeError` when pygit2 is unavailable ([732])
+
+[739]: https://github.com/openlawlibrary/taf/pull/739
+[732]: https://github.com/openlawlibrary/taf/pull/732
+
+
+## [0.38.2]
+
+### Added
+
+### Changed
+
+### Fixed
+
+- Do not overwrite exclude filter when running local validation ([727])
+- Clear cached repositories before update and validation flows so exclude filters do not reuse stale repository state ([727])
+- Allow set literals in exclude_filter expressions ([727])
+
+[727]: https://github.com/openlawlibrary/taf/pull/727
+
+
+## [0.38.1]
+
+### Added
+
+### Changed
+
+- Rework partial-update check so updates with excluded targets are not considered partial ([724])
+- Implmented updater no-op speedup ([723])
+
+### Fixed
+
+- Enable `--exclude-filter` for validation ([724])
+
+[724]: https://github.com/openlawlibrary/taf/pull/724
+[723]: https://github.com/openlawlibrary/taf/pull/723
+
+
+## [0.38.0]
+
+### Added
+
+### Changed
+
+- Use auth repo's last validated commit for reset and partial updates ([713])
+- Change excluded target repos handling ([719])
+
+### Fixed
+
+[713]: https://github.com/openlawlibrary/taf/pull/713
+[719]: https://github.com/openlawlibrary/taf/pull/719
+
+## [0.37.6]
+
+### Added
+
+### Changed
+
+### Fixed
+
+- Delete TUF Updater after each commit iteration as an attempt to fix file lock errors on Windows  [718]
+
+[718]: https://github.com/openlawlibrary/taf/pull/718
+
+## [0.37.5]
+
+### Added
+
+- A minor `get_merge_base` fix. Return `None` if not found instead of raising an error ([715])
+- Add a method for checking if a path is ignore ([714])
+- Reset: Handle excluded_target_globs and detached head target ([711])
+- Fix reset to commit bug ([703])
+- Implement taf repo reset ([703])
+
+### Changed
+
+### Fixed
+
+[715]: https://github.com/openlawlibrary/taf/pull/715
+[714]: https://github.com/openlawlibrary/taf/pull/714
+[711]: https://github.com/openlawlibrary/taf/pull/711
+[703]: https://github.com/openlawlibrary/taf/pull/703
+
+## [0.37.4]
+
+### Added
+
+### Changed
+
+
+### Fixed
+
+- Fix traverse taf directory ([708])
+
+
+[708]: https://github.com/openlawlibrary/taf/pull/708
+
+## [0.37.3]
+
+### Added
+
+- Support writing structured clone/update results to a JSON file ([705])
+
+### Changed
+
+### Fixed
+
+[705]: https://github.com/openlawlibrary/taf/pull/705
+
+## [0.37.2]
+
+### Added
+
+### Changed
+
+### Fixed
+
+- Use auth path to detect taf directory ([704])
+
+[704]: https://github.com/openlawlibrary/taf/pull/704
+
+## [0.37.1]
+
+### Added
+
+- Raise validation error when there are additional comments if the `--upstream` flag is provided ([697])
+
+### Changed
+
+### Fixed
+
+- Add the missing `exclude-filter` option to the validate command ([697])
+
+[697]: https://github.com/openlawlibrary/taf/pull/697
+
+## [0.37.0]
+
+### Added
+
+- Add Python expression filtering for repository exclusion ([694])
+- Git: add branch fast forward ([691])
+
+### Changed
+
+### Fixed
+
+- Revert changes to global update_from_filesystem after running local validation ([693])
+- Fix `commit_exists` ([689])
+- Attempt to remove `index.lock` if branch checkout fails ([684])
+
+[694]: https://github.com/openlawlibrary/taf/pull/694
+[693]: https://github.com/openlawlibrary/taf/pull/693
+[691]: https://github.com/openlawlibrary/taf/pull/691
+[689]: https://github.com/openlawlibrary/taf/pull/689
+[684]: https://github.com/openlawlibrary/taf/pull/684
+
+## [0.36.3]
+
+### Added
+
+- Add option to specify paths ignored during repo cleanup ([675])
+- Add retry logic for git fetch ([678])
+
+### Changed
+
+### Fixed
+
+- Fix unauthenticated commits list ([679])
+
+[679]: https://github.com/openlawlibrary/taf/pull/679
+[675]: https://github.com/openlawlibrary/taf/pull/675
+[678]: https://github.com/openlawlibrary/taf/pull/678
+
+## [0.36.2]
+
+### Added
+
+### Changed
+
+- Delete `name` unrecognized field from `MetadataRepository` metadata repository ([673])
+
+### Fixed
+
+[673]: https://github.com/openlawlibrary/taf/pull/673
+
+## [0.36.1]
+
+### Added
+
+- Add skip-keygen flag to taf init command ([668])
+
+### Changed
+
+### Fixed
+
+- Correctly set additional commits when cloning ([670])
+- fix: resolve circular import in `taf/api/utils/_conf.py` ([667])
+
+[670]: https://github.com/openlawlibrary/taf/pull/670
+[668]: https://github.com/openlawlibrary/taf/pull/668
+[667]: https://github.com/openlawlibrary/taf/pull/667
+
+## [0.36.0]
+
+### Added
+
+### Changed
+
+- Bump `pyscard` and `yubikey-manager` dependencies ([#666])
+
+### Fixed
+
+[666]: https://github.com/openlawlibrary/taf/pull/666
+
+## [0.35.5]  - 09/02/2025
+
+### Added
+
+### Changed
+
+### Fixed
+
+- Fix(logging): pass on `KeyError` when disabling logging ([#663])
+
+[663]: https://github.com/openlawlibrary/taf/pull/663
+
+## [0.35.4] - 08/14/2025
+
+### Added
+
+### Changed
+
+### Fixed
+
+- Normalize targets file contents prior to hashing ([#660])
+
+[660]: https://github.com/openlawlibrary/taf/pull/660
+
+## [0.35.3] - 06/23/2025
 
 ## [Unreleased]
 
 ### Added
 
+### Changed
+
+### Fixed
+
+- Fix pyscard in setup.py ([#656])
+
+[655]: https://github.com/openlawlibrary/taf/pull/655
+
+## [0.35.2] - 06/16/2025
+
+### Added
+
+### Changed
+
+### Fixed
+
+- Fix missing `log` file handler ([#655])
+- Fix toml import for newer python (>= 3.11) ([#655])
+
+[655]: https://github.com/openlawlibrary/taf/pull/655
+
+## [0.35.1] - 06/13/2025
+
+### Added
+
+- Add `add_tracking_branch` configuration parameter to `synced_with_remote` ([#653])
+
+### Changed
+
+### Fixed
+
+- Fix `taf.log` NOTICE log initialization ([#652])
+- Add missing `tomli` dependency and pin `pyscard` ([#652])
+
+[653]: https://github.com/openlawlibrary/taf/pull/653
+[652]: https://github.com/openlawlibrary/taf/pull/652
+
+## [0.35.0] - 06/09/2025
+
+### Added
+
+- Fix PIN lookup ([650])
+- Unified YubiKey PIN lookup - read key pins from env vars ([643])
+- Add `--run-scripts` flag to explicitly execute lifecycle handler scripts ([636])
+
+### Changed
+
+- Make pin interactive in `taf yubikey check-pin` ([634])
+- Standardize `--commit-msg` parameter to commands ([634])
+- Make `[y/N]` a hidden prompt and not a `click.confirm` prompt on role threshold reached ([634])
+
+### Fixed
+
+- Fix yk imports ([641])
+- Fix YubiKey key prompt when incorrect pin entered ([627])
+- Pin `pyscard` to `2.2.1` ([639])
+- Fix YubiKey key prompt when incorrect pin entered ([627])
+
+[650]: https://github.com/openlawlibrary/taf/pull/650
+[643]: https://github.com/openlawlibrary/taf/pull/643
+[641]: https://github.com/openlawlibrary/taf/pull/641
+[636]: https://github.com/openlawlibrary/taf/pull/636
+[639]: https://github.com/openlawlibrary/taf/pull/639
+[634]: https://github.com/openlawlibrary/taf/pull/634
+[627]: https://github.com/openlawlibrary/taf/pull/627
+
+## [0.35.0a2] - 04/03/2025
+
+### Added
+
+- Add `keyid_hash_algorithms` to metadata keys ([621])
+
+### Changed
+
+### Fixed
+
+- `key_management` decorator fixes ([617])
+
+[621]: https://github.com/openlawlibrary/taf/pull/621
+[617]: https://github.com/openlawlibrary/taf/pull/617
+
+## [0.35.0a1] - 03/17/2025
+
+### Added
+
+- Add log rotation and log size limit ([613])
+- Add yubikey debug logging statements ([613])
 - Implement get all auth repos logic ([599])
 - Integrate benchmark tests into CI ([597])
 - Add Commitish model ([596])
 - Aadd tests for part of the git module ([596])
+- Add a command for setting names of keys ([594])
+- Add an option to specify names of keys using an external file ([594])
 - Implement adaptive timeout for Git clone operations ([592])
 - Check if repository is synced with remote before running API functions ([592])
-- Add key names from config files to metadata during repository setup, following updates to TUF and securesystemslib [(583)]
-- Implement iteration over all inserted YubiKeys during metadata signing [(583)]
-- Implement a `PinManager` class to allow secure pin reuse across API functions and eliminated insecure global pin storage [(583)]
+- Add key names from config files to metadata during repository setup, following updates to TUF and securesystemslib ([583])
+- Implement iteration over all inserted YubiKeys during metadata signing ([583])
+- Implement a `PinManager` class to allow secure pin reuse across API functions and eliminated insecure global pin storage ([583])
 
 ### Changed
 
@@ -26,16 +557,21 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
-
+- Fix sort order in `manage_repo_and_signers` ([612])
+- Optionally include yubikey cli group. Ensures that CLI can be used without ykman ([604])
 - Fix setting names of keys when not stored in metadata files ([603])
-- Ensure that every target role has a delegations attribute [(595)]
-- Fix wrong default branch assignment for target repos [(593)]
+- Ensure that every target role has a delegations attribute [595]
+- Fix wrong default branch assignment for target repos [593]
 
+[613]: https://github.com/openlawlibrary/taf/pull/613
+[612]: https://github.com/openlawlibrary/taf/pull/612
+[604]: https://github.com/openlawlibrary/taf/pull/604
 [603]: https://github.com/openlawlibrary/taf/pull/603
 [599]: https://github.com/openlawlibrary/taf/pull/599
 [597]: https://github.com/openlawlibrary/taf/pull/597
 [596]: https://github.com/openlawlibrary/taf/pull/596
 [595]: https://github.com/openlawlibrary/taf/pull/595
+[594]: https://github.com/openlawlibrary/taf/pull/594
 [593]: https://github.com/openlawlibrary/taf/pull/593
 [592]: https://github.com/openlawlibrary/taf/pull/592
 [583]: https://github.com/openlawlibrary/taf/pull/583
@@ -44,14 +580,14 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
-- Improved Git error messaging to provide clearer troubleshooting instructions for remote operations [(588)]
+- Improved Git error messaging to provide clearer troubleshooting instructions for remote operations ([588])
 
 ### Changed
 
 
 ### Fixed
 
-- Fixed loading from repositories cache [(590)]
+- Fixed loading from repositories cache ([590])
 
 [590]: https://github.com/openlawlibrary/taf/pull/590
 [588]: https://github.com/openlawlibrary/taf/pull/588
@@ -61,12 +597,12 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
-- Added benchmark testing for test_clone_valid_happy_path [(584)]
-- Implement removal and rotation of keys [(561)]
+- Added benchmark testing for test_clone_valid_happy_path ([584])
+- Implement removal and rotation of keys ([561])
 
 ### Changed
 
-- Transition to the newest version of TUF [(561)]
+- Transition to the newest version of TUF ([561])
 
 ### Fixed
 
@@ -108,7 +644,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 - Add tests for `get_last_remote_commit` and `reset_to_commit` ([573])
 - Remove unused optional parameter from _yk_piv_ctrl ([572])
-- Implement full partial update. Store last validated commit per repo ([559)])
+- Implement full partial update. Store last validated commit per repo ([559]))
 
 ### Changed
 
@@ -531,8 +1067,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
-- Split tests into separate packages [(353)]
-- Minor add/remove target repository improvements [(351)]
+- Split tests into separate packages ([353])
+- Minor add/remove target repository improvements ([351])
 - Bump `cattrs` ([349])
 - Improve CLI error handling ([346])
 - Update signing keys loading. Add a flag for specifying if the user will be asked to manually enter a key ([346])
@@ -544,8 +1080,8 @@ and this project adheres to [Semantic Versioning][semver].
 ### Fixed
 
 - Fix list targets in case when the target repo is not up to date with remote ([357])
-- Fix repositories.json update when adding new target repository [(351)]
-- Fix error when keystore path is not provided [(351)]
+- Fix repositories.json update when adding new target repository ([351])
+- Fix error when keystore path is not provided ([351])
 - Make it possible to execute commands that don't require yubikey without installing yubikey-manager ([342])
 - Fix commits per repositories function when same target commits are on different branches ([337])
 - Add missing `write` flag to `taf targets sign` ([329])
@@ -1474,7 +2010,37 @@ and this project adheres to [Semantic Versioning][semver].
 
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
-[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.34.1...HEAD
+[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.41.0...HEAD
+[0.41.0]: https://github.com/openlawlibrary/taf/compare/v0.40.0...v0.41.0
+[0.40.0]: https://github.com/openlawlibrary/taf/compare/v0.39.3...v0.40.0
+[0.39.3]: https://github.com/openlawlibrary/taf/compare/v0.39.2...v0.39.3
+[0.39.2]: https://github.com/openlawlibrary/taf/compare/v0.39.1...v0.39.2
+[0.39.1]: https://github.com/openlawlibrary/taf/compare/v0.39.0...v0.39.1
+[0.39.0]: https://github.com/openlawlibrary/taf/compare/v0.38.4...v0.39.0
+[0.38.4]: https://github.com/openlawlibrary/taf/compare/v0.38.3...v0.38.4
+[0.38.3]: https://github.com/openlawlibrary/taf/compare/v0.38.2...v0.38.3
+[0.38.2]: https://github.com/openlawlibrary/taf/compare/v0.38.1...v0.38.2
+[0.38.1]: https://github.com/openlawlibrary/taf/compare/v0.38.0...v0.38.1
+[0.38.0]: https://github.com/openlawlibrary/taf/compare/v0.37.6...v0.38.0
+[0.37.6]: https://github.com/openlawlibrary/taf/compare/v0.37.5...v0.37.6
+[0.37.5]: https://github.com/openlawlibrary/taf/compare/v0.37.4...v0.37.5
+[0.37.4]: https://github.com/openlawlibrary/taf/compare/v0.37.3...v0.37.4
+[0.37.3]: https://github.com/openlawlibrary/taf/compare/v0.37.2...v0.37.3
+[0.37.2]: https://github.com/openlawlibrary/platform/compare/v0.37.1...v0.37.2
+[0.37.1]: https://github.com/openlawlibrary/platform/compare/v0.37.0...v0.37.1
+[0.37.0]: https://github.com/openlawlibrary/taf/compare/v0.36.3...v0.37.0
+[0.36.3]: https://github.com/openlawlibrary/taf/compare/v0.36.2...v0.36.3
+[0.36.2]: https://github.com/openlawlibrary/taf/compare/v0.36.1...v0.36.2
+[0.36.1]: https://github.com/openlawlibrary/taf/compare/v0.36.0...v0.36.1
+[0.36.0]: https://github.com/openlawlibrary/taf/compare/v0.35.5...v0.36.0
+[0.35.5]: https://github.com/openlawlibrary/taf/compare/v0.35.4...v0.35.5
+[0.35.4]: https://github.com/openlawlibrary/taf/compare/v0.35.3...v0.35.4
+[0.35.3]: https://github.com/openlawlibrary/taf/compare/v0.35.2...v0.35.3
+[0.35.2]: https://github.com/openlawlibrary/taf/compare/v0.35.1...v0.35.2
+[0.35.1]: https://github.com/openlawlibrary/taf/compare/v0.35.0...v0.35.1
+[0.35.0]: https://github.com/openlawlibrary/taf/compare/v0.35.0a2...v0.35.0
+[0.35.0a2]: https://github.com/openlawlibrary/taf/compare/v0.35.0a1...v0.35.0a2
+[0.35.0a1]: https://github.com/openlawlibrary/taf/compare/v0.34.1...v0.35.0a1
 [0.34.1]: https://github.com/openlawlibrary/taf/compare/v0.34.0...v0.34.1
 [0.34.0]: https://github.com/openlawlibrary/taf/compare/v0.33.2...v0.34.0
 [0.33.2]: https://github.com/openlawlibrary/taf/compare/v0.33.1...v0.33.2

@@ -1,8 +1,10 @@
 from pathlib import Path
 import pytest
 from taf.auth_repo import AuthenticationRepository
+from taf.git import GitRepository
 from taf.tests.test_updater.conftest import (
     SetupManager,
+    add_new_role_and_target_repo,
     add_unauthenticated_commits_to_all_target_repos,
     add_valid_target_commits,
     add_valid_unauthenticated_commits,
@@ -10,8 +12,8 @@ from taf.tests.test_updater.conftest import (
     remove_commits,
     remove_last_validated_commit,
     remove_last_validated_data,
-    replace_with_old_last_validated_commit_format,
     revert_last_validated_commit,
+    set_allow_unauthenticated_commits,
     update_and_sign_metadata_without_clean_check,
     update_expiration_dates,
     update_role_metadata_without_signing,
@@ -61,7 +63,9 @@ def test_update_valid_happy_path(origin_auth_repo, client_dir):
     ],
     indirect=True,
 )
-def test_update_when_old_last_validated_commit(origin_auth_repo, client_dir):
+def test_update_after_adding_new_role_and_target_repo(origin_auth_repo, client_dir):
+    """Update after adding a new role with a new target repo under it - the
+    new target repo has no last_validated_commit entry yet."""
     clone_repositories(
         origin_auth_repo,
         client_dir,
@@ -71,10 +75,18 @@ def test_update_when_old_last_validated_commit(origin_auth_repo, client_dir):
     setup_manager.add_task(add_valid_target_commits)
     setup_manager.execute_tasks()
 
-    client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
-    client_setup_manager = SetupManager(client_auth_repo)
-    client_setup_manager.add_task(replace_with_old_last_validated_commit_format)
-    client_setup_manager.execute_tasks()
+    update_and_check_commit_shas(
+        OperationType.UPDATE,
+        origin_auth_repo,
+        client_dir,
+    )
+
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(
+        add_new_role_and_target_repo,
+        kwargs={"target_name": "target_via_new_role", "role_name": "root3"},
+    )
+    setup_manager.execute_tasks()
 
     update_and_check_commit_shas(
         OperationType.UPDATE,
@@ -151,6 +163,47 @@ def test_update_valid_when_unauthenticated_commits(origin_auth_repo, client_dir)
     "origin_auth_repo",
     [
         {
+            "targets_config": [
+                {"name": "target1", "allow_unauthenticated_commits": True},
+                {"name": "target2"},
+            ],
+        },
+    ],
+    indirect=True,
+)
+def test_update_valid_after_disallowing_unauthenticated_commits(
+    origin_auth_repo, client_dir
+):
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(add_valid_target_commits)
+    setup_manager.add_task(add_valid_unauthenticated_commits)
+    setup_manager.add_task(add_valid_target_commits)
+    setup_manager.execute_tasks()
+
+    clone_repositories(
+        origin_auth_repo,
+        client_dir,
+    )
+
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(
+        set_allow_unauthenticated_commits,
+        kwargs={"allow": False, "target_name": "target1"},
+    )
+    setup_manager.add_task(add_valid_target_commits)
+    setup_manager.execute_tasks()
+
+    update_and_check_commit_shas(
+        OperationType.UPDATE,
+        origin_auth_repo,
+        client_dir,
+    )
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
             "is_test_repo": True,
             "targets_config": [{"name": "target1"}, {"name": "target2"}],
         },
@@ -189,6 +242,44 @@ def test_update_valid_when_expiration_dates_updated(origin_auth_repo, client_dir
         origin_auth_repo,
         client_dir,
     )
+
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(update_expiration_dates)
+    setup_manager.execute_tasks()
+
+    update_and_check_commit_shas(
+        OperationType.UPDATE,
+        origin_auth_repo,
+        client_dir,
+    )
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        },
+    ],
+    indirect=True,
+)
+def test_update_uses_configured_remote_over_local_origin(
+    origin_auth_repo, client_dir, tmp_path
+):
+    clone_repositories(
+        origin_auth_repo,
+        client_dir,
+    )
+
+    stale_origin = GitRepository(path=tmp_path / "stale-origin-auth")
+    stale_origin.clone_from_disk(
+        origin_auth_repo.path,
+        str(origin_auth_repo.path),
+        is_bare=True,
+    )
+
+    client_auth_repo = AuthenticationRepository(path=client_dir / origin_auth_repo.name)
+    client_auth_repo.set_remote_url(str(stale_origin.path))
 
     setup_manager = SetupManager(origin_auth_repo)
     setup_manager.add_task(update_expiration_dates)

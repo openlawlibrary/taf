@@ -1,7 +1,6 @@
-import json
 from logging import ERROR, INFO
 import shutil
-from typing import Optional
+from typing import Dict, Iterator, Optional, Tuple
 import click
 from logdecorator import log_on_end, log_on_error, log_on_start
 from taf.git import GitRepository
@@ -13,10 +12,17 @@ from pathlib import Path
 from taf.api.roles import (
     initialize_roles_and_keystore,
 )
-from taf.api.targets import list_targets, register_target_files
+from rich.console import Console
+from rich.text import Text
+from taf.api.targets import (
+    list_targets,
+    print_targets_status,
+    register_target_files,
+)
 
 from taf.auth_repo import AuthenticationRepository
-from taf.exceptions import TAFError
+from taf.display import default_console, print_properties, up_to_date, yes_no
+from taf.exceptions import TAFError, ResetFailedError
 from taf.keys import load_sorted_keys_of_new_roles
 import taf.repositoriesdb as repositoriesdb
 from taf.api.utils._conf import find_keystore
@@ -24,6 +30,7 @@ from taf.tuf.repository import METADATA_DIRECTORY_NAME
 from taf.utils import ensure_pre_push_hook
 from taf.log import taf_logger
 from taf.yubikey.yubikey_manager import PinManager
+from taf.models.types import Commitish
 
 
 @log_on_start(
@@ -148,15 +155,69 @@ def _check_if_can_create_repository(path: Path) -> bool:
     return True
 
 
-def taf_status(path: str, library_dir: Optional[str] = None, indent: int = 0) -> None:
+def get_status(path: str, library_dir: Optional[str] = None) -> Optional[Dict]:
     """
-    Prints a list of target repositories of an authentication repository, their states,
-    and the dependencies of the authentication repository.
+    Returns the state of an authentication repository, of its target repositories
+    and of its dependencies.
 
     Arguments:
         path: Authentication repository's location
         library_dir (optional): Path to the library's root directory. Determined based on the authentication repository's path if not provided.
-        indent (optional): Indentation level for nested dependencies.
+
+    Side Effects:
+       None
+
+    Returns:
+        A dictionary containing the repository's name, path and state, the states of its
+        target repositories (see `list_targets`) and a list of the same dictionaries for
+        its dependencies. None if the repository is empty.
+    """
+    auth_repo = AuthenticationRepository(path=path)
+    head_commit = auth_repo.head_commit()
+    if head_commit is None:
+        return None
+
+    has_remote = auth_repo.has_remote()
+    status: Dict = {
+        "name": auth_repo.name,
+        "path": str(auth_repo.path.resolve()),
+        "head-commit": str(head_commit),
+        "bare": auth_repo.is_bare_repository,
+        "has-remote": has_remote,
+        "up-to-date": auth_repo.synced_with_remote() if has_remote else None,
+        "something-to-commit": auth_repo.something_to_commit(),
+        "targets": dict(list_targets(path=path)),
+        "dependencies": [],
+    }
+
+    repositoriesdb.load_dependencies(auth_repo, library_dir=library_dir)
+    dependencies = repositoriesdb.get_auth_repositories(auth_repo, head_commit)
+    for dep_repo in dependencies.values():
+        dependency_status = get_status(str(dep_repo.path), library_dir)
+        if dependency_status is not None:
+            status["dependencies"].append(dependency_status)
+    return status
+
+
+def _with_dependencies(status: Dict, depth: int = 0) -> Iterator[Tuple[Dict, int]]:
+    """Go through the status of a repository and of all of its dependencies,
+    each followed by its own dependencies, together with how deeply it is nested."""
+    yield status, depth
+    for dependency_status in status["dependencies"]:
+        yield from _with_dependencies(dependency_status, depth + 1)
+
+
+def taf_status(
+    path: str, library_dir: Optional[str] = None, console: Optional[Console] = None
+) -> None:
+    """
+    Prints the state of an authentication repository and of its target repositories,
+    followed by the same for each of its dependencies.
+
+    Arguments:
+        path: Authentication repository's location
+        library_dir (optional): Path to the library's root directory. Determined based on the authentication repository's path if not provided.
+        console (optional): Where to print. The terminal by default.
 
     Side Effects:
        None
@@ -164,30 +225,225 @@ def taf_status(path: str, library_dir: Optional[str] = None, indent: int = 0) ->
     Returns:
         None
     """
-    # Get the authentication repository status
-    print()
-    auth_repo = AuthenticationRepository(path=path)
-    head_commit = auth_repo.head_commit()
-    if head_commit is None:
-        print("Repository is empty")
+    console = console or default_console()
+    status = get_status(path, library_dir)
+    if status is None:
+        console.print("Repository is empty")
         return
+    for repo_status, depth in _with_dependencies(status):
+        print_properties(
+            console,
+            "Authentication repository",
+            repo_status["name"],
+            [
+                ("Path", Text(repo_status["path"])),
+                ("Head commit", Text(repo_status["head-commit"])),
+                ("Bare", yes_no(repo_status["bare"])),
+                ("Up to date", up_to_date(repo_status)),
+                (
+                    "Uncommitted changes",
+                    yes_no(repo_status["something-to-commit"], ok_when=False),
+                ),
+            ],
+            depth,
+        )
+        print_targets_status(repo_status["targets"], console, depth + 1)
 
-    # Print authentication repository status
-    indent_str = " " * indent
-    print(f"{indent_str}Authentication Repository: {auth_repo.path.resolve()}")
-    print(f"{indent_str}Head Commit: {head_commit}")
-    print(f"{indent_str}Bare: {auth_repo.is_bare_repository}")
-    print(f"{indent_str}Up to Date: {auth_repo.synced_with_remote()}")
-    print(f"{indent_str}Something to commit: {auth_repo.something_to_commit()}")
-    print(f"{indent_str}Target Repositories Status:")
-    # Call the list_targets function
-    print(json.dumps(list_targets(path=path), indent=1))
 
-    # Load dependencies using repositoriesdb.get_auth_repositories
-    repositoriesdb.load_dependencies(auth_repo, library_dir=library_dir)
-    dependencies = repositoriesdb.get_auth_repositories(auth_repo, head_commit)
-    if dependencies:
-        print(f"{indent_str}Dependencies:")
-        for dep_repo in dependencies.values():
-            print(f"{indent_str}- {dep_repo.name}")
-            taf_status(str(dep_repo.path), library_dir, indent + 3)
+def reset_repository(
+    auth_repo: AuthenticationRepository,
+    commit: str,
+    override_lvc: bool,
+    force: bool,
+) -> bool:
+    """
+    Resets auth and target repos to a snapshot in the past.
+    Arguments:
+        auth_repo: authentication repository
+        commit: auth commit to reset to
+        lvc: override last validated commit
+        force: forcefully reset (clean repositories if dirty)
+    """
+    try:
+        bare = auth_repo.is_bare_repository
+
+        # Handle auth repo:
+        # Check specified commit:
+        last_validated_commit = (
+            Commitish.from_hash(auth_repo.last_validated_data[auth_repo.name])
+            if auth_repo.last_validated_data
+            else None
+        )
+        if commit is None:
+            auth_commit = (
+                auth_repo.resolve_commit(last_validated_commit)
+                if last_validated_commit
+                else None
+            )
+        else:
+            auth_commit = auth_repo.resolve_commit(commit)
+
+        # Fail early if auth commit is not resolved properly or LVC is invalid:
+        if auth_commit is None:
+            raise ResetFailedError(
+                "An error occured during auth repo commit check - make sure you either have a valid last validated commit or specify a commitish via --commit flag."
+            )
+
+        last_validated_data = auth_repo.last_validated_data
+        if last_validated_data is not None:
+            exclude_filter = last_validated_data.get("exclude_filter")
+        # Load corresponding target repos and their commits
+        repositoriesdb.load_repositories(auth_repo, exclude_filter=exclude_filter)
+        target_repos = repositoriesdb.get_deduplicated_repositories(
+            auth_repo, exclude_filter=exclude_filter
+        )
+
+        _perform_checks(auth_repo, auth_commit, bare, force, target_repos)
+
+        # All checks passed, reset repositories:
+        if force and not bare:
+            # Remove uncommited changes and untracked files if any
+            auth_repo.clean_and_reset()
+        # Reset to the specified commit
+        auth_repo.reset_to_commit(auth_commit, hard=False if bare else True)
+        taf_logger.info(
+            f"{auth_repo.name} successfully reset to commit {auth_commit.hash}"
+        )
+
+        should_override_lvc = _should_override_lvc(
+            override_lvc,
+            auth_repo,
+            auth_commit,
+            last_validated_commit.hash if last_validated_commit else None,
+        )
+
+        # Override LVC:
+        if should_override_lvc:
+            auth_repo.set_last_validated_of_repo(auth_repo.name, auth_commit, True)
+            taf_logger.info(
+                f"Last validated commit successfully overridden to {auth_commit.hash} for repository {auth_repo.name}"
+            )
+
+        # Reset target repos:
+        for repo_name, repo in target_repos.items():
+            target = auth_repo.get_target(repo_name, auth_commit)
+            if target is None:
+                raise ResetFailedError(
+                    f"Target repository {repo_name} could not be loaded, aborting reset."
+                )
+
+            target_branch = target["branch"]
+            target_commit = Commitish.from_hash(target["commit"])
+
+            if bare:
+                # Set HEAD to the target branch, since checkout is not possible in bare repo:
+                repo._git(f"symbolic-ref HEAD refs/heads/{target_branch}")
+            else:
+                if force:
+                    # Remove uncommited changes and untracked files if any
+                    auth_repo.clean_and_reset()
+                repo.checkout_branch(target_branch)
+
+            # Reset to the specified commit
+            repo.reset_to_commit(target_commit, hard=False if bare else True)
+            taf_logger.info(
+                f"{repo_name} successfully reset to commit {target_commit.hash}"
+            )
+
+            # Override LVC:
+            if should_override_lvc:
+                auth_repo.set_last_validated_of_repo(repo_name, auth_commit, True)
+                taf_logger.info(
+                    f"Last validated commit successfully overridden to value {auth_commit.hash} for repository {repo_name}"
+                )
+
+        return True
+    except Exception as e:
+        raise ResetFailedError(
+            f"Reset of repository {auth_repo.name or ''} failed due to error: {e}"
+        )
+
+
+def _perform_checks(
+    auth_repo: AuthenticationRepository,
+    auth_commit: Commitish,
+    bare: bool,
+    force: bool,
+    target_repos: Dict[str, GitRepository],
+):
+    """
+    Perform auth and target repos checks so we can exit early if repos are in an inconsistent state.
+    """
+    # Fail early if there are uncommited changes or unstaged files:
+    if not bare and not force:
+        if auth_repo.something_to_commit():
+            raise ResetFailedError(
+                f"There are uncommited changes in {auth_repo.name}. Please commit/stash changes or run reset with force flag."
+            )
+
+    # Fail early if repo is in detached head state:
+    if auth_repo.is_detached_head:
+        if not force:
+            raise ResetFailedError(
+                f"{auth_repo.name} is in detached head state. Fix the state manually or run reset with force flag."
+            )
+
+    # Handle target repos:
+    # Perform checks for each target repo:
+    for repo_name, repo in target_repos.items():
+        target = auth_repo.get_target(repo_name, auth_commit)
+        # Fail early if target repo can't be loaded:
+        if target is None:
+            raise ResetFailedError(f"Error, target {repo_name} could not be loaded!")
+
+        # Fail early if the target commit is not on the target branch:
+        target_branch = target["branch"]
+        target_commit = Commitish.from_hash(target["commit"])
+        if target_commit not in repo.all_commits_on_branch(target_branch):
+            raise ResetFailedError(
+                f"Target repo {repo.name} commit {target_commit.hash} not found on branch ({target_branch})."
+            )
+
+        if not bare and not force:
+            # Fail early if there are uncommited changes or unstaged files
+            if repo.something_to_commit():
+                raise ResetFailedError(
+                    f"There are uncommited changes in {repo.name}. Please commit/stash changes or run reset with force flag."
+                )
+
+        # Fail early if repo is in detached head state:
+        if repo.is_detached_head:
+            if not force:
+                raise ResetFailedError(
+                    f"{repo.name} is in detached head state. Fix the state manually or run reset with force flag."
+                )
+
+    # If repo is in detached head and force flag is set, reset it to the specified commit
+    # This check is put at the last place since it modifies the state of the repository and there might be
+    # target repo changes that would lead to early failure and therefore exit before these changes
+    if auth_repo.is_detached_head:
+        auth_repo.reset_to_commit(auth_commit, hard=True)
+    # Fail early if commit is not on the default branch:
+    default_branch = auth_repo.get_default_branch()
+    if auth_commit not in auth_repo.all_commits_on_branch(default_branch):
+        raise ResetFailedError(
+            f"Auth repo commit {auth_commit.hash} not found on branch ({default_branch})."
+        )
+
+
+def _should_override_lvc(
+    lvc_flag: bool,
+    auth_repo: AuthenticationRepository,
+    auth_commit: Commitish,
+    lvc: str | None,
+) -> bool:
+    if lvc is None:
+        return False
+    if lvc_flag:
+        if not auth_repo.is_commit_an_ancestor_of_a_commit_or_branch(auth_commit, lvc):
+            print(
+                "Specified commit is not the ancestor of last validated commit. Last validated commit will not be overriden."
+            )
+        else:
+            return True
+    return False

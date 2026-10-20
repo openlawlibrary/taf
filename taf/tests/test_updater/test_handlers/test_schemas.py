@@ -8,7 +8,6 @@ from taf.updater.schemas import (
     update_update_schema,
 )
 
-
 schema_store = {
     repo_update_schema["$id"]: repo_update_schema,
     update_update_schema["$id"]: update_update_schema,

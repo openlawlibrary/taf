@@ -10,7 +10,7 @@ import random
 import shutil
 import string
 import json
-from typing import Optional
+from typing import Any, Optional
 from functools import partial
 from freezegun import freeze_time
 from pathlib import Path
@@ -20,14 +20,15 @@ from taf.api.metadata import (
     update_metadata_expiration_date,
 )
 from taf.auth_repo import AuthenticationRepository
-from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME, TARGETS_DIRECTORY_NAME
+from taf.constants import TARGETS_DIRECTORY_NAME
 from taf import repositoriesdb, settings
 from taf.exceptions import GitError
 from taf.utils import on_rm_error
 from taf.log import disable_console_logging
 from taf.tests.test_updater.update_utils import load_target_repositories
-from taf.api.repository import create_repository
+from taf.api.roles import add_roles
 from taf.api.targets import (
+    add_target_repo,
     register_target_files,
     update_target_repos_from_repositories_json,
 )
@@ -41,16 +42,20 @@ from taf.tests.conftest import (
     TEST_DATA_ORIGIN_PATH,
     KEYSTORE_PATH,
     TEST_INIT_DATA_PATH,
+    create_authentication_repository,
 )
 from taf.yubikey.yubikey_manager import PinManager
 
 from tuf.api.metadata import Timestamp
 
-
 KEYS_DESCRIPTION = str(TEST_INIT_DATA_PATH / "keys.json")
 
 
 TARGET_MISSMATCH_PATTERN = r"Update of (\w+)\/(\w+) failed due to error: Failure to validate (\w+)\/(\w+) commit ([0-9a-f]{40}) committed on (\d{4}-\d{2}-\d{2}): data repository ([\w\/-]+) was supposed to be at commit ([0-9a-z]{40}) but repo was at ([0-9a-f]{40})"
+TARGET_MISSMATCH_UNAUTHENTICATED_PATTERN = (
+    TARGET_MISSMATCH_PATTERN
+    + r", an unauthenticated commit which ([\w\/-]+) does not allow"
+)
 TARGET_MISMATCH_PATTERN_DEPENDENCIES = r"Update of (\w+)/(\w+) failed due to error: Update of (\w+)/(\w+) failed. One or more referenced authentication repositories could not be validated:\n Failure to validate (\w+)/(\w+) commit ([0-9a-f]{40}) committed on (\d{4}-\d{2}-\d{2}): data repository ([\w\/-]+) was supposed to be at commit ([0-9a-f]{40}) but repo was at ([0-9a-f]{40})"
 TARGET_ADDITIONAL_COMMIT_PATTERN = r"Update of (\w+)\/(\w+) failed due to error: Failure to validate (\w+)\/(\w+) commit ([0-9a-f]{40}) committed on (\d{4}-\d{2}-\d{2}): data repository ([\w\/-]+) was supposed to be at commit ([0-9a-f]{40}) but commit not on branch (\w+)"
 TARGET_COMMIT_AFTER_LAST_VALIDATED_PATTERN = r"Update of (\w+)\/(\w+) failed due to error: Target repository ([\w\/-]+) does not allow unauthenticated commits, but contains commit\(s\) ([0-9a-f]{40}(?:, [0-9a-f]{40})*) on branch (\w+)"
@@ -63,11 +68,11 @@ WRONG_UPDATE_TYPE_TEST_REPO = r"Update of (\w+\/\w+) failed due to error: Reposi
 WRONG_UPDATE_TYPE_OFFICIAL_REPO = r"Update of (\w+\/\w+) failed due to error: Repository (\w+\/\w+) is not a test repository, but update was called with the \"--expected-repo-type\" test$"
 METADATA_EXPIRED = r"Update of (\w+\/\w+) failed due to error: Validation of authentication repository (\w+\/\w+) failed at revision [0-9a-f]+ due to error: .+ is expired"
 NO_INFO_JSON = "Update of repository failed due to error: Error during info.json parse. If the authentication repository's path is not specified, info.json metadata is expected to be in targets/protected"
-UNCOMMITTED_CHANGES = r"Update of (\w+\/\w+) failed due to error: Repository (\w+\/\w+) should contain only committed changes\. \nPlease update the repository at (.+) manually and try again\."
+UNCOMMITTED_CHANGES = r"Update of (\w+\/\w+) failed due to error: Repositories (\w+\/\w+) have uncommitted changes\. Commit and push or use --force to revert and run the command again\."
 UPDATE_ERROR_PATTERN = r"Update of (\w+\/\w+) failed due to error: Validation of authentication repository (\w+\/\w+) failed at revision ([0-9a-f]+) due to error: .*"
 FORCED_UPDATE_PATTERN = r"Update of (\w+\/\w+) failed due to error: Repositories ([\w/,\s-]+) have uncommitted changes. Commit and push or use --force to revert and run the command again."
 BEHIND_LVC_PATTERN = r"Update of (\w+\/\w+) failed due to error: Top commit of repository \1 ([0-9a-f]{40}) is not equal to or newer than the last successful commit."
-LVC_NOT_IN_REPO_PATTERN = r"Update of (\w+\/\w+) failed due to error: \1: Last validated commit (\w{40}) is not in repository \1\s*Run the updater with the --force flag to run the validation from the first commit"
+LVC_NOT_IN_REPO_PATTERN = r"Update of (\w+\/\w+) failed due to error: \1: Last validated commit (\w{40}) is not in repository \1\s*Run 'taf repo reset' to sync your local repositories, or run the updater with the --force flag to validate from the first commit"
 LVC_NOT_IN_REMOTE_PATTERN = r"Update of ([\w_\/]+) failed due to error: Last validated commit ([\da-f]{40}) is no longer on (\w+) of the remote ([\w_\/]+) repository.*"
 UNPUSHED_COMMITS_PATTERN = r"Update of (\w+\/\w+) failed due to error:\s*\nThe following repository has unpushed commits on branches: ([\w\/]+): \(([\w,-]+)\)"
 REMOVED_COMMITS_PATTERN = r"Update of (\w+/\w+) failed due to error: Last validated commit ([0-9a-f]{40}) is not in the remote repository."
@@ -80,6 +85,12 @@ TARGET_COMMIT_MISMATCH_PATTERN = (
     r"([0-9a-f]{40}) committed on (\d{4}-\d{2}-\d{2}): data repository (\w+\/\w+) was "
     r"supposed to be at commit ([0-9a-f]{40}) but (repo was at|commit not on branch) (\w+)"
 )
+INVALID_AUTH_COMMIT_RESET_ERROR = "An error occured during auth repo commit check - make sure you either have a valid last validated commit or specify a commitish via --commit flag."
+UNCOMMITTED_CHANGES_RESET_PATTERN = r"There are uncommited changes in ([A-Za-z0-9_\-\[\]]+/[A-Za-z0-9_\-\[\]]+)\. Please commit/stash changes or run reset with force flag."
+DETACHED_HEAD_RESET_PATTERN = r"(\w+\/\w+) is in detached head state. Fix the state manually or run reset with force flag."
+OLD_LVC_FORMAT_ERROR_PATTERN = r"Failure to set excluded targets for repo (\w+\/\w+) - last_validated_commit file is in old format which is not supported anymore. Please delete the file and re-run the command."
+DEFAULT_BRANCH_NOT_FOUND_PATTERN = r"Update of ([\w/]+) failed due to error: Could not find branch '[\w-]+' in local repository ([\w/]+)\. This can happen if the repository's default branch was changed after cloning\. Please re-clone the repository using 'taf repo clone'\."
+TARGET_MISSING_BRANCH_PATTERN = r"Update of (\w+\/\w+) failed due to error: Target repository '([\w/-]+)' does not contain branch '[^']+', which is referenced by authentication repository '([\w/-]+)'.*All branches referenced by the authentication repository's target metadata must be present in the target repositories\."
 
 
 # Disable console logging for all tests
@@ -187,10 +198,14 @@ class RepositoryConfig:
         name: str,
         allow_unauthenticated_commits: bool = False,
         is_empty: bool = False,
+        custom: Optional[dict[str, Any]] = None,
     ):
         self.name = name
         self.allow_unauthenticated_commits = allow_unauthenticated_commits
         self.is_empty = is_empty
+        custom = custom or {}
+        custom["allow-unauthenticated-commits"] = allow_unauthenticated_commits
+        self.custom = custom
 
 
 @pytest.fixture
@@ -222,15 +237,18 @@ def origin_auth_repo(
     is_test_repo = request.param.get("is_test_repo", False)
     date = request.param.get("data")
     setup_type = request.param.get("setup_type", SetupState.ALL_FILES_INITIALLY)
+    # When parametrizing tests, there are unsupported symbols added "[" and "]"
+    clean_test_name = test_name.replace("[", "_").replace("]", "")
     targets_config = [
         RepositoryConfig(
-            f"{test_name}/{targets_config['name']}",
+            f"{clean_test_name}/{targets_config['name']}",
             targets_config.get("allow_unauthenticated_commits", False),
             targets_config.get("is_empty", False),
+            targets_config.get("custom"),
         )
         for targets_config in targets_config_list
     ]
-    repo_name = f"{test_name}/auth"
+    repo_name = f"{clean_test_name}/auth"
 
     if date is not None:
         with freeze_time(date):
@@ -302,24 +320,6 @@ def create_mirrors_json(library_dir: Path, repo_name: str):
     mirrors = {"mirrors": [f"{library_dir}/{{org_name}}/{{repo_name}}"]}
     mirrors_path = targets_dir_path / MIRRORS_JSON_NAME
     mirrors_path.write_text(json.dumps(mirrors))
-
-
-def create_authentication_repository(
-    library_dir: Path,
-    pin_manager: PinManager,
-    repo_name: str,
-    keys_description: str,
-    is_test_repo: bool = False,
-):
-    repo_path = Path(library_dir, repo_name)
-    create_repository(
-        str(repo_path),
-        pin_manager,
-        str(KEYSTORE_PATH),
-        keys_description,
-        commit=True,
-        test=is_test_repo,
-    )
 
 
 def sign_target_files(library_dir, repo_name, keystore, pin_manager):
@@ -575,6 +575,100 @@ def add_valid_target_commits(
     )
 
 
+def add_new_target_repo_without_target_file(
+    auth_repo: AuthenticationRepository,
+    pin_manager: PinManager,
+    target_name: str,
+    allow_unauthenticated_commits: Optional[bool] = None,
+    is_empty: bool = False,
+):
+    """List a brand-new target repo in repositories.json without signing a
+    target file for it - simulating a repo that was added but never had an
+    initial commit pinned."""
+    namespace = auth_repo.name.split("/")[0]
+    full_name = f"{namespace}/{target_name}"
+
+    initialize_target_repositories(
+        TEST_DATA_ORIGIN_PATH,
+        targets_config=[RepositoryConfig(full_name, is_empty=is_empty)],
+    )
+    custom = (
+        {"allow-unauthenticated-commits": allow_unauthenticated_commits}
+        if allow_unauthenticated_commits is not None
+        else None
+    )
+    add_target_repo(
+        path=str(auth_repo.path),
+        pin_manager=pin_manager,
+        target_path=None,
+        target_name=full_name,
+        role="targets",
+        library_dir=str(TEST_DATA_ORIGIN_PATH),
+        keystore=str(KEYSTORE_PATH),
+        should_create_new_role=False,
+        push=False,
+        custom=custom,
+    )
+
+
+def add_new_target_repo(
+    auth_repo: AuthenticationRepository, pin_manager: PinManager, target_name: str
+):
+    """Add a brand-new target repo to an auth repo that was already set up and
+    signed, simulating a repository added after the initial clone/update."""
+    add_new_target_repo_without_target_file(auth_repo, pin_manager, target_name)
+    # add_target_repo only lists the repo in repositories.json - it still
+    # needs a signed target file recording its current commit
+    sign_target_repositories(
+        TEST_DATA_ORIGIN_PATH, auth_repo.name, KEYSTORE_PATH, pin_manager
+    )
+
+
+def add_new_role_and_target_repo(
+    auth_repo: AuthenticationRepository,
+    pin_manager: PinManager,
+    target_name: str,
+    role_name: str,
+):
+    """Add a new delegated role, then a new target repo under it, as two
+    separate calls."""
+    namespace = auth_repo.name.split("/")[0]
+    full_name = f"{namespace}/{target_name}"
+
+    initialize_target_repositories(
+        TEST_DATA_ORIGIN_PATH,
+        targets_config=[RepositoryConfig(full_name)],
+    )
+
+    add_roles(
+        path=str(auth_repo.path),
+        pin_manager=pin_manager,
+        keystore=str(KEYSTORE_PATH),
+        roles_key_infos={
+            "roles": {
+                role_name: {
+                    "parent_role": "targets",
+                    "paths": [full_name],
+                    "threshold": 1,
+                }
+            }
+        },
+        push=False,
+    )
+
+    add_target_repo(
+        path=str(auth_repo.path),
+        pin_manager=pin_manager,
+        target_path=None,
+        target_name=full_name,
+        role=role_name,
+        library_dir=str(TEST_DATA_ORIGIN_PATH),
+        keystore=str(KEYSTORE_PATH),
+        should_create_new_role=False,
+        push=False,
+    )
+
+
 def add_file_to_target_repo_without_committing(target_repos: list, target_name: str):
     for target_repo in target_repos:
         if target_name in target_repo.name:
@@ -600,6 +694,63 @@ def add_unauthenticated_commit_to_target_repo(target_repos: list, target_name: s
     for target_repo in target_repos:
         if target_name in target_repo.name:
             update_target_repository(target_repo, "Update target files")
+
+
+def set_allow_unauthenticated_commits(
+    auth_repo: AuthenticationRepository,
+    pin_manager: PinManager,
+    target_repos: list,
+    allow: Optional[bool],
+    target_name: Optional[str] = None,
+    sign_target_pointers: bool = False,
+):
+    """Rewrite targets/repositories.json of the authentication repository, setting
+    allow-unauthenticated-commits of the matching target repositories to `allow`,
+    then sign and commit the change. If `allow` is None, the key is removed from
+    custom instead of being set, so that its absence (defaulting to False) can be
+    tested the same way as an explicit False.
+
+    If sign_target_pointers is False (the default), sign_target_files is used. It
+    signs the targets directory as-is, so the resulting authentication commit only
+    changes repositories.json and leaves every per-repo target file (its commit and
+    branch pointer) untouched.
+    If sign_target_pointers is True, sign_target_repositories is used instead. It
+    also regenerates the per-repo target files based on the current target HEADs,
+    meaning that the flag change and a target repository advance are recorded in
+    the same authentication commit.
+    """
+    repositories_json_path = (
+        auth_repo.path / TARGETS_DIRECTORY_NAME / REPOSITORIES_JSON_NAME
+    )
+    repositories_json = json.loads(repositories_json_path.read_text())
+    for name, repo_data in repositories_json["repositories"].items():
+        if target_name is None or target_name in name:
+            custom = repo_data.setdefault("custom", {})
+            if allow is None:
+                custom.pop("allow-unauthenticated-commits", None)
+            else:
+                custom["allow-unauthenticated-commits"] = allow
+    repositories_json_path.write_text(json.dumps(repositories_json, indent=4))
+
+    for target_repo in target_repos:
+        if target_name is None or target_name in target_repo.name:
+            if allow is None:
+                target_repo.custom.pop("allow-unauthenticated-commits", None)
+            else:
+                target_repo.custom["allow-unauthenticated-commits"] = allow
+
+    if sign_target_pointers:
+        update_target_repos_from_repositories_json(
+            str(Path(TEST_DATA_ORIGIN_PATH, auth_repo.name)),
+            pin_manager,
+            str(TEST_DATA_ORIGIN_PATH),
+            str(KEYSTORE_PATH),
+            skip_clean_check=True,
+        )
+    else:
+        sign_target_files(
+            TEST_DATA_ORIGIN_PATH, auth_repo.name, KEYSTORE_PATH, pin_manager
+        )
 
 
 def create_new_target_orphan_branches(
@@ -632,6 +783,41 @@ def create_new_target_repo_branch(
             break
 
 
+def switch_target_branch_and_sign(
+    auth_repo: AuthenticationRepository,
+    pin_manager: PinManager,
+    target_repos: list,
+    target_name: str,
+    branch_name: str,
+):
+    """Create a new branch from the current HEAD of the named target repo,
+    add a commit, and re-sign all target repos so the auth repo records
+    the new branch and commit."""
+    for repo in target_repos:
+        if target_name in repo.name:
+            repo.checkout_branch(branch_name, create=True)
+            update_target_repository(repo, "Switch to new branch")
+            break
+    sign_target_repositories(
+        TEST_DATA_ORIGIN_PATH, auth_repo.name, KEYSTORE_PATH, pin_manager
+    )
+
+
+def delete_target_branch(
+    target_repos: list,
+    target_name: str,
+    branch_name: str,
+):
+    """Delete a branch from the named target repository, checking out the
+    default branch first. This simulates a target repository that is missing
+    a branch which the authentication repository's target metadata references."""
+    for repo in target_repos:
+        if target_name in repo.name:
+            repo.checkout_branch(repo.default_branch)
+            repo.delete_local_branch(branch_name)
+            break
+
+
 def create_index_lock(auth_repo: AuthenticationRepository, client_dir: Path):
     # Create an `index.lock` file, indicating that an incomplete git operation took place
     # index.lock is created by git when a git operation is interrupted.
@@ -640,6 +826,19 @@ def create_index_lock(auth_repo: AuthenticationRepository, client_dir: Path):
     for target_repo in target_repos.values():
         index_lock = Path(client_dir, target_repo.name, ".git", "index.lock")
         index_lock.touch()
+        break
+
+
+def create_file_without_committing(
+    auth_repo: AuthenticationRepository, client_dir: Path
+):
+    # Create an `index.lock` file, indicating that an incomplete git operation took place
+    # index.lock is created by git when a git operation is interrupted.
+    target_repos = load_target_repositories(auth_repo)
+
+    for target_repo in target_repos.values():
+        new_file = Path(client_dir, target_repo.name, "new_file")
+        new_file.touch()
         break
 
 
@@ -683,7 +882,7 @@ def revert_last_validated_commit(auth_repo: AuthenticationRepository):
     assert auth_repo.last_validated_commit == older_commit.hash
 
 
-def set_last_commit_of_auth_repo(
+def set_last_validated_commit_of_auth_repo(
     auth_repo: AuthenticationRepository, commit: Commitish
 ):
     auth_repo.set_last_validated_of_repo(
@@ -766,7 +965,6 @@ def update_timestamp_metadata_invalid_signature(
         auth_repo,
         [role],
         keystore=KEYSTORE_PATH,
-        scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
         prompt_for_keys=False,
         load_snapshot_and_timestamp=False,
         commit=True,
@@ -790,7 +988,6 @@ def update_and_sign_metadata_without_clean_check(
         pin_manager=pin_manager,
         roles=roles,
         keystore=KEYSTORE_PATH,
-        scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
         prompt_for_keys=False,
         skip_clean_check=True,
         update_snapshot_and_timestamp=True,

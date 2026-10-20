@@ -3,6 +3,7 @@ from logging import DEBUG, ERROR
 from typing import Dict, Optional
 import click
 from taf.api.targets import register_target_files
+from taf.api.utils._conf import read_keys_name_mapping
 from taf.models.types import Commitish
 import taf.repositoriesdb as repositoriesdb
 from logdecorator import log_on_end, log_on_error, log_on_start
@@ -11,7 +12,6 @@ from taf.messages import git_commit_message
 from pathlib import Path
 
 from taf.auth_repo import AuthenticationRepository
-from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import TAFError
 from taf.git import GitRepository
 from taf.log import taf_logger
@@ -51,6 +51,7 @@ def _add_to_dependencies(
     Path(dependencies_path).write_text(json.dumps(dependencies_json, indent=4))
 
 
+@check_if_clean_and_synced
 @log_on_start(
     DEBUG, "Adding or updating dependency {dependency_name:s}", logger=taf_logger
 )
@@ -62,7 +63,6 @@ def _add_to_dependencies(
     on_exceptions=TAFError,
     reraise=True,
 )
-@check_if_clean_and_synced
 def add_dependency(
     path: str,
     pin_manager: PinManager,
@@ -73,12 +73,12 @@ def add_dependency(
     dependency_path: Optional[str] = None,
     dependency_url: Optional[str] = None,
     library_dir: Optional[str] = None,
-    scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
     custom: Optional[Dict] = None,
     prompt_for_keys: Optional[bool] = False,
     commit: Optional[bool] = True,
     push: Optional[bool] = True,
     no_prompt: Optional[bool] = False,
+    keys_description: Optional[str] = None,
 ) -> None:
     """
     Add a dependency (an authentication repository) to dependencies.json or update it if it was already added to this file.
@@ -95,7 +95,6 @@ def add_dependency(
         keystore: Location of the keystore files.
         dependency_path (optional): Path to the dependency repository which is to be added. Can be omitted if dependency_name
         library_dir (optional): Path to the library's root directory. Determined based on the authentication repository's path if not provided.
-        scheme (optional): Signing scheme. Set to rsa-pkcs1v15-sha256 by default.
         custom (optional): Additional data that will be added to dependencies.json if specified.
         prompt_for_keys (optional): Whether to ask the user to enter their key if it is not located inside the keystore directory.
         commit (optional): Indicates if the changes should be committed and pushed automatically.
@@ -115,6 +114,8 @@ def add_dependency(
         raise TAFError("Authentication repository's path not provided")
 
     auth_repo = AuthenticationRepository(path=path, pin_manager=pin_manager)
+    keys_name_mappings = read_keys_name_mapping(keys_description)
+    auth_repo.add_key_names(keys_name_mappings)
     if not auth_repo.is_git_repository_root:
         taf_logger.error(f"{path} is not a git repository!")
         return
@@ -176,7 +177,6 @@ def add_dependency(
         pin_manager=pin_manager,
         keystore=keystore,
         commit=commit,
-        scheme=scheme,
         auth_repo=auth_repo,
         update_snapshot_and_timestamp=True,
         prompt_for_keys=prompt_for_keys,
@@ -187,6 +187,7 @@ def add_dependency(
     )
 
 
+@check_if_clean_and_synced
 @log_on_start(DEBUG, "Remove dependency {dependency_name:s}", logger=taf_logger)
 @log_on_end(DEBUG, "Finished removing dependency", logger=taf_logger)
 @log_on_error(
@@ -196,16 +197,15 @@ def add_dependency(
     on_exceptions=TAFError,
     reraise=True,
 )
-@check_if_clean_and_synced
 def remove_dependency(
     path: str,
     pin_manager: PinManager,
     dependency_name: str,
     keystore: str,
-    scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
     prompt_for_keys: Optional[bool] = False,
     commit: Optional[bool] = True,
     push: Optional[bool] = True,
+    keys_description: Optional[str] = None,
 ) -> None:
     """
     Remove a dependency (an authentication repository) from dependencies.json
@@ -214,7 +214,6 @@ def remove_dependency(
         path: Path to the authentication repository.
         dependency_name: Name of the dependency which should be removed.
         keystore: Location of the keystore files.
-        scheme (optional): Signing scheme. Set to rsa-pkcs1v15-sha256 by default.
         prompt_for_keys (optional): Whether to ask the user to enter their key if it is not located inside the keystore directory.
         commit (optional): Indicates if the changes should be committed and pushed automatically.
         push (optional): Flag specifying whether to push to remote
@@ -229,6 +228,8 @@ def remove_dependency(
         raise TAFError("Authentication repository's path not provided")
 
     auth_repo = AuthenticationRepository(path=path, pin_manager=pin_manager)
+    keys_name_mappings = read_keys_name_mapping(keys_description)
+    auth_repo.add_key_names(keys_name_mappings)
     if not auth_repo.is_git_repository_root:
         print(f"{path} is not a git repository!")
         return
@@ -262,7 +263,6 @@ def remove_dependency(
         pin_manager=pin_manager,
         keystore=keystore,
         commit=commit,
-        scheme=scheme,
         auth_repo=auth_repo,
         update_snapshot_and_timestamp=True,
         prompt_for_keys=prompt_for_keys,

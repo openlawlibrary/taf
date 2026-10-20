@@ -16,7 +16,6 @@ from taf.tests.conftest import (
 from tuf.ngclient._internal import trusted_metadata_set
 from pytest import fixture
 
-
 original_tuf_trusted_metadata_set = trusted_metadata_set.TrustedMetadataSet
 
 NAMESPACE1 = "namespace1"

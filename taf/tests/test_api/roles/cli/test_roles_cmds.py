@@ -90,16 +90,42 @@ def test_roles_add_signing_key_cmd_expect_success(auth_repo, roles_keystore):
             ],
         )
         timestamp_keys_infos = list_keys_of_role(str(auth_repo.path), "timestamp")
-        assert len(timestamp_keys_infos) == 2
+        # assert len(timestamp_keys_infos) == 2
+        assert len(timestamp_keys_infos) == 1
+        assert timestamp_keys_infos[0].count("Key ID:") == 2
         snapshot_keys_infos = list_keys_of_role(str(auth_repo.path), "snapshot")
-        assert len(snapshot_keys_infos) == 2
+        # assert len(snapshot_keys_infos) == 2
+        assert len(snapshot_keys_infos) == 1
+        assert snapshot_keys_infos[0].count("Key ID:") == 2
+
+
+def test_roles_list_keys_no_role_arg_expect_success(auth_repo, roles_keystore):
+    runner = CliRunner()
+
+    with runner.isolated_filesystem():
+        result = runner.invoke(
+            taf,
+            [
+                "roles",
+                "list-keys",
+                "--path",
+                f"{str(auth_repo.path)}",
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert "Role:" in result.output
+        assert "Key ID:" in result.output
+        assert result.output.strip().startswith("Role:")
 
 
 def test_revoke_key_cmd_expect_success(auth_repo, roles_keystore):
     runner = CliRunner()
 
     targets_keys_infos = list_keys_of_role(str(auth_repo.path), "targets")
-    assert len(targets_keys_infos) == 2
+    # assert len(targets_keys_infos) == 2
+    assert len(targets_keys_infos) == 1
+    assert targets_keys_infos[0].count("Key ID:") == 2
 
     with runner.isolated_filesystem():
         targest_keyids = auth_repo.get_keyids_of_role("targets")

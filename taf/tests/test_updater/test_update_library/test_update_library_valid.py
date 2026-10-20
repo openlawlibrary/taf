@@ -43,7 +43,6 @@ def test_update_repository_with_dependencies(
         origin_dir,
         client_dir,
         expected_repo_type=UpdateType.EITHER,
-        excluded_target_globs=None,
     )
     auth_repo = library_with_dependencies["namespace1/auth"]["auth_repo"]
     setup_manager = SetupManager(auth_repo)

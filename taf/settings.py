@@ -1,4 +1,5 @@
 import logging
+import os
 
 # Set a directory that should be used for all temporary files. If this
 # is None, then the system default will be used. The system default
@@ -29,6 +30,9 @@ last_validated_commit: dict = {}
 # determines if script files will be loaded from disk
 development_mode = False
 
+# determines if lifecycle handler scripts will be run
+run_scripts = False
+
 # The 'log.py' module manages TUF's logging system.  Users have the option to
 # enable/disable logging to a file via 'ENABLE_FILE_LOGGING', or
 # tuf.log.enable_file_logging() and tuf.log.disable_file_logging().
@@ -49,6 +53,15 @@ FILE_LOGGING_LEVEL = logging.INFO
 
 ERROR_LOGGING_LEVEL = logging.WARNING
 
+DEBUG_LOGGING_LEVEL = logging.DEBUG
+
+# If True, the log files will be rotated automatically when they reach a certain size.
+AUTO_ROTATE_LOGS = os.environ.get("TAF_AUTO_ROTATE_LOGS", "1").lower() in (
+    "1",
+    "true",
+    "yes",
+)
+
 # Location of the log files. It can be specified by setting LOGS_LOCATION
 # and by setting an environment variable called TAF_LOG.
 # If this location is not specified logs will be placed ~/.taf
@@ -57,6 +70,8 @@ LOGS_LOCATION = None
 LOG_FILENAME = "taf.log"
 
 ERROR_LOG_FILENAME = "taf.err"
+
+DEBUG_LOG_FILENAME = "taf-debug.log"
 
 LOG_COMMAND_OUTPUT = False
 

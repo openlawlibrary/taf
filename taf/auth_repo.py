@@ -16,7 +16,7 @@ from taf.tuf.repository import (
     get_role_metadata_path,
     get_target_path,
 )
-from taf.constants import INFO_JSON_PATH
+from taf.constants import INFO_JSON_PATH, KEYS_MAPPING_PATH
 from taf.yubikey.yubikey_manager import PinManager
 
 
@@ -169,11 +169,9 @@ class AuthenticationRepository(GitRepository):
         Last validated commit across the entire set of repositories, including authentication and target repositories.
         It is only validated if the update process does not skip any repository
         """
-        try:
-            if self.last_validated_data is not None:
-                return self.last_validated_data[self.LAST_VALIDATED_KEY]
-        except KeyError:
-            return None
+        data = self.last_validated_data
+        if data is not None:
+            return data.get(self.LAST_VALIDATED_KEY) or data.get(self.name)
         return None
 
     @property
@@ -184,9 +182,8 @@ class AuthenticationRepository(GitRepository):
         were simultaneously updated.
         """
         last_validated_data = {}
-        last_validated_path = Path(self.conf_dir, self.LAST_VALIDATED_FILENAME)
-        if last_validated_path.is_file():
-            data = last_validated_path.read_text().strip()
+        data = self.get_last_validated_file_content()
+        if data is not None:
             try:
                 last_validated_data = json.loads(data)
             except json.decoder.JSONDecodeError:
@@ -229,6 +226,12 @@ class AuthenticationRepository(GitRepository):
                             "Not pushing to the default branch, skipping last_validated_commit update."
                         )
 
+    def get_last_validated_file_content(self):
+        last_validated_path = Path(self.conf_dir, self.LAST_VALIDATED_FILENAME)
+        if last_validated_path.is_file():
+            return last_validated_path.read_text().strip()
+        return None
+
     def get_target(
         self, target_name: str, commit: Optional[Commitish] = None, safely: bool = True
     ) -> Optional[Dict]:
@@ -265,6 +268,17 @@ class AuthenticationRepository(GitRepository):
             return self.safely_get_json(head_commit, INFO_JSON_PATH)
         else:
             return self.get_json(head_commit, INFO_JSON_PATH)
+
+    def get_keys_mapping(
+        self, commit: Optional[Commitish] = None, safely: bool = True
+    ) -> Optional[Dict]:
+        head_commit = commit or self.head_commit()
+        if head_commit is None:
+            return None
+        if safely:
+            return self.safely_get_json(head_commit, KEYS_MAPPING_PATH)
+        else:
+            return self.get_json(head_commit, KEYS_MAPPING_PATH)
 
     def get_metadata_path(self, role):
         return self.path / METADATA_DIRECTORY_NAME / f"{role}.json"
@@ -374,7 +388,12 @@ class AuthenticationRepository(GitRepository):
         """
         last_validated_target_commits = defaultdict(list)
         for repo in target_repos:
-            last_validated_commit = last_validated_data[repo.name]
+            # a target repo not yet in last_validated_data (e.g. newly added)
+            # has no validated commit of its own - fall back to the auth
+            # repo's, same as _get_last_validated_commit does
+            last_validated_commit = last_validated_data.get(
+                repo.name, last_validated_data.get(self.name)
+            )
             last_validated_target_commits[last_validated_commit].append(repo)
 
         repo = self.pygit_repo
@@ -401,7 +420,6 @@ class AuthenticationRepository(GitRepository):
         commits: List[Commitish],
         target_repos: Dict[str, GitRepository],
         custom_fns: Optional[Dict[str, Callable]] = None,
-        excluded_target_globs: Optional[List[str]] = None,
         last_commits_per_repos: Optional[Dict[Commitish, List]] = None,
     ) -> Dict[str, Dict[Commitish, Dict[str, Any]]]:
         """
@@ -427,14 +445,8 @@ class AuthenticationRepository(GitRepository):
             target_repos=target_repos,
             last_commits_per_repos=last_commits_per_repos,
         )
-        excluded_target_globs = excluded_target_globs or []
         for commit in commits:
             for target_path, target_data in targets[commit].items():
-                if any(
-                    fnmatch.fnmatch(target_path, excluded_target_glob)
-                    for excluded_target_glob in excluded_target_globs
-                ):
-                    continue
 
                 target_branch = target_data.get("branch")
                 target_commit = target_data.get("commit")
@@ -458,7 +470,6 @@ class AuthenticationRepository(GitRepository):
         commits: List[Commitish],
         target_repos: Optional[Dict[str, GitRepository]] = None,
         custom_fns: Optional[Dict[str, Callable]] = None,
-        excluded_target_globs: Optional[List[str]] = None,
     ) -> Dict[str, Dict[str, List[Dict[str, Any]]]]:
         """Return a dictionary consisting of branches and commits belonging
         to it for every target repository:
@@ -489,18 +500,8 @@ class AuthenticationRepository(GitRepository):
         repositories_commits: Dict = defaultdict(dict)
         targets = self.targets_at_revisions(commits, target_repos=target_repos)
         previous_commits: Dict = {}
-        skipped_targets = []
-        excluded_target_globs = excluded_target_globs or []
         for commit in commits:
             for target_path, target_data in targets[commit].items():
-                if target_path in skipped_targets:
-                    continue
-                if any(
-                    fnmatch.fnmatch(target_path, excluded_target_glob)
-                    for excluded_target_glob in excluded_target_globs
-                ):
-                    skipped_targets.append(target_path)
-                    continue
                 target_branch = target_data.get("branch")
                 target_commit = target_data.get("commit")
                 previous_data = previous_commits.get(target_path)

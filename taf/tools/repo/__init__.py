@@ -1,45 +1,89 @@
+from pathlib import Path
 import sys
 import click
 import json
 
 from taf import settings
-from taf.api.repository import create_repository, taf_status
+from taf.api.repository import create_repository, taf_status, reset_repository
 from taf.auth_repo import AuthenticationRepository
 from taf.exceptions import TAFError, UpdateFailedError
 from taf.log import initialize_logger_handlers, taf_logger
 from taf.tools.cli import catch_cli_exception, find_repository
+from taf.updater import live_display
 from taf.updater.types.update import UpdateType
-from taf.updater.updater import OperationType, UpdateConfig, clone_repository, update_repository, validate_repository
+from taf.updater.updater import (
+    OperationType,
+    UpdateConfig,
+    clone_repository,
+    update_repository,
+    validate_repository,
+)
 from taf.yubikey.yubikey_manager import pin_managed
 
 
 def common_update_options(f):
-    f = click.option("--expected-repo-type", default="either", type=click.Choice(["test", "official", "either"]), help="Indicates expected authentication repository type - test or official.")(f)
-    f = click.option("--scripts-root-dir", default=None, help="Scripts root directory, which can be used to move scripts out of the authentication repository for testing purposes.")(f)
-    f = click.option("--profile", is_flag=True, help="Flag used to run profiler and generate .prof file")(f)
-    f = click.option("--format-output", is_flag=True, help="Return formatted output which includes information on if build was successful and error message if it was raised")(f)
-    f = click.option("--exclude-target", multiple=True, help="Globs defining which target repositories should be ignored during update.")(f)
-    f = click.option("--strict", is_flag=True, default=False, help="Enable/disable strict mode - return an error if warnings are raised.")(f)
+    f = click.option(
+        "--expected-repo-type",
+        default="either",
+        type=click.Choice(["test", "official", "either"]),
+        help="Indicates expected authentication repository type - test or official.",
+    )(f)
+    f = click.option(
+        "--scripts-root-dir",
+        default=None,
+        help="Scripts root directory, which can be used to move scripts out of the authentication repository for testing purposes.",
+    )(f)
+    f = click.option(
+        "--profile",
+        is_flag=True,
+        help="Flag used to run profiler and generate .prof file",
+    )(f)
+    f = click.option(
+        "--format-output",
+        is_flag=True,
+        help="Return formatted output which includes information on if build was successful and error message if it was raised",
+    )(f)
+    f = click.option(
+        "--strict",
+        is_flag=True,
+        default=False,
+        help="Enable/disable strict mode - return an error if warnings are raised.",
+    )(f)
+    f = click.option(
+        "--result-file",
+        type=click.Path(dir_okay=False, writable=True, path_type=str),
+        help="Path to a JSON file where structured results will be written.",
+    )(f)
     return f
 
 
-def _call_updater(config, format_output):
+def _call_updater(config, format_output, result_file):
     """
     A helper function which calls update or clone repository
     """
     try:
-        if config.operation == OperationType.CLONE:
-            updater_output = clone_repository(config)
-        else:
-            updater_output = update_repository(config)
+        with live_display.show(enabled=not format_output and sys.stdout.isatty()):
+            if config.operation == OperationType.CLONE:
+                updater_output = clone_repository(config)
+            else:
+                updater_output = update_repository(config)
+
+        if result_file:
+            result_file_path = Path(result_file)
+            result_file_path.parent.mkdir(parents=True, exist_ok=True)
+            result_file_path.write_text(json.dumps(updater_output))
 
         successful = updater_output["event"] == "event/succeeded"
         if format_output:
             if successful:
-                print(json.dumps({'updateSuccessful': successful}, ))
+                print(
+                    json.dumps(
+                        {"updateSuccessful": successful},
+                    )
+                )
             else:
                 error = updater_output.get("error_msg", "")
-                print(json.dumps({'updateSuccessful': successful, "error": error}))
+                print(json.dumps({"updateSuccessful": successful, "error": error}))
 
         if not successful:
             sys.exit(1)
@@ -54,17 +98,44 @@ def _call_updater(config, format_output):
 
 def start_profiling():
     import cProfile
+    import pstats
     import atexit
+    import threading
 
     print("Profiling...")
-    pr = cProfile.Profile()
-    pr.enable()
+    main_pr = cProfile.Profile()
+    thread_profiles = []
+    lock = threading.Lock()
+
+    def _profile_thread(frame, event, arg):
+        # threading.setprofile only affects threads started AFTER this call,
+        # which is fine: profiling starts before the updater pipeline spawns
+        # any worker threads. cProfile is not safe to share across threads, so
+        # each worker gets its own Profile.
+        pr = cProfile.Profile()
+        with lock:
+            thread_profiles.append(pr)
+        pr.enable()
+
+    threading.setprofile(_profile_thread)
+    main_pr.enable()
 
     def exit_profiler():
-        pr.disable()
+        main_pr.disable()
+        threading.setprofile(None)
         print("Profiling completed")
-        filename = 'updater.prof'  # You can change the filename if needed
-        pr.dump_stats(filename)
+        stats = pstats.Stats(main_pr)
+        with lock:
+            for pr in thread_profiles:
+                try:
+                    # workers from context-managed executors are already joined;
+                    # skip the still-running daemon (background cleanup) threads
+                    pr.create_stats()
+                    stats.add(pr)
+                except Exception:
+                    pass
+        filename = "updater.prof"  # You can change the filename if needed
+        stats.dump_stats(filename)
 
     atexit.register(exit_profiler)
 
@@ -90,7 +161,6 @@ def create_repo_command():
                 "root": {
                     "number": 3,
                     "length": 2048,
-                    "passwords": ["password1", "password2", "password3"],
                     "threshold": 2,
                     "yubikey": true
                 },
@@ -113,14 +183,29 @@ def create_repo_command():
         calling the updater, it'll be necessary to use the --authenticate-test-repo flag.
         """)
     @catch_cli_exception(handle=TAFError, remove_dir_on_error=True)
-    @click.argument("path", type=click.Path(exists=False, file_okay=False, dir_okay=True, writable=True))
-    @click.option("--keys-description", help="A dictionary containing information about the "
-                  "keys or a path to a json file which stores the needed information")
+    @click.argument(
+        "path",
+        type=click.Path(exists=False, file_okay=False, dir_okay=True, writable=True),
+    )
+    @click.option(
+        "--keys-description",
+        help="A dictionary containing information about the "
+        "keys or a path to a json file which stores the needed information",
+    )
     @click.option("--keystore", default=None, help="Location of the keystore files")
-    @click.option("--no-commit", is_flag=True, default=False, help="Indicates if the changes should be "
-                  "committed automatically")
-    @click.option("--test", is_flag=True, default=False, help="Indicates if the created repository "
-                  "is a test authentication repository")
+    @click.option(
+        "--no-commit",
+        is_flag=True,
+        default=False,
+        help="Indicates if the changes should be " "committed automatically",
+    )
+    @click.option(
+        "--test",
+        is_flag=True,
+        default=False,
+        help="Indicates if the created repository "
+        "is a test authentication repository",
+    )
     @pin_managed
     def create(path, keys_description, keystore, no_commit, test, pin_manager):
         create_repository(
@@ -131,6 +216,7 @@ def create_repo_command():
             commit=not no_commit,
             test=test,
         )
+
     return create
 
 
@@ -171,14 +257,72 @@ def clone_repo_command():
     @catch_cli_exception(handle=UpdateFailedError, skip_cleanup=True)
     @click.argument("url")
     @common_update_options
-    @click.option("--path", help="Authentication repository's location. If not specified, calculated by combining repository's name specified in info.json and library dir")
-    @click.option("--library-dir", default=None, help="Directory where target repositories and, optionally, authentication repository are located. If not specified, set to the current directory")
-    @click.option("--from-fs", is_flag=True, default=False, help="Indicates if we want to clone a repository from the filesystem")
-    @click.option("--bare", is_flag=True, default=False, help="Clone repositories as bare repositories")
-    @click.option("--no-deps", is_flag=True, default=False, help="Optionally disables updating of dependencies")
-    @click.option("--upstream/--no-upstream", default=False, help="Skips comparison with remote repositories upstream")
-    @click.option("-v", "--verbosity", count=True, help="Displays varied levels of logging information based on verbosity level")
-    def clone(path, url, library_dir, from_fs, expected_repo_type, scripts_root_dir, profile, format_output, exclude_target, strict, bare, upstream, no_deps, verbosity):
+    @click.option(
+        "--path",
+        help="Authentication repository's location. If not specified, calculated by combining repository's name specified in info.json and library dir",
+    )
+    @click.option(
+        "--library-dir",
+        default=None,
+        help="Directory where target repositories and, optionally, authentication repository are located. If not specified, set to the current directory",
+    )
+    @click.option(
+        "--from-fs",
+        is_flag=True,
+        default=False,
+        help="Indicates if we want to clone a repository from the filesystem",
+    )
+    @click.option(
+        "--bare",
+        is_flag=True,
+        default=False,
+        help="Clone repositories as bare repositories",
+    )
+    @click.option(
+        "--no-deps",
+        is_flag=True,
+        default=False,
+        help="Optionally disables updating of dependencies",
+    )
+    @click.option(
+        "--upstream/--no-upstream",
+        default=False,
+        help="Skips comparison with remote repositories upstream",
+    )
+    @click.option(
+        "-v",
+        "--verbosity",
+        count=True,
+        help="Displays varied levels of logging information based on verbosity level",
+    )
+    @click.option(
+        "--run-scripts/--no-run-scripts",
+        default=False,
+        help="Run the auxiliary lifecycle handler scripts.",
+    )
+    @click.option(
+        "--exclude-filter",
+        default=None,
+        help="Exclude repositories matching Python expression. Repo available as 'repo'. Example: \"repo['type'] == 'html'\"",
+    )
+    def clone(
+        path,
+        url,
+        library_dir,
+        from_fs,
+        expected_repo_type,
+        scripts_root_dir,
+        profile,
+        format_output,
+        exclude_filter,
+        strict,
+        bare,
+        upstream,
+        no_deps,
+        verbosity,
+        run_scripts,
+        result_file,
+    ):
         settings.VERBOSITY = verbosity
         initialize_logger_handlers()
         if profile:
@@ -192,14 +336,15 @@ def clone_repo_command():
             update_from_filesystem=from_fs,
             expected_repo_type=UpdateType(expected_repo_type),
             scripts_root_dir=scripts_root_dir,
-            excluded_target_globs=exclude_target,
+            exclude_filter=exclude_filter,
             strict=strict,
             bare=bare,
             no_upstream=not upstream,
             no_deps=no_deps,
+            run_scripts=run_scripts,
         )
 
-        _call_updater(config, format_output)
+        _call_updater(config, format_output, result_file)
 
     return clone
 
@@ -239,13 +384,66 @@ def update_repo_command():
     @find_repository
     @catch_cli_exception(handle=UpdateFailedError, skip_cleanup=True)
     @common_update_options
-    @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
-    @click.option("--library-dir", default=None, help="Directory where target repositories and, optionally, authentication repository are located. If not specified, calculated based on the authentication repository's path")
-    @click.option("--force", is_flag=True, default=False, help="Force Update repositories")
-    @click.option("--no-deps", is_flag=True, default=False, help="Optionally disables updating of dependencies.")
-    @click.option("--upstream/--no-upstream", default=False, help="Skips comparison with remote repositories upstream")
-    @click.option("-v", "--verbosity", count=True, help="Displays varied levels of logging information based on verbosity level")
-    def update(path, library_dir, expected_repo_type, scripts_root_dir, profile, format_output, exclude_target, strict, no_deps, force, upstream, verbosity):
+    @click.option(
+        "--path",
+        default=".",
+        help="Authentication repository's location. If not specified, set to the current directory",
+    )
+    @click.option(
+        "--library-dir",
+        default=None,
+        help="Directory where target repositories and, optionally, authentication repository are located. If not specified, calculated based on the authentication repository's path",
+    )
+    @click.option(
+        "--force", is_flag=True, default=False, help="Force Update repositories"
+    )
+    @click.option(
+        "--no-deps",
+        is_flag=True,
+        default=False,
+        help="Optionally disables updating of dependencies.",
+    )
+    @click.option(
+        "--upstream/--no-upstream",
+        default=False,
+        help="Skips comparison with remote repositories upstream",
+    )
+    @click.option(
+        "-v",
+        "--verbosity",
+        count=True,
+        help="Displays varied levels of logging information based on verbosity level",
+    )
+    @click.option(
+        "--run-scripts/--no-run-scripts",
+        default=False,
+        help="Run the auxiliary lifecycle handler scripts.",
+    )
+    @click.option(
+        "--sync-all",
+        is_flag=True,
+        default=False,
+        help=(
+            "Update all repositories, including those previously excluded. "
+            "This ignores stored exclusion rules for this update."
+        ),
+    )
+    def update(
+        path,
+        library_dir,
+        expected_repo_type,
+        scripts_root_dir,
+        profile,
+        format_output,
+        strict,
+        no_deps,
+        force,
+        upstream,
+        verbosity,
+        run_scripts,
+        sync_all,
+        result_file,
+    ):
         settings.VERBOSITY = verbosity
         initialize_logger_handlers()
 
@@ -258,14 +456,16 @@ def update_repo_command():
             library_dir=library_dir,
             expected_repo_type=UpdateType(expected_repo_type),
             scripts_root_dir=scripts_root_dir,
-            excluded_target_globs=exclude_target,
             strict=strict,
             force=force,
             no_upstream=not upstream,
             no_deps=no_deps,
+            run_scripts=run_scripts,
+            sync_all=sync_all,
         )
 
-        _call_updater(config, format_output)
+        _call_updater(config, format_output, result_file)
+
     return update
 
 
@@ -280,51 +480,212 @@ def validate_repo_command():
         """)
     @find_repository
     @catch_cli_exception(handle=UpdateFailedError)
-    @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
-    @click.option("--library-dir", default=None, help="Directory where target repositories and, "
-                  "optionally, authentication repository are located. If omitted it is "
-                  "calculated based on authentication repository's path. "
-                  "Authentication repo is presumed to be at library-dir/namespace/auth-repo-name")
-    @click.option("--from-commit", default=None, help="First commit which should be validated.")
-    @click.option("--from-latest", is_flag=True, default=False, help="Use the last validated commit as the starting point.")
-    @click.option("--exclude-target", multiple=True, help="globs defining which target repositories should be "
-                  "ignored during update.")
-    @click.option("--strict", is_flag=True, default=False, help="Enable/disable strict mode - return an error"
-                  "if warnings are raised")
-    @click.option("--no-targets", is_flag=True, default=False, help="Skips target repository validation and validates only authentication repositories")
-    @click.option("--no-deps", is_flag=True, default=False, help="Optionally disables updating of dependencies")
-    @click.option("-v", "--verbosity", count=True, help="Displays varied levels of logging information based on verbosity level")
-    def validate(path, library_dir, from_commit, from_latest, exclude_target, strict, no_targets, no_deps, verbosity):
+    @click.option(
+        "--path",
+        default=".",
+        help="Authentication repository's location. If not specified, set to the current directory",
+    )
+    @click.option(
+        "--library-dir",
+        default=None,
+        help="Directory where target repositories and, "
+        "optionally, authentication repository are located. If omitted it is "
+        "calculated based on authentication repository's path. "
+        "Authentication repo is presumed to be at library-dir/namespace/auth-repo-name",
+    )
+    @click.option(
+        "--from-commit", default=None, help="First commit which should be validated."
+    )
+    @click.option(
+        "--from-latest",
+        is_flag=True,
+        default=False,
+        help="Use the last validated commit as the starting point.",
+    )
+    @click.option(
+        "--strict",
+        is_flag=True,
+        default=False,
+        help="Enable/disable strict mode - return an error" "if warnings are raised",
+    )
+    @click.option(
+        "--no-targets",
+        is_flag=True,
+        default=False,
+        help="Skips target repository validation and validates only authentication repositories",
+    )
+    @click.option(
+        "--upstream/--no-upstream",
+        default=False,
+        help="Skips comparison with remote repositories upstream",
+    )
+    @click.option(
+        "--no-deps",
+        is_flag=True,
+        default=False,
+        help="Optionally disables updating of dependencies",
+    )
+    @click.option(
+        "-v",
+        "--verbosity",
+        count=True,
+        help="Displays varied levels of logging information based on verbosity level",
+    )
+    @click.option(
+        "--profile",
+        is_flag=True,
+        help="Flag used to run profiler and generate .prof file",
+    )
+    @click.option(
+        "--exclude-filter",
+        default=None,
+        help="Exclude repositories matching Python expression. Repo available as 'repo'. Example: \"repo['type'] == 'html'\"",
+    )
+    def validate(
+        path,
+        library_dir,
+        from_commit,
+        from_latest,
+        exclude_filter,
+        strict,
+        no_targets,
+        no_deps,
+        verbosity,
+        profile,
+        upstream,
+    ):
         settings.VERBOSITY = verbosity
         initialize_logger_handlers()
+        if profile:
+            start_profiling()
         auth_repo = AuthenticationRepository(path=path)
         bare = auth_repo.is_bare_repository
         if from_latest:
             from_commit = auth_repo.last_validated_commit
-        validate_repository(path, library_dir, from_commit, exclude_target, strict, bare, no_targets, no_deps)
+        with live_display.show(enabled=sys.stdout.isatty()):
+            validate_repository(
+                path,
+                library_dir,
+                from_commit,
+                exclude_filter,
+                strict,
+                bare,
+                no_targets,
+                no_deps,
+                not upstream,
+            )
+
     return validate
 
 
+def reset_repo_command():
+    @click.command(help="""
+        Resets an authentication repository which is already on the file system
+        and its target repositories (which are also expected to be on the file system)
+        to a specified snapshot in the past.
+
+        Snapshot is determined by auth repo commitish specified in --commit flag
+        (if omitted, defalts to last validated commit).
+        If --lvc flag is defined, last validated commit will be overriden by commit specified
+        in --comit flag if reset is successful.
+        If --force flag is set, any uncommited changes or unstaged files will be removed,
+        else an error will be raised if there are any those.
+        """)
+    @find_repository
+    @catch_cli_exception(handle=UpdateFailedError)
+    @click.option(
+        "--path",
+        default=".",
+        help="Authentication repository's location. If not specified, set to the current directory",
+    )
+    @click.option(
+        "--commit",
+        default=None,
+        help="Auth repo commit to reset to. " "Defaults to last validated commit.",
+    )
+    @click.option(
+        "--lvc/--no-lvc",
+        default=True,
+        help="Reset last validated commit to the commitish specified in --commit flag"
+        "if that commitish is an ancestor of the current last validated commit",
+    )
+    @click.option(
+        "--force", is_flag=True, default=False, help="Force Reset repositories"
+    )
+    @click.option(
+        "-v",
+        "--verbosity",
+        count=True,
+        help="Displays varied levels of logging information based on verbosity level",
+    )
+    @click.option(
+        "--profile",
+        is_flag=True,
+        help="Flag used to run profiler and generate .prof file",
+    )
+    def reset(
+        path,
+        commit,
+        lvc,
+        force,
+        verbosity,
+        profile,
+    ):
+        settings.VERBOSITY = verbosity
+        initialize_logger_handlers()
+        if profile:
+            start_profiling()
+        auth_repo = AuthenticationRepository(path=path)
+
+        try:
+            reset_successful = reset_repository(auth_repo, commit, lvc, force)
+            if not reset_successful:
+                sys.exit(1)
+        except Exception as e:
+            click.echo()
+            click.echo(f"Error: {e}")
+            click.echo()
+
+    return reset
+
+
 def latest_commit_and_branch_command():
-    @click.command(help="""Fetch and print the last validated commit hash and the default branch.
-        Integrated into the pre-push git hook""")
+    @click.command(
+        help="""Fetch and print the last validated commit hash and the default branch.
+        Integrated into the pre-push git hook"""
+    )
     @find_repository
     @catch_cli_exception
-    @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
+    @click.option(
+        "--path",
+        default=".",
+        help="Authentication repository's location. If not specified, set to the current directory",
+    )
     def latest_commit_and_branch(path):
         auth_repo = AuthenticationRepository(path=path)
         last_validated_commit = auth_repo.last_validated_commit or ""
         default_branch = auth_repo.default_branch
         print(f"{default_branch},{last_validated_commit}")
+
     return latest_commit_and_branch
 
 
 def status_command():
-    @click.command(help="Prints the whole state of the library, including authentication repositories and its dependencies.")
+    @click.command(
+        help="Prints the whole state of the library, including authentication repositories and its dependencies."
+    )
     @find_repository
     @catch_cli_exception
-    @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
-    @click.option("--library-dir", default=None, help="Path to the library's root directory. Determined based on the authentication repository's path if not provided.")
+    @click.option(
+        "--path",
+        default=".",
+        help="Authentication repository's location. If not specified, set to the current directory",
+    )
+    @click.option(
+        "--library-dir",
+        default=None,
+        help="Path to the library's root directory. Determined based on the authentication repository's path if not provided.",
+    )
     def status(path, library_dir):
         try:
             taf_status(path, library_dir)
@@ -332,13 +693,17 @@ def status_command():
             click.echo()
             click.echo(f"Error: {e}")
             click.echo()
+
     return status
 
 
 def attach_to_group(group):
-    group.add_command(create_repo_command(), name='create')
-    group.add_command(clone_repo_command(), name='clone')
-    group.add_command(update_repo_command(), name='update')
-    group.add_command(validate_repo_command(), name='validate')
-    group.add_command(latest_commit_and_branch_command(), name='latest-commit-and-branch')
-    group.add_command(status_command(), name='status')
+    group.add_command(create_repo_command(), name="create")
+    group.add_command(clone_repo_command(), name="clone")
+    group.add_command(update_repo_command(), name="update")
+    group.add_command(validate_repo_command(), name="validate")
+    group.add_command(reset_repo_command(), name="reset")
+    group.add_command(
+        latest_commit_and_branch_command(), name="latest-commit-and-branch"
+    )
+    group.add_command(status_command(), name="status")

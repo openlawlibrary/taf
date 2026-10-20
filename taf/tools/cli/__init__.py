@@ -1,11 +1,19 @@
 import shutil
 import sys
 import click
+import signal
+import threading
+import functools
 from functools import partial, wraps
 from logging import ERROR
 from logdecorator import log_on_error
 
-from taf.exceptions import InvalidRepositoryError, RepositoryNotCleanError, RepositoryNotSynced, TAFError
+from taf.exceptions import (
+    InvalidRepositoryError,
+    RepositoryNotCleanError,
+    RepositoryNotSynced,
+    TAFError,
+)
 from taf.log import taf_logger
 from taf.repository_utils import find_valid_repository
 from taf.git import GitRepository
@@ -120,3 +128,104 @@ def process_custom_command_line_args(ctx):
         else {}
     )
     return custom
+
+
+def common_repo_edit_options(func):
+    """
+    Decorator to add common options to Click command functions.
+    """
+    func = click.option(
+        "--keystore", default=None, help="Location of the keystore files"
+    )(func)
+    func = click.option(
+        "--no-commit",
+        is_flag=True,
+        default=False,
+        help="Indicates that the changes should not be committed automatically",
+    )(func)
+    func = click.option(
+        "--prompt-for-keys",
+        is_flag=True,
+        default=False,
+        help="Whether to ask the user to enter their key if not located inside the keystore directory",
+    )(func)
+    func = click.option(
+        "--keys-description",
+        help="A dictionary containing information about the keys or a path to a json file which stores this information",
+    )(func)
+    func = click.option(
+        "--no-remote-check",
+        is_flag=True,
+        help="Whether to skip the check if there are any remote changes. Can be used when the SSH key requires a passphrase",
+    )(func)
+    return func
+
+
+def safe_cleanup(method):
+    """
+    Decorator that handles gracefull shutdown and cleanup (SIGINT and SIGTERM)
+    applicable for objects with any: `cleanup`, `on_interrupt` and `after_interrupt` functions defined
+    """
+
+    @functools.wraps(method)
+    def wrapper(self, *args, **kwargs):
+
+        has_cleanup = hasattr(self, "cleanup") and callable(self.cleanup)
+        has_on_interrupt = hasattr(self, "on_interrupt") and callable(self.on_interrupt)
+        has_after_interrupt = hasattr(self, "after_interrupt") and callable(
+            self.after_interrupt
+        )
+
+        # Signal handler only mutates state; deletion is delegated to finally.
+        def _signal_handler(signum, frame):
+            if has_on_interrupt:
+                self.on_interrupt()
+            raise KeyboardInterrupt(
+                f"The program was interrupted before it could finish. exit code: {signum}"
+            )
+
+        original_sigint = None
+        original_sigterm = None
+
+        if threading.current_thread() is threading.main_thread():
+            # Save and override handlers
+            original_sigint = signal.getsignal(signal.SIGINT)
+            try:
+                original_sigterm = signal.getsignal(signal.SIGTERM)
+            except Exception:
+                original_sigterm = None
+
+            try:
+                signal.signal(signal.SIGINT, _signal_handler)
+            except (OSError, ValueError):
+                pass  # Not allowed to set signal handler (e.g., in embedded interpreter)
+            try:
+                signal.signal(signal.SIGTERM, _signal_handler)
+            except (OSError, ValueError):
+                pass  # Windows: SIGTERM cannot be caught
+
+        try:
+            return method(self, *args, **kwargs)
+
+        except KeyboardInterrupt:
+            if has_after_interrupt:
+                self.after_interrupt()
+            raise
+        finally:
+            # Restore original handlers if changed
+            if threading.current_thread() is threading.main_thread():
+                if original_sigint is not None:
+                    try:
+                        signal.signal(signal.SIGINT, original_sigint)
+                    except Exception:
+                        pass
+                if original_sigterm is not None:
+                    try:
+                        signal.signal(signal.SIGTERM, original_sigterm)
+                    except Exception:
+                        pass
+
+            if has_cleanup:
+                self.cleanup()
+
+    return wrapper
