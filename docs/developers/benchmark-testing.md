@@ -2,11 +2,20 @@
 
 ## Writing benchmark tests
 
-To benchmark a test, you must first make sure that the test can be run multiple times in a row without issue. If the test relies on other tests to perform setup or cleanup, that must be changed before benchmarking can be done on that test. Once you have done that, import pytest (and the test you want to benchmark, if it's in a different file) and define a new test and pass in any variables you would need for the test you want to benchmark. Inside that test, call "benchmark()" and pass in the name of the test you want to benchmark, followed by any variables you need to pass to that test.
+To benchmark a test, you must first make sure that the test can be run multiple times in a row without issue. If the test relies on other tests to perform setup or cleanup, that must be changed before benchmarking can be done on that test. Once you have done that, import pytest (and the test you want to benchmark, if it's in a different file) and define a new test and pass in any variables you would need for the test you want to benchmark. Inside that test, call "benchmark()" and pass in the name of the test you want to benchmark, followed by any variables you need to pass to that test. Import the benchmarked test under a name that does not start with `test_` (for example `test_clone_valid_happy_path as clone_valid_happy_path`), otherwise pytest collects it a second time.
+
+Put benchmark tests in `taf/tests/test_updater/` in files named `benchmark_*.py`, not `test_*.py`. That way pytest does not pick them up when the regular tests are run.
 
 ## Running benchmark tests
 
-Once you have written benchmark tests, they will be run any time pytest is called, and the results will be displayed in a table once testing is complete. If you only want to run benchmark tests, add "--benchmark-only" to the call to pytest. By default, all benchmark tests will be run a minimum of 5 times. You can change that adding "--benchmark-min-rounds=" to the call to pytest. 
+Benchmark tests are not run by a plain `pytest taf/tests`. To run them, pass the file directly or tell pytest to collect benchmark files:
+
+```bash
+pytest taf/tests/test_updater/benchmark_update.py
+pytest taf/tests/test_updater -o python_files='benchmark_*.py'
+```
+
+The results will be displayed in a table once testing is complete. By default, all benchmark tests will be run a minimum of 5 times. You can change that adding "--benchmark-min-rounds=" to the call to pytest. 
 
 ## Saving results
 
@@ -23,36 +32,12 @@ To compare two already stored results, the standalone command "pytest-benchmark 
 For further options, see https://pytest-benchmark.readthedocs.io/en/latest/usage.html
 
 
-## CI Integration
+## Thresholds
 
-The CI workflow runs the benchmark tests in a separate `run_benchmarks` job on the newest supported Python version, for pushes to branches only, so releases and tags do not depend on them. The regular test run skips them (`--benchmark-skip`). On every branch except master, the results are compared with master's latest results. To accommodate varying performance expectations across features or branches, a JSON file named `benchmark_thresholds.json` is used to specify custom benchmark thresholds.
-
-## How Benchmark Testing Works
-
-Benchmark tests are run using `pytest` configured to only execute benchmark-related tests:
-
-- **Flag `--benchmark-only`**: Restricts `pytest` to run only benchmark tests.
-- **Flag `--benchmark-json`**: Outputs the results to a JSON file, allowing for subsequent comparisons.
-- **Flag `--benchmark-compare`**: Compares current benchmarks against the last saved benchmarks.
-- **Flag `--benchmark-compare-fail`**: Specifies a threshold for test failure; if performance degrades beyond this percentage, the test fails.
-
-These benchmarks help ensure that new code does not introduce significant performance regressions.
-
-## Setting Benchmark Thresholds
-
-The benchmark threshold can be defined for each branch to accommodate specific performance criteria associated with different types of work (e.g., feature development, bug fixes). This threshold is set in the `benchmark_thresholds.json` file. If not set, threshold is set to 20 (20%) by default. The threshold is checked against the fastest round (`min`) rather than the average, because the fastest round changes much less between runs on GitHub's shared machines.
-
-### Example `benchmark_thresholds.json`:
+On branches, CI fails the benchmarks when they are more than 20% slower than master's latest results. If a branch is expected to be slower, add it to `benchmark_thresholds.json` with the allowed percentage, a whole number from 0 to 99:
 
 ```json
 {
-  "feature/cool-feature": 20,
-  "bugfix/urgent-fix": 15
+  "feature/cool-feature": 30
 }
 ```
-
-## Artifact Handling
-
-- **Uploading Artifacts**: On master, the benchmarks are not compared. The resulting `0001_output.json` file is uploaded as the `benchmark-results-<python version>` artifact and becomes the new baseline. This way a branch that was allowed to be slower does not fail again once it is merged.
-- **Downloading Artifacts**: On other branches, the latest master artifact is downloaded into `.benchmarks/` before the benchmarks run. If there is none, or it cannot be looked up, the benchmarks run without comparison. After the newest Python version changes, the first master run creates the new baseline.
-- **Keeping Artifacts Alive**: GitHub deletes artifacts after 90 days, so the workflow also runs on master on the 1st of every month. That scheduled run only runs the benchmarks, not the regular tests. The workflow can also be started manually (`workflow_dispatch`).

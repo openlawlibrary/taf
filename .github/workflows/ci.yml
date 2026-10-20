@@ -64,7 +64,7 @@ jobs:
       - name: Run pre-commit and test with pytest
         run: |
           pre-commit run --all-files
-          pytest taf/tests --benchmark-skip
+          pytest taf/tests
 
   run_benchmarks:
     runs-on: ubuntu-latest
@@ -127,7 +127,7 @@ jobs:
             echo "Comparing against master with a threshold of $threshold%"
             compare_args="--benchmark-compare --benchmark-compare-fail=min:$threshold%"
           fi
-          pytest taf/tests/test_updater/test_update_benchmarking.py --benchmark-only --benchmark-json=0001_output.json $compare_args
+          pytest taf/tests/test_updater -o python_files='benchmark_*.py' --benchmark-json=0001_output.json $compare_args
 
       - name: Upload benchmark results
         if: github.ref == 'refs/heads/master'
