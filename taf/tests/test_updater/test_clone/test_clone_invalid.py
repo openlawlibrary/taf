@@ -258,6 +258,50 @@ def test_clone_invalid_disallowing_unauthenticated_commits_with_pending_gap(
     ],
     indirect=True,
 )
+def test_clone_invalid_delegation_loop_added_without_signing(
+    origin_auth_repo, client_dir
+):
+    metadata_dir = origin_auth_repo.path / "metadata"
+    targets = json.loads((metadata_dir / "targets.json").read_text())
+    targets["signed"]["delegations"] = {
+        "keys": {},
+        "roles": [
+            {
+                "name": "loop",
+                "keyids": [],
+                "threshold": 1,
+                "paths": ["loop/*"],
+                "terminating": False,
+            }
+        ],
+    }
+    # the new role delegates to itself
+    (metadata_dir / "targets.json").write_text(json.dumps(targets))
+    (metadata_dir / "loop.json").write_text(json.dumps(targets))
+    origin_auth_repo.commit("Add a delegation loop without signing")
+
+    update_invalid_repos_and_check_if_repos_exist(
+        OperationType.CLONE,
+        origin_auth_repo,
+        client_dir,
+        UPDATE_ERROR_PATTERN,
+        True,
+    )
+    client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
+    assert (
+        client_auth_repo.last_validated_commit != origin_auth_repo.head_commit().value
+    )
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        }
+    ],
+    indirect=True,
+)
 def test_clone_invalid_metadata_added_without_updating_snapshot(
     origin_auth_repo, client_dir
 ):

@@ -848,9 +848,13 @@ class MetadataRepository(Repository):
         Find parent role of the specified delegated targets role
         """
         parents = ["targets"]
+        visited = set()
 
         while parents:
             parent = parents.pop()
+            if parent in visited:
+                continue
+            visited.add(parent)
             for delegation in self.get_delegations_of_role(parent):
                 if delegation == delegated_role:
                     return parent
@@ -1006,6 +1010,8 @@ class MetadataRepository(Repository):
         all_roles = []
         while target_roles:
             role = target_roles.pop()
+            if role in all_roles:
+                continue
             all_roles.append(role)
             for delegation in self.get_delegations_of_role(role):
                 target_roles.append(delegation)
