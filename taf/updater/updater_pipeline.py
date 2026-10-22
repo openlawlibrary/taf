@@ -2682,14 +2682,18 @@ def _update_tuf_current_revision(git_fetcher, updater, auth_repo_name):
         # and validate any target files
 
         current_targets = git_fetcher.get_current_targets()
-        for target_path in current_targets:
-            target_filepath = target_path.replace("\\", "/")
+        for target_filepath in current_targets:
             targetinfo = updater.get_targetinfo(target_filepath)
             target_data = git_fetcher.get_current_target_data(target_filepath, raw=True)
             targetinfo.verify_length_and_hashes(target_data)
 
             taf_logger.debug(
                 f"{auth_repo_name}: Successfully validated target file {target_filepath} at {current_commit}"
+            )
+        missing_target_paths = updater.signed_target_paths() - set(current_targets)
+        if missing_target_paths:
+            raise UpdateFailedError(
+                f"Signed target files {', '.join(sorted(missing_target_paths))} are missing"
             )
         _validate_metadata_on_disk(git_fetcher)
         return current_commit

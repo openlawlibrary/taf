@@ -4,6 +4,7 @@ from taf.models.types import Commitish
 import pytest
 from taf.auth_repo import AuthenticationRepository
 from taf.tests.test_updater.conftest import (
+    TARGET_FILE_MISSING_PATTERN,
     sign_target_repositories,
     KEYSTORE_PATH,
     TARGET_HASH_MISMATCH_PATTERN,
@@ -36,6 +37,7 @@ from taf.tests.test_updater.update_utils import (
     check_if_last_validated_commit_exists,
     clone_repositories,
     update_invalid_repos_and_check_if_repos_exist,
+    verify_repos_exist,
 )
 from taf.updater.types.update import OperationType
 from taf.updater.updater import UpdateConfig, update_repository
@@ -167,6 +169,37 @@ def test_update_invalid_metadata_changed_without_updating_snapshot(
     ],
     indirect=True,
 )
+def test_update_invalid_repositories_json_deleted_without_signing(
+    origin_auth_repo, client_dir
+):
+    clone_repositories(origin_auth_repo, client_dir)
+
+    (origin_auth_repo.path / "targets" / "repositories.json").unlink()
+    origin_auth_repo.commit("Delete repositories.json without signing")
+
+    update_invalid_repos_and_check_if_repos_exist(
+        OperationType.UPDATE,
+        origin_auth_repo,
+        client_dir,
+        TARGET_FILE_MISSING_PATTERN,
+        True,
+    )
+    client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
+    assert (
+        client_auth_repo.last_validated_commit != origin_auth_repo.head_commit().value
+    )
+    verify_repos_exist(client_dir, origin_auth_repo)
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        }
+    ],
+    indirect=True,
+)
 def test_update_invalid_snapshot_changed_without_updating_timestamp(
     origin_auth_repo, client_dir
 ):
@@ -280,6 +313,37 @@ def test_update_invalid_target_changed_in_unsigned_commit_when_metadata_expired(
         origin_auth_repo,
         client_dir,
         TARGET_HASH_MISMATCH_PATTERN,
+        True,
+    )
+    client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
+    assert (
+        client_auth_repo.last_validated_commit != origin_auth_repo.head_commit().value
+    )
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        }
+    ],
+    indirect=True,
+)
+def test_update_invalid_target_file_deleted_without_signing(
+    origin_auth_repo, client_dir
+):
+    clone_repositories(origin_auth_repo, client_dir)
+
+    namespace = origin_auth_repo.name.split("/")[0]
+    (origin_auth_repo.path / "targets" / namespace / "target1").unlink()
+    origin_auth_repo.commit("Delete a target file without signing")
+
+    update_invalid_repos_and_check_if_repos_exist(
+        OperationType.UPDATE,
+        origin_auth_repo,
+        client_dir,
+        TARGET_FILE_MISSING_PATTERN,
         True,
     )
     client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)

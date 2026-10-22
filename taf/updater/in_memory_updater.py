@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, Set
 from urllib import parse
 
 from tuf.api.metadata import Targets
@@ -77,3 +77,12 @@ class InMemoryUpdater(Updater):
             for role in delegations.roles:
                 self._load_targets(role, delegator)
                 roles_to_visit.append(role)
+
+    def signed_target_paths(self) -> Set[str]:
+        """Paths of the target files listed by the targets roles verified so far."""
+        return {
+            target_path
+            for signed in self._trusted_set
+            if isinstance(signed, Targets)
+            for target_path in signed.targets
+        }
