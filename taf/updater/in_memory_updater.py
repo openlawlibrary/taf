@@ -1,11 +1,12 @@
 from typing import Dict
 from urllib import parse
 
+from tuf.api.metadata import Targets
 from tuf.ngclient.updater import Updater
 
 from taf.exceptions import UpdateFailedError
 
-for _method in ("_load_local_metadata", "_persist_metadata"):
+for _method in ("_load_local_metadata", "_persist_metadata", "_load_targets"):
     if not hasattr(Updater, _method):
         raise UpdateFailedError(
             f"python-tuf internals changed: Updater.{_method} no longer exists. "
@@ -57,3 +58,22 @@ class InMemoryUpdater(Updater):
 
     def _persist_metadata(self, rolename: str, data: bytes) -> None:
         self._metadata_store[parse.quote(rolename, "")] = data
+
+    def load_all_targets_roles(self) -> None:
+        """Load and verify every delegated targets role, following the delegations
+        of the roles that are already verified. TUF only loads the roles it needs
+        to find a target file, so a role with no target files would otherwise
+        not be checked."""
+        roles_to_visit = [Targets.type]
+        visited = set()
+        while roles_to_visit:
+            delegator = roles_to_visit.pop()
+            if delegator in visited:
+                continue
+            visited.add(delegator)
+            delegations = self._trusted_set[delegator].delegations
+            if delegations is None or delegations.roles is None:
+                continue
+            for role in delegations.roles:
+                self._load_targets(role, delegator)
+                roles_to_visit.append(role)

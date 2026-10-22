@@ -71,6 +71,7 @@ METADATA_EXPIRED = r"Update of (\w+\/\w+) failed due to error: Validation of aut
 NO_INFO_JSON = "Update of repository failed due to error: Error during info.json parse. If the authentication repository's path is not specified, info.json metadata is expected to be in targets/protected"
 UNCOMMITTED_CHANGES = r"Update of (\w+\/\w+) failed due to error: Repositories (\w+\/\w+) have uncommitted changes\. Commit and push or use --force to revert and run the command again\."
 UPDATE_ERROR_PATTERN = r"Update of (\w+\/\w+) failed due to error: Validation of authentication repository (\w+\/\w+) failed at revision ([0-9a-f]+) due to error: .*"
+TARGET_HASH_MISMATCH_PATTERN = r"^Update of (\w+\/\w+) failed due to error: Validation of authentication repository (\w+\/\w+) failed at revision ([0-9a-f]{40}) due to error: Observed hash [0-9a-f]+ does not match expected hash [0-9a-f]+$"
 FORCED_UPDATE_PATTERN = r"Update of (\w+\/\w+) failed due to error: Repositories ([\w/,\s-]+) have uncommitted changes. Commit and push or use --force to revert and run the command again."
 BEHIND_LVC_PATTERN = r"Update of (\w+\/\w+) failed due to error: Top commit of repository \1 ([0-9a-f]{40}) is not equal to or newer than the last successful commit."
 LVC_NOT_IN_REPO_PATTERN = r"Update of (\w+\/\w+) failed due to error: \1: Last validated commit (\w{40}) is not in repository \1\s*Run 'taf repo reset' to sync your local repositories, or run the updater with the --force flag to validate from the first commit"

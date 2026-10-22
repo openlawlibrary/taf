@@ -5,6 +5,9 @@ from taf.auth_repo import AuthenticationRepository
 from taf.constants import INFO_JSON_PATH
 from taf.exceptions import UpdateFailedError
 from taf.tests.test_updater.conftest import (
+    sign_target_repositories,
+    KEYSTORE_PATH,
+    TARGET_HASH_MISMATCH_PATTERN,
     INVALID_KEYS_PATTERN,
     INVALID_METADATA_PATTERN,
     METADATA_EXPIRED,
@@ -16,6 +19,7 @@ from taf.tests.test_updater.conftest import (
     WRONG_UPDATE_TYPE_OFFICIAL_REPO,
     WRONG_UPDATE_TYPE_TEST_REPO,
     SetupManager,
+    add_new_role_and_target_repo,
     SetupState,
     add_unauthenticated_commit_to_target_repo,
     add_unauthenticated_commits_to_all_target_repos,
@@ -284,7 +288,7 @@ def test_clone_invalid_delegation_loop_added_without_signing(
         OperationType.CLONE,
         origin_auth_repo,
         client_dir,
-        UPDATE_ERROR_PATTERN,
+        INVALID_METADATA_PATTERN,
         True,
     )
     client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
@@ -315,7 +319,7 @@ def test_clone_invalid_metadata_added_without_updating_snapshot(
         OperationType.CLONE,
         origin_auth_repo,
         client_dir,
-        UPDATE_ERROR_PATTERN,
+        INVALID_METADATA_PATTERN,
         True,
     )
     client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
@@ -347,7 +351,7 @@ def test_clone_invalid_metadata_changed_without_updating_snapshot(
         OperationType.CLONE,
         origin_auth_repo,
         client_dir,
-        UPDATE_ERROR_PATTERN,
+        INVALID_METADATA_PATTERN,
         True,
     )
     client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
@@ -418,6 +422,63 @@ def test_clone_invalid_snapshot_changed_without_updating_timestamp(
     "origin_auth_repo",
     [
         {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        }
+    ],
+    indirect=True,
+)
+def test_clone_invalid_target_changed_in_unsigned_commit_when_delegated_metadata_expired(
+    origin_auth_repo, origin_dir, client_dir
+):
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(
+        add_new_role_and_target_repo,
+        kwargs={
+            "date": "2021-01-01",
+            "target_name": "target3",
+            "role_name": "delegated_role1",
+        },
+    )
+    setup_manager.add_task(
+        sign_target_repositories,
+        kwargs={
+            "date": "2021-01-01",
+            "library_dir": origin_dir,
+            "repo_name": origin_auth_repo.name,
+            "keystore": KEYSTORE_PATH,
+        },
+    )
+    setup_manager.add_task(
+        update_expiration_dates, kwargs={"roles": ["targets", "snapshot", "timestamp"]}
+    )
+    setup_manager.execute_tasks()
+
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(
+        add_unauthenticated_commit_to_target_repo, kwargs={"target_name": "target3"}
+    )
+    setup_manager.add_task(
+        point_target_to_unsigned_commit, kwargs={"target_name": "target3"}
+    )
+    setup_manager.execute_tasks()
+
+    update_invalid_repos_and_check_if_repos_exist(
+        OperationType.CLONE,
+        origin_auth_repo,
+        client_dir,
+        TARGET_HASH_MISMATCH_PATTERN,
+        True,
+    )
+    client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
+    assert (
+        client_auth_repo.last_validated_commit != origin_auth_repo.head_commit().value
+    )
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
             "date": "2020-01-01",
             "targets_config": [{"name": "target1"}, {"name": "target2"}],
         }
@@ -441,7 +502,7 @@ def test_clone_invalid_target_changed_in_unsigned_commit_when_metadata_expired(
         OperationType.CLONE,
         origin_auth_repo,
         client_dir,
-        UPDATE_ERROR_PATTERN,
+        TARGET_HASH_MISMATCH_PATTERN,
         True,
     )
     client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)

@@ -23,14 +23,13 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
-
 - Validate delegated roles that have no target files yet, and the rest of the newest commit when its metadata has expired ([821])
+- Sign delegated roles with all of their keys when creating a repository, not only one ([821])
 - Fix adding multiple roles from a config file when the parent of a new role is defined in the same file or when `parent_role` is not specified ([819])
 - Fix outdated keys-description examples in the help of `repo create`, `keystore generate` and `roles add-multiple` ([819])
 - Show a useful error instead of an indexing error when a YubiKey serial number is given but no matching YubiKey is detected ([818])
 - Use the repository name from the last validated commit when cloning without a path ([817])
 - Check that each target repository's commit is on its branch before resetting ([815])
-
 
 [821]: https://github.com/openlawlibrary/taf/pull/821
 [819]: https://github.com/openlawlibrary/taf/pull/819

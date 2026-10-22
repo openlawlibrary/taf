@@ -2640,17 +2640,23 @@ def _run_tuf_updater(git_fetcher, auth_repo_name):
     last_validated_commit = None
     try:
         while not git_fetcher.update_done():
-            current_commit = None
-            while current_commit is None:
+            for _ in range(2):
                 updater = _init_updater()
                 current_commit = _update_tuf_current_revision(
                     git_fetcher, updater, auth_repo_name
                 )
                 del updater
-                if current_commit is None:
-                    # metadata expired and TUF stopped before validating the rest
-                    # of the commit, so validate it again without checking expiration
-                    git_fetcher._patch_tuf_metadata_set(GitTrustedMetadataSet)
+                if current_commit is not None:
+                    break
+                # metadata expired and TUF stopped before validating the rest
+                # of the commit, so validate it again without checking expiration
+                git_fetcher._patch_tuf_metadata_set(GitTrustedMetadataSet)
+            else:
+                raise UpdateFailedError(
+                    f"Validation of authentication repository {auth_repo_name}"
+                    f" failed at revision {git_fetcher.current_commit} due to error:"
+                    " metadata expired"
+                )
             last_validated_commit = current_commit
     except UpdateFailedError as e:
         return last_validated_commit, e
@@ -2667,13 +2673,7 @@ def _update_tuf_current_revision(git_fetcher, updater, auth_repo_name):
     try:
         auth_repo_name = auth_repo_name or ""
         updater.refresh()
-        # TUF only loads the delegated roles it needs to find a target file
-        validation_auth_repo = git_fetcher.validation_auth_repo
-        with validation_auth_repo.repository_at_revision(current_commit):
-            for role in validation_auth_repo.get_all_targets_roles():
-                updater._load_targets(
-                    role, validation_auth_repo.find_delegated_roles_parent(role)
-                )
+        updater.load_all_targets_roles()
         taf_logger.debug(
             f"{auth_repo_name}: Validated metadata files at revision {current_commit}"
         )
@@ -2705,8 +2705,8 @@ def _update_tuf_current_revision(git_fetcher, updater, auth_repo_name):
                 f"Validation of authentication repository {auth_repo_name or ''}"
                 f" failed at revision {current_commit} due to error: {e}"
             )
-        taf_logger.debug(
-            f"WARNING: Could not validate {auth_repo_name} at revision {current_commit} due to error: {e}"
+        taf_logger.warning(
+            f"{auth_repo_name}: Metadata at revision {current_commit} expired: {e}"
         )
 
 
