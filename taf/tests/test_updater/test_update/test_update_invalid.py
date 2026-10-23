@@ -1,9 +1,16 @@
+import json
+
 from taf.models.types import Commitish
 import pytest
 from taf.auth_repo import AuthenticationRepository
 from taf.tests.test_updater.conftest import (
+    TARGET_FILE_MISSING_PATTERN,
+    sign_target_repositories,
+    KEYSTORE_PATH,
+    TARGET_HASH_MISMATCH_PATTERN,
     DEFAULT_BRANCH_NOT_FOUND_PATTERN,
     INVALID_KEYS_PATTERN,
+    INVALID_METADATA_PATTERN,
     LVC_NOT_IN_REMOTE_PATTERN,
     TARGET_MISSING_BRANCH_PATTERN,
     TARGET_MISSMATCH_PATTERN,
@@ -11,13 +18,18 @@ from taf.tests.test_updater.conftest import (
     UNCOMMITTED_CHANGES,
     OLD_LVC_FORMAT_ERROR_PATTERN,
     SetupManager,
+    add_new_role_and_target_repo,
+    add_unauthenticated_commit_to_target_repo,
     add_unauthenticated_commits_to_all_target_repos,
     add_valid_target_commits,
     create_file_without_committing,
     delete_target_branch,
+    point_target_to_unsigned_commit,
     set_last_validated_commit_of_auth_repo,
     switch_target_branch_and_sign,
     update_expiration_dates,
+    update_metadata_invalid_signature,
+    update_role_metadata_without_signing,
     update_timestamp_metadata_invalid_signature,
     replace_with_old_last_validated_commit_format,
 )
@@ -25,6 +37,7 @@ from taf.tests.test_updater.update_utils import (
     check_if_last_validated_commit_exists,
     clone_repositories,
     update_invalid_repos_and_check_if_repos_exist,
+    verify_repos_exist,
 )
 from taf.updater.types.update import OperationType
 from taf.updater.updater import UpdateConfig, update_repository
@@ -32,6 +45,311 @@ from taf.updater.lifecycle_handlers import Event
 from taf.exceptions import UpdateFailedError
 
 from taf.git import GitRepository
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        }
+    ],
+    indirect=True,
+)
+def test_update_invalid_delegation_loop_added_without_signing(
+    origin_auth_repo, client_dir
+):
+    clone_repositories(origin_auth_repo, client_dir)
+
+    metadata_dir = origin_auth_repo.path / "metadata"
+    targets = json.loads((metadata_dir / "targets.json").read_text())
+    targets["signed"]["delegations"] = {
+        "keys": {},
+        "roles": [
+            {
+                "name": "loop",
+                "keyids": [],
+                "threshold": 1,
+                "paths": ["loop/*"],
+                "terminating": False,
+            }
+        ],
+    }
+    # the new role delegates to itself
+    (metadata_dir / "targets.json").write_text(json.dumps(targets))
+    (metadata_dir / "loop.json").write_text(json.dumps(targets))
+    origin_auth_repo.commit("Add a delegation loop without signing")
+
+    update_invalid_repos_and_check_if_repos_exist(
+        OperationType.UPDATE,
+        origin_auth_repo,
+        client_dir,
+        INVALID_METADATA_PATTERN,
+        True,
+    )
+    client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
+    assert (
+        client_auth_repo.last_validated_commit != origin_auth_repo.head_commit().value
+    )
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        }
+    ],
+    indirect=True,
+)
+def test_update_invalid_metadata_added_without_updating_snapshot(
+    origin_auth_repo, client_dir
+):
+    clone_repositories(origin_auth_repo, client_dir)
+
+    metadata_dir = origin_auth_repo.path / "metadata"
+    (metadata_dir / "new_role.json").write_text(
+        (metadata_dir / "targets.json").read_text()
+    )
+    origin_auth_repo.commit("Add metadata without updating snapshot")
+
+    update_invalid_repos_and_check_if_repos_exist(
+        OperationType.UPDATE,
+        origin_auth_repo,
+        client_dir,
+        INVALID_METADATA_PATTERN,
+        True,
+    )
+    client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
+    assert (
+        client_auth_repo.last_validated_commit != origin_auth_repo.head_commit().value
+    )
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        }
+    ],
+    indirect=True,
+)
+def test_update_invalid_metadata_changed_without_updating_snapshot(
+    origin_auth_repo, client_dir
+):
+    clone_repositories(origin_auth_repo, client_dir)
+
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(
+        update_role_metadata_without_signing, kwargs={"role": "targets"}
+    )
+    setup_manager.execute_tasks()
+    origin_auth_repo.commit("Update targets metadata without updating snapshot")
+
+    update_invalid_repos_and_check_if_repos_exist(
+        OperationType.UPDATE,
+        origin_auth_repo,
+        client_dir,
+        INVALID_METADATA_PATTERN,
+        True,
+    )
+    client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
+    assert (
+        client_auth_repo.last_validated_commit != origin_auth_repo.head_commit().value
+    )
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        }
+    ],
+    indirect=True,
+)
+def test_update_invalid_repositories_json_deleted_without_signing(
+    origin_auth_repo, client_dir
+):
+    clone_repositories(origin_auth_repo, client_dir)
+
+    (origin_auth_repo.path / "targets" / "repositories.json").unlink()
+    origin_auth_repo.commit("Delete repositories.json without signing")
+
+    update_invalid_repos_and_check_if_repos_exist(
+        OperationType.UPDATE,
+        origin_auth_repo,
+        client_dir,
+        TARGET_FILE_MISSING_PATTERN,
+        True,
+    )
+    client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
+    assert (
+        client_auth_repo.last_validated_commit != origin_auth_repo.head_commit().value
+    )
+    verify_repos_exist(client_dir, origin_auth_repo)
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        }
+    ],
+    indirect=True,
+)
+def test_update_invalid_snapshot_changed_without_updating_timestamp(
+    origin_auth_repo, client_dir
+):
+    clone_repositories(origin_auth_repo, client_dir)
+
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(
+        update_metadata_invalid_signature, kwargs={"role": "snapshot"}
+    )
+    setup_manager.execute_tasks()
+
+    update_invalid_repos_and_check_if_repos_exist(
+        OperationType.UPDATE,
+        origin_auth_repo,
+        client_dir,
+        INVALID_METADATA_PATTERN,
+        True,
+    )
+    client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
+    assert (
+        client_auth_repo.last_validated_commit != origin_auth_repo.head_commit().value
+    )
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        }
+    ],
+    indirect=True,
+)
+def test_update_invalid_target_changed_in_unsigned_commit_when_delegated_metadata_expired(
+    origin_auth_repo, origin_dir, client_dir
+):
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(
+        add_new_role_and_target_repo,
+        kwargs={
+            "date": "2021-01-01",
+            "target_name": "target3",
+            "role_name": "delegated_role1",
+        },
+    )
+    setup_manager.add_task(
+        sign_target_repositories,
+        kwargs={
+            "date": "2021-01-01",
+            "library_dir": origin_dir,
+            "repo_name": origin_auth_repo.name,
+            "keystore": KEYSTORE_PATH,
+        },
+    )
+    setup_manager.add_task(
+        update_expiration_dates, kwargs={"roles": ["targets", "snapshot", "timestamp"]}
+    )
+    setup_manager.execute_tasks()
+
+    clone_repositories(origin_auth_repo, client_dir)
+
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(
+        add_unauthenticated_commit_to_target_repo, kwargs={"target_name": "target3"}
+    )
+    setup_manager.add_task(
+        point_target_to_unsigned_commit, kwargs={"target_name": "target3"}
+    )
+    setup_manager.execute_tasks()
+
+    update_invalid_repos_and_check_if_repos_exist(
+        OperationType.UPDATE,
+        origin_auth_repo,
+        client_dir,
+        TARGET_HASH_MISMATCH_PATTERN,
+        True,
+    )
+    client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
+    assert (
+        client_auth_repo.last_validated_commit != origin_auth_repo.head_commit().value
+    )
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "date": "2020-01-01",
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        }
+    ],
+    indirect=True,
+)
+def test_update_invalid_target_changed_in_unsigned_commit_when_metadata_expired(
+    origin_auth_repo, client_dir
+):
+    clone_repositories(origin_auth_repo, client_dir)
+
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(update_expiration_dates, kwargs={"date": "2021-01-01"})
+    setup_manager.add_task(
+        add_unauthenticated_commit_to_target_repo, kwargs={"target_name": "target1"}
+    )
+    setup_manager.add_task(
+        point_target_to_unsigned_commit, kwargs={"target_name": "target1"}
+    )
+    setup_manager.execute_tasks()
+
+    update_invalid_repos_and_check_if_repos_exist(
+        OperationType.UPDATE,
+        origin_auth_repo,
+        client_dir,
+        TARGET_HASH_MISMATCH_PATTERN,
+        True,
+    )
+    client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
+    assert (
+        client_auth_repo.last_validated_commit != origin_auth_repo.head_commit().value
+    )
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        }
+    ],
+    indirect=True,
+)
+def test_update_invalid_target_file_deleted_without_signing(
+    origin_auth_repo, client_dir
+):
+    clone_repositories(origin_auth_repo, client_dir)
+
+    namespace = origin_auth_repo.name.split("/")[0]
+    (origin_auth_repo.path / "targets" / namespace / "target1").unlink()
+    origin_auth_repo.commit("Delete a target file without signing")
+
+    update_invalid_repos_and_check_if_repos_exist(
+        OperationType.UPDATE,
+        origin_auth_repo,
+        client_dir,
+        TARGET_FILE_MISSING_PATTERN,
+        True,
+    )
+    client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
+    assert (
+        client_auth_repo.last_validated_commit != origin_auth_repo.head_commit().value
+    )
 
 
 @pytest.mark.parametrize(

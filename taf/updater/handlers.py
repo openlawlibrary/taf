@@ -241,9 +241,13 @@ class GitUpdater(FetcherInterface):
 
     def get_current_targets(self):
         try:
-            return self.validation_auth_repo.list_files_at_revision(
-                self.current_commit, "targets"
-            )
+            # the git fallback for listing files returns paths with backslashes on Windows
+            return [
+                Path(target_path).as_posix()
+                for target_path in self.validation_auth_repo.list_files_at_revision(
+                    self.current_commit, "targets"
+                )
+            ]
         except GitError:
             return []
 
