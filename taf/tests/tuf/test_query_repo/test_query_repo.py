@@ -110,9 +110,10 @@ def test_get_role_paths(tuf_repo_with_delegations):
 
 
 def test_signing_roles(tuf_repo_with_delegations):
-    test_target_paths = ["dir1/file1.txt", "dir2/path2", "other"]
+    test_target_paths = ["dir1/file1.txt", "dir1/sub/file2.txt", "dir2/path2", "other"]
     actual = tuf_repo_with_delegations.map_signing_roles(test_target_paths)
     assert actual["dir1/file1.txt"] == "delegated_role"
+    assert actual["dir1/sub/file2.txt"] == "targets"
     assert actual["dir2/path2"] == "inner_role"
     assert actual["other"] == "targets"
 

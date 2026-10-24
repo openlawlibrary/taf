@@ -1,6 +1,5 @@
 """TUF metadata repository"""
 
-from fnmatch import fnmatch
 from functools import reduce
 import json
 import operator
@@ -1095,7 +1094,7 @@ class MetadataRepository(Repository):
         - TAFError if the role does not exist
         """
         if role == "targets":
-            return "*"
+            return ["*"]
         role = self._role_obj(role)
         if role is None:
             raise TAFError(f"Role {role} does not exist")
@@ -1469,13 +1468,11 @@ class MetadataRepository(Repository):
         }
         while roles:
             role = roles.pop()
-            path_patterns = self.get_role_paths(role)
-            for path_pattern in path_patterns:
+            if role != "targets":
+                # match paths the same way python-tuf clients do
+                role_obj = self._role_obj(role)
                 for target_filename in target_filenames:
-                    if fnmatch(
-                        target_filename.lstrip(os.sep),
-                        path_pattern.lstrip(os.sep),
-                    ):
+                    if role_obj.is_delegated_path(target_filename.lstrip(os.sep)):
                         roles_targets[target_filename] = role
 
             for delegation in self.get_delegations_of_role(role):
