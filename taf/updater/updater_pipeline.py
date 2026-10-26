@@ -26,6 +26,7 @@ from taf.exceptions import (
     MultipleRepositoriesNotCleanError,
     ResetFailedError,
 )
+from taf.updater.git_trusted_metadata_set import GitTrustedMetadataSet
 from taf.updater.handlers import GitUpdater
 from taf.updater.lifecycle_handlers import Event
 from taf.updater.types.update import OperationType, UpdateType
@@ -2639,15 +2640,30 @@ def _run_tuf_updater(git_fetcher, auth_repo_name):
     last_validated_commit = None
     try:
         while not git_fetcher.update_done():
-            updater = _init_updater()
-            current_commit = _update_tuf_current_revision(
-                git_fetcher, updater, auth_repo_name
-            )
-            del updater
-            if current_commit is not None:
-                last_validated_commit = current_commit
+            for _ in range(2):
+                updater = _init_updater()
+                current_commit = _update_tuf_current_revision(
+                    git_fetcher, updater, auth_repo_name
+                )
+                del updater
+                if current_commit is not None:
+                    break
+                # metadata expired and TUF stopped before validating the rest
+                # of the commit, so validate it again without checking expiration
+                git_fetcher._patch_tuf_metadata_set(GitTrustedMetadataSet)
+            else:
+                raise UpdateFailedError(
+                    f"Validation of authentication repository {auth_repo_name}"
+                    f" failed at revision {git_fetcher.current_commit} due to error:"
+                    " metadata expired"
+                )
+            last_validated_commit = current_commit
     except UpdateFailedError as e:
         return last_validated_commit, e
+    finally:
+        git_fetcher._patch_tuf_metadata_set(
+            git_fetcher._original_tuf_trusted_metadata_set
+        )
 
     return last_validated_commit, None
 
@@ -2657,6 +2673,7 @@ def _update_tuf_current_revision(git_fetcher, updater, auth_repo_name):
     try:
         auth_repo_name = auth_repo_name or ""
         updater.refresh()
+        updater.load_all_targets_roles()
         taf_logger.debug(
             f"{auth_repo_name}: Validated metadata files at revision {current_commit}"
         )
@@ -2665,8 +2682,7 @@ def _update_tuf_current_revision(git_fetcher, updater, auth_repo_name):
         # and validate any target files
 
         current_targets = git_fetcher.get_current_targets()
-        for target_path in current_targets:
-            target_filepath = target_path.replace("\\", "/")
+        for target_filepath in current_targets:
             targetinfo = updater.get_targetinfo(target_filepath)
             target_data = git_fetcher.get_current_target_data(target_filepath, raw=True)
             targetinfo.verify_length_and_hashes(target_data)
@@ -2674,8 +2690,12 @@ def _update_tuf_current_revision(git_fetcher, updater, auth_repo_name):
             taf_logger.debug(
                 f"{auth_repo_name}: Successfully validated target file {target_filepath} at {current_commit}"
             )
-        if settings.strict:
-            _validate_metadata_on_disk(git_fetcher)
+        missing_target_paths = updater.signed_target_paths() - set(current_targets)
+        if missing_target_paths:
+            raise UpdateFailedError(
+                f"Signed target files {', '.join(sorted(missing_target_paths))} are missing"
+            )
+        _validate_metadata_on_disk(git_fetcher)
         return current_commit
     except Exception as e:
         metadata_expired = EXPIRED_METADATA_ERROR in type(
@@ -2689,8 +2709,8 @@ def _update_tuf_current_revision(git_fetcher, updater, auth_repo_name):
                 f"Validation of authentication repository {auth_repo_name or ''}"
                 f" failed at revision {current_commit} due to error: {e}"
             )
-        taf_logger.debug(
-            f"WARNING: Could not validate {auth_repo_name} at revision {current_commit} due to error: {e}"
+        taf_logger.warning(
+            f"{auth_repo_name}: Metadata at revision {current_commit} expired: {e}"
         )
 
 
@@ -2734,16 +2754,7 @@ def _validate_metadata_on_disk(git_fetcher):
             git_fetcher._metadata_store_key(metadata_file_name)
         )
         if tuf_metadata_content is None:
-            # this validation causes an issue with one of the first
-            # commits of our production repositories and it should
-            # not be enabled until we specify a later commit of those
-            # repositories as the initial valid ones
-            # this error happens when a metadata file is added, but
-            # snapshot is not updated
-            # raise UpdateFailedError(
-            #     f"Invalid metadata file {metadata_file_name}"
-            # )
-            continue
+            raise UpdateFailedError(f"Invalid metadata file {metadata_file_name}")
         metadata_content = git_fetcher.get_current_metadata_data(
             metadata_file_name, raw=True
         )

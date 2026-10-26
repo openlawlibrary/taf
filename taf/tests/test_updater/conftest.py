@@ -28,6 +28,7 @@ from taf.log import disable_console_logging
 from taf.tests.test_updater.update_utils import load_target_repositories
 from taf.api.roles import add_roles
 from taf.api.targets import (
+    _save_top_commit_of_repo_to_target,
     add_target_repo,
     register_target_files,
     update_target_repos_from_repositories_json,
@@ -70,6 +71,8 @@ METADATA_EXPIRED = r"Update of (\w+\/\w+) failed due to error: Validation of aut
 NO_INFO_JSON = "Update of repository failed due to error: Error during info.json parse. If the authentication repository's path is not specified, info.json metadata is expected to be in targets/protected"
 UNCOMMITTED_CHANGES = r"Update of (\w+\/\w+) failed due to error: Repositories (\w+\/\w+) have uncommitted changes\. Commit and push or use --force to revert and run the command again\."
 UPDATE_ERROR_PATTERN = r"Update of (\w+\/\w+) failed due to error: Validation of authentication repository (\w+\/\w+) failed at revision ([0-9a-f]+) due to error: .*"
+TARGET_FILE_MISSING_PATTERN = r"^Update of ([\w\/-]+) failed due to error: Validation of authentication repository ([\w\/-]+) failed at revision ([0-9a-f]{40}) due to error: Signed target files (.+) are missing$"
+TARGET_HASH_MISMATCH_PATTERN = r"^Update of (\w+\/\w+) failed due to error: Validation of authentication repository (\w+\/\w+) failed at revision ([0-9a-f]{40}) due to error: Observed hash [0-9a-f]+ does not match expected hash [0-9a-f]+$"
 FORCED_UPDATE_PATTERN = r"Update of (\w+\/\w+) failed due to error: Repositories ([\w/,\s-]+) have uncommitted changes. Commit and push or use --force to revert and run the command again."
 BEHIND_LVC_PATTERN = r"Update of (\w+\/\w+) failed due to error: Top commit of repository \1 ([0-9a-f]{40}) is not equal to or newer than the last successful commit."
 LVC_NOT_IN_REPO_PATTERN = r"Update of (\w+\/\w+) failed due to error: \1: Last validated commit (\w{40}) is not in repository \1\s*Run 'taf repo reset' to sync your local repositories, or run the updater with the --force flag to validate from the first commit"
@@ -959,8 +962,10 @@ def update_target_repo_without_committing(target_repos: list, target_name: str):
 def update_timestamp_metadata_invalid_signature(
     auth_repo: AuthenticationRepository,
 ):
+    update_metadata_invalid_signature(auth_repo, Timestamp.type)
 
-    role = Timestamp.type
+
+def update_metadata_invalid_signature(auth_repo: AuthenticationRepository, role: str):
     with manage_repo_and_signers(
         auth_repo,
         [role],
@@ -1013,6 +1018,17 @@ def update_target_repository(
 
     if commit_message is not None:
         target_repo.commit(commit_message)
+
+
+def point_target_to_unsigned_commit(
+    auth_repo: AuthenticationRepository, target_repos: list, target_name: str
+):
+    for target_repo in target_repos:
+        if target_name in target_repo.name:
+            _save_top_commit_of_repo_to_target(
+                target_repo.library_dir, target_repo.name, auth_repo.path
+            )
+    auth_repo.commit("Point target to unsigned commit")
 
 
 def remove_commits(
