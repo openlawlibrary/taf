@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from taf.api.roles import (
     add_role,
@@ -227,6 +228,21 @@ def test_remove_role_paths(
     roles_paths = auth_repo_with_delegations.get_role_paths(ROLE_NAME)
     assert len(roles_paths) == 1
     assert REMOVED_PATHS[0] not in roles_paths
+
+
+def test_get_role_repositories(auth_repo_with_delegations: AuthenticationRepository):
+    repositories = ["dir1/repo1", "dir1/sub/repo2", "other/repo3"]
+    (auth_repo_with_delegations.path / "targets" / "repositories.json").write_text(
+        json.dumps({"repositories": {name: {} for name in repositories}})
+    )
+    # delegated_role is delegated dir1/*, which does not cover subdirectories of dir1
+    assert auth_repo_with_delegations.get_role_repositories("delegated_role") == [
+        "dir1/repo1"
+    ]
+    assert auth_repo_with_delegations.get_role_repositories("targets") == [
+        "dir1/sub/repo2",
+        "other/repo3",
+    ]
 
 
 # TODO enable when remove role is reimplemented

@@ -107,6 +107,7 @@ def test_get_role_paths(tuf_repo_with_delegations):
     assert actual == ["dir1/*", "dir2/path1"]
     actual = tuf_repo_with_delegations.get_role_paths("inner_role")
     assert actual == ["dir2/path2"]
+    assert tuf_repo_with_delegations.get_role_paths("targets") == ["*"]
 
 
 def test_signing_roles(tuf_repo_with_delegations):
@@ -124,6 +125,13 @@ def test_get_role_from_target_paths(tuf_repo_with_delegations):
             ["dir1/file1.txt", "dir1/file2.txt"]
         )
         == "delegated_role"
+    )
+    # dir1/* does not cover files in subdirectories of dir1
+    assert (
+        tuf_repo_with_delegations.get_role_from_target_paths(
+            ["dir1/file1.txt", "dir1/sub/file2.txt"]
+        )
+        is None
     )
 
 
