@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- `get_role_repositories` returns the repositories a role signs, so the top-level `targets` role no longer gets every repository ([823])
 - Check that each commit's metadata files are the ones TUF validated without requiring `--strict` ([821])
 - Print a confirmation when `taf yubikey check-pin` finds the PIN valid ([818])
 - Warn when `exclude_filter` is passed to an update instead of just ignoring it ([815])
@@ -24,6 +25,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Match target paths to delegated roles the same way python-tuf does when choosing which role signs a target file ([823])
 - Validate delegated roles that have no target files yet, and the rest of the newest commit when its metadata has expired ([821])
 - Sign delegated roles with all of their keys when creating a repository, not only one ([821])
 - Fail validation when a target file listed in signed metadata is missing from the commit ([821])
@@ -33,6 +35,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Use the repository name from the last validated commit when cloning without a path ([817])
 - Check that each target repository's commit is on its branch before resetting ([815])
 
+[823]: https://github.com/openlawlibrary/taf/pull/823
 [821]: https://github.com/openlawlibrary/taf/pull/821
 [819]: https://github.com/openlawlibrary/taf/pull/819
 [818]: https://github.com/openlawlibrary/taf/pull/818
