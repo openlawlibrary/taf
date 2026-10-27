@@ -200,7 +200,7 @@ def test_add_role_paths(
         "add-role-paths", paths=", ".join(NEW_PATHS), role=ROLE_NAME
     )
     roles_paths = auth_repo_with_delegations.get_role_paths(ROLE_NAME)
-    assert len(roles_paths) == 3
+    assert len(roles_paths) == 4
     assert "some-path3" in roles_paths
 
 
@@ -226,7 +226,7 @@ def test_remove_role_paths(
         "remove-role-paths", paths=", ".join(REMOVED_PATHS), role=ROLE_NAME
     )
     roles_paths = auth_repo_with_delegations.get_role_paths(ROLE_NAME)
-    assert len(roles_paths) == 1
+    assert len(roles_paths) == 2
     assert REMOVED_PATHS[0] not in roles_paths
 
 

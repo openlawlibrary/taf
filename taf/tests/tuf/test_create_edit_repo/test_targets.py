@@ -1,4 +1,5 @@
 from collections import defaultdict
+from pathlib import PureWindowsPath
 
 
 def test_add_target_files(tuf_repo):
@@ -22,6 +23,12 @@ def test_add_target_files(tuf_repo):
     assert (tuf_repo.path / "targets" / path2).is_file()
     assert tuf_repo.targets().targets[path2].length > 0
     assert tuf_repo.targets().targets[path2].custom == custom
+
+    # paths built with Path on Windows are signed with /
+    tuf_repo.add_target_files_to_role(
+        {str(PureWindowsPath("dir", "test3")): {"target": "test3"}}
+    )
+    assert "dir/test3" in tuf_repo.targets().targets
 
 
 def test_repo_target_files(tuf_repo):

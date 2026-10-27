@@ -11,13 +11,14 @@
           "delegated_role": {
             "paths": [
               "dir1/*",
-              "dir2/path1"
+              "dir2/path1",
+              "dir2/path2"
               ],
             "number": 2,
             "threshold": 2,
             "delegations": {
               "inner_role": {
-                "paths": ["dir2/path2"]
+                "paths": ["dir2/path2", "dir3/*"]
               }
             }
           }

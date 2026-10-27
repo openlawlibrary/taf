@@ -105,9 +105,9 @@ def test_check_roles_expiration_dates(tuf_repo_no_delegations):
 
 def test_get_role_paths(tuf_repo_with_delegations):
     actual = tuf_repo_with_delegations.get_role_paths("delegated_role")
-    assert actual == ["dir1/*", "dir2/path1"]
+    assert actual == ["dir1/*", "dir2/path1", "dir2/path2"]
     actual = tuf_repo_with_delegations.get_role_paths("inner_role")
-    assert actual == ["dir2/path2"]
+    assert actual == ["dir2/path2", "dir3/*"]
     assert tuf_repo_with_delegations.get_role_paths("targets") == ["*"]
 
 
@@ -115,16 +115,22 @@ def test_signing_roles(tuf_repo_with_delegations):
     windows_path = str(PureWindowsPath("dir1", "file3.txt"))
     test_target_paths = [
         "dir1/file1.txt",
+        "/dir1/file1.txt",
         windows_path,
         "dir1/sub/file2.txt",
         "dir2/path2",
+        "dir3/file.txt",
         "other",
     ]
     actual = tuf_repo_with_delegations.map_signing_roles(test_target_paths)
     assert actual["dir1/file1.txt"] == "delegated_role"
+    # python-tuf does not strip a leading /
+    assert actual["/dir1/file1.txt"] == "targets"
     assert actual[windows_path] == "delegated_role"
     assert actual["dir1/sub/file2.txt"] == "targets"
     assert actual["dir2/path2"] == "inner_role"
+    # inner_role is delegated dir3/*, but delegated_role does not cover dir3
+    assert actual["dir3/file.txt"] == "targets"
     assert actual["other"] == "targets"
 
 
@@ -215,6 +221,10 @@ def test_get_target_file_custom_data(tuf_repo_with_delegations):
     assert actual == {"custom_attr1": "custom_val1"}
     actual = tuf_repo_with_delegations.get_target_file_custom_data("dir2/path1")
     assert actual == {"custom_attr2": "custom_val2"}
+    actual = tuf_repo_with_delegations.get_target_file_custom_data(
+        str(PureWindowsPath("dir2", "path1"))
+    )
+    assert actual == {"custom_attr2": "custom_val2"}
 
     tuf_repo_with_delegations.get_target_file_custom_data("doesntexist") is None
 
@@ -228,6 +238,12 @@ def test_get_target_file_hashes(tuf_repo_with_delegations):
         "dir1/path1", "sha512"
     )
     assert len(hash_value) == 128
+    assert (
+        tuf_repo_with_delegations.get_target_file_hashes(
+            str(PureWindowsPath("dir1", "path1")), "sha512"
+        )
+        == hash_value
+    )
 
     tuf_repo_with_delegations.get_target_file_hashes("doesntexist") is None
 
