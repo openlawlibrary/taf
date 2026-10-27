@@ -3,7 +3,6 @@
 from functools import reduce
 import json
 import operator
-import os
 from pathlib import Path
 import logging
 from collections import defaultdict
@@ -1479,7 +1478,9 @@ class MetadataRepository(Repository):
                 # match paths the same way python-tuf clients do
                 role_obj = self._role_obj(role)
                 for target_filename in target_filenames:
-                    if role_obj.is_delegated_path(target_filename.lstrip(os.sep)):
+                    # paths built with Path on Windows use \, but TUF only uses /
+                    target_path = target_filename.replace("\\", "/").lstrip("/")
+                    if role_obj.is_delegated_path(target_path):
                         roles_targets[target_filename] = role
 
             for delegation in self.get_delegations_of_role(role):
