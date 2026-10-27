@@ -26,7 +26,6 @@ from taf.exceptions import (
     MultipleRepositoriesNotCleanError,
     ResetFailedError,
 )
-from taf.updater.git_trusted_metadata_set import GitTrustedMetadataSet
 from taf.updater.handlers import GitUpdater
 from taf.updater.lifecycle_handlers import Event
 from taf.updater.types.update import OperationType, UpdateType
@@ -2621,7 +2620,7 @@ def _run_tuf_updater(git_fetcher, auth_repo_name):
     auth_repo_name = auth_repo_name or ""
     taf_logger.info(f"{auth_repo_name}: Running TUF validation...")
 
-    def _init_updater():
+    def _init_updater(check_expiration):
         try:
             return InMemoryUpdater(
                 git_fetcher.metadata_store,
@@ -2630,6 +2629,7 @@ def _run_tuf_updater(git_fetcher, auth_repo_name):
                 git_fetcher.targets_dir,
                 "targets/",
                 fetcher=git_fetcher,
+                check_expiration=check_expiration,
             )
         except Exception as e:
             taf_logger.error(
@@ -2640,8 +2640,12 @@ def _run_tuf_updater(git_fetcher, auth_repo_name):
     last_validated_commit = None
     try:
         while not git_fetcher.update_done():
+            # only the newest commit's metadata is checked for expiration
+            check_expiration = (
+                git_fetcher.current_commit_index == len(git_fetcher.commits) - 1
+            )
             for _ in range(2):
-                updater = _init_updater()
+                updater = _init_updater(check_expiration)
                 current_commit = _update_tuf_current_revision(
                     git_fetcher, updater, auth_repo_name
                 )
@@ -2650,7 +2654,7 @@ def _run_tuf_updater(git_fetcher, auth_repo_name):
                     break
                 # metadata expired and TUF stopped before validating the rest
                 # of the commit, so validate it again without checking expiration
-                git_fetcher._patch_tuf_metadata_set(GitTrustedMetadataSet)
+                check_expiration = False
             else:
                 raise UpdateFailedError(
                     f"Validation of authentication repository {auth_repo_name}"
@@ -2660,10 +2664,6 @@ def _run_tuf_updater(git_fetcher, auth_repo_name):
             last_validated_commit = current_commit
     except UpdateFailedError as e:
         return last_validated_commit, e
-    finally:
-        git_fetcher._patch_tuf_metadata_set(
-            git_fetcher._original_tuf_trusted_metadata_set
-        )
 
     return last_validated_commit, None
 
