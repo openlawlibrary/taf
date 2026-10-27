@@ -12,6 +12,9 @@ on:
     - cron: '0 0 1 * *'
   workflow_dispatch: {}
 
+permissions:
+  contents: read
+
 env:
   VERSIONS: "['3.10', '3.11', '3.12', '3.13']"
   LAST_VERSION: "3.13"
@@ -74,8 +77,7 @@ jobs:
       run:
         shell: bash
     steps:
-      # before checkout, so files are checked out as committed and long test
-      # repository paths work
+      # before checkout, so the checkout uses these settings
       - name: Setup Git
         run: |
           git config --global core.autocrlf false
@@ -226,6 +228,8 @@ jobs:
   build-and-test-executables:
     needs: [set_python_versions, run_tests]
     if: github.event_name == 'release'
+    permissions:
+      contents: write
 
     strategy:
       matrix:
