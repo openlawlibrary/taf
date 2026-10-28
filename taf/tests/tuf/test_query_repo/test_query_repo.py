@@ -107,31 +107,40 @@ def test_get_role_paths(tuf_repo_with_delegations):
     actual = tuf_repo_with_delegations.get_role_paths("delegated_role")
     assert actual == ["dir1/*", "dir2/path1", "dir2/path2"]
     actual = tuf_repo_with_delegations.get_role_paths("inner_role")
-    assert actual == ["dir2/path2", "dir3/*"]
+    assert actual == ["dir2/path2"]
     assert tuf_repo_with_delegations.get_role_paths("targets") == ["*"]
 
 
 def test_signing_roles(tuf_repo_with_delegations):
-    windows_path = str(PureWindowsPath("dir1", "file3.txt"))
-    test_target_paths = [
-        "dir1/file1.txt",
-        "/dir1/file1.txt",
-        windows_path,
-        "dir1/sub/file2.txt",
-        "dir2/path2",
-        "dir3/file.txt",
-        "other",
-    ]
+    test_target_paths = ["dir1/file1.txt", "dir2/path2", "other"]
     actual = tuf_repo_with_delegations.map_signing_roles(test_target_paths)
     assert actual["dir1/file1.txt"] == "delegated_role"
-    # python-tuf does not strip a leading /
-    assert actual["/dir1/file1.txt"] == "targets"
-    assert actual[windows_path] == "delegated_role"
-    assert actual["dir1/sub/file2.txt"] == "targets"
     assert actual["dir2/path2"] == "inner_role"
-    # inner_role is delegated dir3/*, but delegated_role does not cover dir3
-    assert actual["dir3/file.txt"] == "targets"
     assert actual["other"] == "targets"
+
+
+def test_signing_roles_delegation_paths(tuf_repo_delegation_paths):
+    expected = {
+        "dir1/file.txt": "delegated_role",
+        # new_role is also delegated dir1/*, but delegated_role comes first
+        "dir1": "targets",
+        "dir1/sub/file.txt": "targets",
+        # python-tuf does not strip a leading /
+        "/dir1/file.txt": "targets",
+        str(PureWindowsPath("dir1", "file.txt")): "delegated_role",
+        "dir2/file.txt": "targets",
+        "dir2/sub/file.txt": "delegated_role",
+        str(PureWindowsPath("dir2", "sub", "file.txt")): "delegated_role",
+        "dir2/sub/deeper/file.txt": "targets",
+        "dir3/file.txt": "delegated_role",
+        "dir3/sub/file.txt": "delegated_role",
+        "dir1/inner.txt": "inner_role",
+        # inner_role is delegated dir4/*, but delegated_role does not cover dir4
+        "dir4/file.txt": "targets",
+        "dir5/file.txt": "new_role",
+        "other.txt": "targets",
+    }
+    assert tuf_repo_delegation_paths.map_signing_roles(list(expected)) == expected
 
 
 def test_get_role_from_target_paths(tuf_repo_with_delegations):

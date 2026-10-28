@@ -23,6 +23,19 @@ def tuf_repo_no_delegations(tuf_repo_path, signers, no_yubikeys_input):
 
 
 @pytest.fixture(scope="module")
+def tuf_repo_delegation_paths(
+    tuf_repo_path, signers_with_delegations, delegation_paths_input
+):
+    path = tuf_repo_path / "repository_delegation_paths"
+    path.mkdir(parents=True)
+    tuf_repo = MetadataRepository(path)
+    roles_keys_data = from_dict(delegation_paths_input, RolesKeysData)
+    tuf_repo.create(roles_keys_data, signers_with_delegations)
+    yield tuf_repo
+    shutil.rmtree(path, onerror=on_rm_error)
+
+
+@pytest.fixture(scope="module")
 def tuf_repo_with_delegations(
     tuf_repo_path, signers_with_delegations, with_delegations_no_yubikeys_input
 ):

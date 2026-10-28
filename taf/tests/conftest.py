@@ -32,6 +32,7 @@ KEYSTORE_NO_YUBIKEYS_INPUT = (
 WITH_DELEGATIONS_NO_YUBIKEY = (
     REPOSITORY_DESCRIPTION_INPUT_DIR / "with_delegations_no_yubikeys.json"
 )
+DELEGATION_PATHS_INPUT = REPOSITORY_DESCRIPTION_INPUT_DIR / "delegation_paths.json"
 REPOSITORIES_JSON_PATH = TEST_INIT_DATA_PATH / "repositories.json"
 MIRRORS_JSON_PATH = TEST_INIT_DATA_PATH / "mirrors.json"
 
@@ -91,6 +92,11 @@ def with_delegations_no_yubikeys_input():
 @pytest.fixture(scope="session")
 def with_delegations_no_yubikeys_path():
     return WITH_DELEGATIONS_NO_YUBIKEY
+
+
+@pytest.fixture(scope="session")
+def delegation_paths_input():
+    return json.loads(DELEGATION_PATHS_INPUT.read_text())
 
 
 @pytest.fixture(scope="session")

@@ -108,7 +108,7 @@ def test_with_delegations_delegations(with_delegations_json_input: Dict):
     )
     assert roles_keys_data.roles.targets.delegations["delegated_role"].delegations[
         "inner_role"
-    ].paths == ["dir2/path2", "dir3/*"]
+    ].paths == ["dir2/path2"]
     assert (
         roles_keys_data.roles.targets.delegations["delegated_role"]
         .delegations["inner_role"]

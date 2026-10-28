@@ -39,7 +39,7 @@
           ],
           "delegations": {
             "inner_role": {
-              "paths": ["dir2/path2", "dir3/*"],
+              "paths": ["dir2/path2"],
               "yubikeys": ["user1", "user2"]
             }
           }
