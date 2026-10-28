@@ -230,18 +230,21 @@ def test_remove_role_paths(
     assert REMOVED_PATHS[0] not in roles_paths
 
 
-def test_get_role_repositories(auth_repo_with_delegations: AuthenticationRepository):
-    repositories = ["dir1/repo1", "dir1/sub/repo2", "other/repo3"]
-    (auth_repo_with_delegations.path / "targets" / "repositories.json").write_text(
+def test_get_role_repositories(auth_repo_delegation_paths: AuthenticationRepository):
+    repositories = ["dir1/repo1", "dir1/sub/repo2", "dir5/repo3", "other/repo4"]
+    (auth_repo_delegation_paths.path / "targets" / "repositories.json").write_text(
         json.dumps({"repositories": {name: {} for name in repositories}})
     )
     # delegated_role is delegated dir1/*, which does not cover subdirectories of dir1
-    assert auth_repo_with_delegations.get_role_repositories("delegated_role") == [
+    assert auth_repo_delegation_paths.get_role_repositories("delegated_role") == [
         "dir1/repo1"
     ]
-    assert auth_repo_with_delegations.get_role_repositories("targets") == [
+    assert auth_repo_delegation_paths.get_role_repositories("new_role") == [
+        "dir5/repo3"
+    ]
+    assert auth_repo_delegation_paths.get_role_repositories("targets") == [
         "dir1/sub/repo2",
-        "other/repo3",
+        "other/repo4",
     ]
 
 

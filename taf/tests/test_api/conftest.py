@@ -29,6 +29,7 @@ INVALID_KEYS_NUMBER_INPUT = (
     REPOSITORY_DESCRIPTION_INPUT_DIR / "invalid_keys_number.json"
 )
 INVALID_PATH_INPUT = REPOSITORY_DESCRIPTION_INPUT_DIR / "invalid_path.json"
+DELEGATION_PATHS_INPUT = REPOSITORY_DESCRIPTION_INPUT_DIR / "delegation_paths.json"
 OLD_YUBIKEY_INPUT = REPOSITORY_DESCRIPTION_INPUT_DIR / "with_old_yubikey.json"
 
 AUTH_REPO_NAME = "auth"
@@ -109,6 +110,21 @@ def auth_repo_with_delegations(
         repo_path,
         pin_manager,
         roles_key_infos=with_delegations_no_yubikeys_path,
+        keystore=keystore_delegations,
+        commit=True,
+        test=True,
+    )
+    auth_repo = AuthenticationRepository(path=repo_path)
+    yield auth_repo
+
+
+@pytest.fixture
+def auth_repo_delegation_paths(auth_repo_path, keystore_delegations, pin_manager):
+    repo_path = str(auth_repo_path)
+    create_repository(
+        repo_path,
+        pin_manager,
+        roles_key_infos=str(DELEGATION_PATHS_INPUT),
         keystore=keystore_delegations,
         commit=True,
         test=True,

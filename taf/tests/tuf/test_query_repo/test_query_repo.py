@@ -108,7 +108,6 @@ def test_get_role_paths(tuf_repo_with_delegations):
     assert actual == ["dir1/*", "dir2/path1", "dir2/path2"]
     actual = tuf_repo_with_delegations.get_role_paths("inner_role")
     assert actual == ["dir2/path2"]
-    assert tuf_repo_with_delegations.get_role_paths("targets") == ["*"]
 
 
 def test_signing_roles(tuf_repo_with_delegations):
@@ -138,9 +137,50 @@ def test_signing_roles_delegation_paths(tuf_repo_delegation_paths):
         # inner_role is delegated dir4/*, but delegated_role does not cover dir4
         "dir4/file.txt": "targets",
         "dir5/file.txt": "new_role",
+        "dir6/file.txt": "delegated_role",
+        "dir6/other.txt": "targets",
+        "dir6/sub/file.txt": "delegated_role",
+        "dir6/sub/other.txt": "targets",
+        "file.txt": "new_role",
         "other.txt": "targets",
     }
     assert tuf_repo_delegation_paths.map_signing_roles(list(expected)) == expected
+
+
+def test_get_role_from_target_paths_delegation_paths(tuf_repo_delegation_paths):
+    assert (
+        tuf_repo_delegation_paths.get_role_from_target_paths(
+            ["dir1/file.txt", "dir6/file.txt"]
+        )
+        == "delegated_role"
+    )
+    assert (
+        tuf_repo_delegation_paths.get_role_from_target_paths(
+            ["dir1/file.txt", "dir1/sub/file.txt"]
+        )
+        is None
+    )
+
+
+def test_get_role_paths_targets(tuf_repo_delegation_paths):
+    assert tuf_repo_delegation_paths.get_role_paths("targets") == ["*"]
+
+
+def test_windows_target_paths(tuf_repo_delegation_paths):
+    windows_path = str(PureWindowsPath("dir1", "windows.txt"))
+    custom = {"custom_attr": "custom_val"}
+    tuf_repo_delegation_paths.add_target_files_to_role(
+        {windows_path: {"target": "windows", "custom": custom}}
+    )
+    assert (
+        "dir1/windows.txt"
+        in tuf_repo_delegation_paths.signed_obj("delegated_role").targets
+    )
+    assert tuf_repo_delegation_paths.get_target_file_custom_data(windows_path) == custom
+    hash_value = tuf_repo_delegation_paths.get_target_file_hashes(
+        windows_path, "sha512"
+    )
+    assert len(hash_value) == 128
 
 
 def test_get_role_from_target_paths(tuf_repo_with_delegations):
@@ -149,13 +189,6 @@ def test_get_role_from_target_paths(tuf_repo_with_delegations):
             ["dir1/file1.txt", "dir1/file2.txt"]
         )
         == "delegated_role"
-    )
-    # dir1/* does not cover files in subdirectories of dir1
-    assert (
-        tuf_repo_with_delegations.get_role_from_target_paths(
-            ["dir1/file1.txt", "dir1/sub/file2.txt"]
-        )
-        is None
     )
 
 
@@ -230,10 +263,6 @@ def test_get_target_file_custom_data(tuf_repo_with_delegations):
     assert actual == {"custom_attr1": "custom_val1"}
     actual = tuf_repo_with_delegations.get_target_file_custom_data("dir2/path1")
     assert actual == {"custom_attr2": "custom_val2"}
-    actual = tuf_repo_with_delegations.get_target_file_custom_data(
-        str(PureWindowsPath("dir2", "path1"))
-    )
-    assert actual == {"custom_attr2": "custom_val2"}
 
     tuf_repo_with_delegations.get_target_file_custom_data("doesntexist") is None
 
@@ -247,12 +276,6 @@ def test_get_target_file_hashes(tuf_repo_with_delegations):
         "dir1/path1", "sha512"
     )
     assert len(hash_value) == 128
-    assert (
-        tuf_repo_with_delegations.get_target_file_hashes(
-            str(PureWindowsPath("dir1", "path1")), "sha512"
-        )
-        == hash_value
-    )
 
     tuf_repo_with_delegations.get_target_file_hashes("doesntexist") is None
 
