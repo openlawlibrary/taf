@@ -55,8 +55,7 @@ class InMemoryUpdater(Updater):
         self._metadata_store = metadata_store
         super().__init__(*args, **kwargs)
         if not check_expiration:
-            # metadata of older commits has always expired by now, so TUF has to
-            # compare expiration dates against the earliest possible time
+            # older commits' metadata may have expired since
             self._trusted_set.reference_time = datetime.datetime.min.replace(
                 tzinfo=datetime.timezone.utc
             )
