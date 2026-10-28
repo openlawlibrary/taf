@@ -125,7 +125,7 @@ def get_target_path(target_name: str) -> str:
 
 def to_tuf_target_path(target_path: str) -> str:
     """Paths built with Path on Windows use \\, but TUF only uses /"""
-    return target_path.replace("\\", "/")
+    return str(target_path).replace("\\", "/")
 
 
 def is_delegated_role(role: str) -> bool:

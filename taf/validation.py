@@ -136,7 +136,7 @@ def _check_branch_id(auth_repo, auth_commit, branch_id, role, is_first_commit):
     for branch_path in (str(Path(role, "branch").as_posix()), "branch"):
         if auth_repo.get_role_from_target_paths([str(branch_path)]) == role:
             try:
-                new_branch_id = auth_repo.get_target(auth_commit, branch_path)
+                new_branch_id = auth_repo.get_target(branch_path, auth_commit)
             except GitError:
                 pass
             else:

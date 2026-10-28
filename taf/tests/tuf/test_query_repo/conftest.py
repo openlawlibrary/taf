@@ -4,6 +4,7 @@ from taf.utils import on_rm_error
 import pytest
 from taf.models.types import RolesKeysData
 from taf.models.converter import from_dict
+from taf.tuf.keys import load_signer_from_file
 
 
 @pytest.fixture(scope="module")
@@ -24,13 +25,25 @@ def tuf_repo_no_delegations(tuf_repo_path, signers, no_yubikeys_input):
 
 @pytest.fixture(scope="module")
 def tuf_repo_delegation_paths(
-    tuf_repo_path, signers_with_delegations, delegation_paths_input
+    tuf_repo_path,
+    keystore_delegations,
+    signers_with_delegations,
+    delegation_paths_input,
 ):
     path = tuf_repo_path / "repository_delegation_paths"
     path.mkdir(parents=True)
     tuf_repo = MetadataRepository(path)
     roles_keys_data = from_dict(delegation_paths_input, RolesKeysData)
-    tuf_repo.create(roles_keys_data, signers_with_delegations)
+    signers = {
+        **signers_with_delegations,
+        "delegated_role1": [
+            load_signer_from_file(keystore_delegations / "delegated_role1")
+        ],
+        "delegated_role2": [
+            load_signer_from_file(keystore_delegations / "delegated_role2")
+        ],
+    }
+    tuf_repo.create(roles_keys_data, signers)
     yield tuf_repo
     shutil.rmtree(path, onerror=on_rm_error)
 

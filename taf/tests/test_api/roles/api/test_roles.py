@@ -235,17 +235,16 @@ def test_get_role_repositories(auth_repo_delegation_paths: AuthenticationReposit
     (auth_repo_delegation_paths.path / "targets" / "repositories.json").write_text(
         json.dumps({"repositories": {name: {} for name in repositories}})
     )
-    # delegated_role is delegated dir1/*, which does not cover subdirectories of dir1
-    assert auth_repo_delegation_paths.get_role_repositories("delegated_role") == [
-        "dir1/repo1"
-    ]
-    assert auth_repo_delegation_paths.get_role_repositories("new_role") == [
-        "dir5/repo3"
-    ]
-    assert auth_repo_delegation_paths.get_role_repositories("targets") == [
-        "dir1/sub/repo2",
-        "other/repo4",
-    ]
+    expected = {
+        "delegated_role1": ["dir1/repo1"],
+        "delegated_role2": ["dir5/repo3"],
+        "targets": ["dir1/sub/repo2", "other/repo4"],
+    }
+    actual = {
+        role: auth_repo_delegation_paths.get_role_repositories(role)
+        for role in expected
+    }
+    assert actual == expected
 
 
 # TODO enable when remove role is reimplemented

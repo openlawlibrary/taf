@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Run tests on Windows in CI ([823])
 - Add doctests for the attrs models and tests which check that the keys-description examples in the docs and in the commands' help are valid ([819])
 - Integrate benchmark tests into CI ([597])
 
@@ -25,7 +26,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
-- Match target paths to delegated roles the same way python-tuf does when choosing which role signs a target file ([823])
+- Match target paths to delegated roles the same way python-tuf does ([823])
+- Fix cloning from disk across drives ([823])
 - Validate delegated roles that have no target files yet, and the rest of the newest commit when its metadata has expired ([821])
 - Sign delegated roles with all of their keys when creating a repository, not only one ([821])
 - Fail validation when a target file listed in signed metadata is missing from the commit ([821])

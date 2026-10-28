@@ -8,7 +8,7 @@
         "number": 2,
         "threshold": 1,
         "delegations": {
-          "delegated_role": {
+          "delegated_role1": {
             "paths": [
               "dir1/*",
               "dir2/*/*",
@@ -17,18 +17,19 @@
               "dir6/file.txt",
               "dir6/sub/file.txt"
               ],
-            "number": 2,
-            "threshold": 2,
             "delegations": {
               "inner_role": {
-                "paths": ["dir1/inner.txt", "dir4/*"]
+                "paths": ["dir1/inner.txt", "dir2/inner/*", "dir4/*"],
+                "delegations": {
+                  "innermost_role": {
+                    "paths": ["dir2/inner/file.txt", "dir2/sub/file.txt"]
+                  }
+                }
               }
             }
           },
-          "new_role": {
-            "paths": ["dir1/*", "dir5/*", "file.txt"],
-            "number": 2,
-            "threshold": 2
+          "delegated_role2": {
+            "paths": ["dir1/*", "dir5/*", "file.txt"]
           }
         }
       },
