@@ -813,6 +813,5 @@ def _update_target_repos(
             data["branch"] = target_repo.get_current_branch()
         target_repo_name = target_repo_path.name
         path = targets_dir / target_repo_name
-        # always LF, write_text uses CRLF on Windows
-        path.write_bytes(json.dumps(data, indent=4).encode())
+        path.write_text(json.dumps(data, indent=4))
         taf_logger.log("NOTICE", f"Updated {path}")
