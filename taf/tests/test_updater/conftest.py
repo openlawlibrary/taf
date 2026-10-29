@@ -238,7 +238,7 @@ def origin_auth_repo(
 ):
     targets_config_list = request.param["targets_config"]
     is_test_repo = request.param.get("is_test_repo", False)
-    date = request.param.get("data")
+    date = request.param.get("date")
     setup_type = request.param.get("setup_type", SetupState.ALL_FILES_INITIALLY)
     # When parametrizing tests, there are unsupported symbols added "[" and "]"
     clean_test_name = test_name.replace("[", "_").replace("]", "")

@@ -33,8 +33,7 @@ from taf.utils import TempPartition, on_rm_error, ensure_pre_push_hook
 from taf.updater.in_memory_updater import InMemoryUpdater
 from taf.log import taf_logger
 from taf.tools.cli import safe_cleanup
-
-EXPIRED_METADATA_ERROR = "ExpiredMetadataError"
+from tuf.api.exceptions import ExpiredMetadataError
 
 
 class UpdateStatus(Enum):
@@ -2702,10 +2701,7 @@ def _update_tuf_current_revision(git_fetcher, updater, auth_repo_name):
         _validate_metadata_on_disk(git_fetcher)
         return current_commit
     except Exception as e:
-        metadata_expired = EXPIRED_METADATA_ERROR in type(
-            e
-        ).__name__ or EXPIRED_METADATA_ERROR in str(e)
-        if not metadata_expired or settings.strict:
+        if not isinstance(e, ExpiredMetadataError) or settings.strict:
             taf_logger.error(
                 f"{auth_repo_name}: Validation of authentication repository failed at revision {current_commit} due to error: {e}"
             )
