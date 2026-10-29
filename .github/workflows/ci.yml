@@ -100,9 +100,10 @@ jobs:
 
       # the full updater tests take long on Windows, so other pushes run all other
       # tests and only the valid clone and update tests
+      # TEMP: run all tests on every push
       - name: Run tests
         run: |
-          if [ "${{ github.event_name }}" = "release" ] || [ "${{ github.ref }}" = "refs/heads/master" ]; then
+          if true || [ "${{ github.event_name }}" = "release" ] || [ "${{ github.ref }}" = "refs/heads/master" ]; then
             pytest taf/tests
           else
             status=0
