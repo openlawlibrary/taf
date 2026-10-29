@@ -849,6 +849,8 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             local_head = auth_repo.head_commit()
             remote_head = auth_repo.get_last_remote_commit()
             if local_head == remote_head:
+                # validation is skipped, but expiration is still checked
+                _check_metadata_expiration(auth_repo, local_head)
                 self.state.event = Event.UNCHANGED
                 self.repos_synced_with_remote = True
                 return UpdateStatus.SUCCESS
@@ -2714,6 +2716,22 @@ def _update_tuf_current_revision(git_fetcher, updater, auth_repo_name):
         taf_logger.warning(
             f"{auth_repo_name}: Metadata at revision {current_commit} expired: {e}"
         )
+
+
+def _check_metadata_expiration(auth_repo, commit):
+    with auth_repo.repository_at_revision(commit):
+        expired_roles, _ = auth_repo.check_roles_expiration_dates(interval=0)
+    if not expired_roles:
+        return
+    error = f"{next(iter(expired_roles))}.json is expired"
+    if settings.strict:
+        raise UpdateFailedError(
+            f"Validation of authentication repository {auth_repo.name}"
+            f" failed at revision {commit} due to error: {error}"
+        )
+    taf_logger.warning(
+        f"{auth_repo.name}: Metadata at revision {commit} expired: {error}"
+    )
 
 
 def _check_if_commit_on_branch(repo, commit, branch, include_remotes=True):
