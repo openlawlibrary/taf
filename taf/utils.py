@@ -566,11 +566,14 @@ def _remove_trash_dir(trash_dir):
     trash_dir = Path(trash_dir)
     try:
         subdirs = [path for path in trash_dir.iterdir() if path.is_dir()]
-        with ThreadPoolExecutor(max_workers=8) as executor:
-            for _ in executor.map(
-                lambda path: shutil.rmtree(path, onerror=on_rm_error), subdirs
-            ):
-                pass
+        try:
+            with ThreadPoolExecutor(max_workers=8) as executor:
+                for _ in executor.map(
+                    lambda path: shutil.rmtree(path, onerror=on_rm_error), subdirs
+                ):
+                    pass
+        except RuntimeError:
+            pass
         shutil.rmtree(trash_dir, onerror=on_rm_error)
     except Exception as e:
         taf_logger.warning(

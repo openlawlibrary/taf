@@ -1,5 +1,7 @@
 import json
 import os
+import subprocess
+import sys
 import pytest
 from pathlib import Path
 
@@ -94,6 +96,32 @@ def test_temp_partition_cleanup_async(output_path):
     for thread in _background_cleanup_threads:
         thread.join(timeout=30)
     assert not list(temp_dir.parent.glob(f"*{TempPartition.TRASH_SUFFIX}"))
+
+
+def test_temp_partition_cleanup_async_finishes_at_interpreter_exit(output_path):
+    script = (
+        "import sys\n"
+        "from pathlib import Path\n"
+        "from taf.utils import TempPartition\n"
+        "temp_partition = TempPartition(Path(sys.argv[1]))\n"
+        "temp_dir = Path(temp_partition.temp_dir)\n"
+        "for index in range(3):\n"
+        "    (temp_dir / f'repo{index}' / 'nested').mkdir(parents=True)\n"
+        "print(temp_dir)\n"
+        "temp_partition.cleanup_async()\n"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", script, str(output_path)],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    temp_dir = Path(result.stdout.splitlines()[0])
+
+    assert "Could not remove temp folder" not in result.stdout + result.stderr
+    assert not list(
+        temp_dir.parent.glob(f"{temp_dir.name}*{TempPartition.TRASH_SUFFIX}")
+    )
 
 
 def test_temp_partition_sweeps_stale_trash(output_path):
