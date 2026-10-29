@@ -1,3 +1,4 @@
+import datetime
 from typing import Dict, Set
 from urllib import parse
 
@@ -43,10 +44,21 @@ class InMemoryUpdater(Updater):
     on-disk metadata at each commit (see ``_validate_metadata_on_disk``).
     """
 
-    def __init__(self, metadata_store: Dict[str, bytes], *args, **kwargs):
+    def __init__(
+        self,
+        metadata_store: Dict[str, bytes],
+        *args,
+        check_expiration: bool = True,
+        **kwargs,
+    ):
         # must be set before super().__init__, which loads the trusted root
         self._metadata_store = metadata_store
         super().__init__(*args, **kwargs)
+        if not check_expiration:
+            # older commits' metadata may have expired since
+            self._trusted_set.reference_time = datetime.datetime.min.replace(
+                tzinfo=datetime.timezone.utc
+            )
 
     def _load_local_metadata(self, rolename: str) -> bytes:
         try:

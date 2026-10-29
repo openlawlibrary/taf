@@ -1,19 +1,16 @@
 import os
 import shutil
-from functools import wraps
 from pathlib import Path
 from typing import Dict
 from urllib import parse
 
 from taf.models.types import Commitish
-from tuf.ngclient._internal import trusted_metadata_set
 from taf.exceptions import GitError
 from taf.log import taf_logger
 import taf.settings as settings
 from taf.auth_repo import AuthenticationRepository
 from taf.exceptions import UpdateFailedError
 from taf.utils import on_rm_error
-from taf.updater.git_trusted_metadata_set import GitTrustedMetadataSet
 from taf.tuf.key_cache import enable_public_key_cache
 
 from tuf.ngclient.fetcher import FetcherInterface
@@ -92,10 +89,6 @@ class GitUpdater(FetcherInterface):
         repository_name: name of the repository in 'organization/namespace' format.
         """
         self.repository_name = repository_name
-        self._original_tuf_trusted_metadata_set = (
-            trusted_metadata_set.TrustedMetadataSet
-        )
-        self._patch_tuf_metadata_set(GitTrustedMetadataSet)
 
         validation_path = settings.validation_repo_path.get(repository_name)
 
@@ -200,28 +193,6 @@ class GitUpdater(FetcherInterface):
             )
             self.metadata_store[self._metadata_store_key(filename)] = metadata
 
-    def _patch_tuf_metadata_set(self, cls):
-        """
-        Used to address TUF metadata expiration.
-        We skip validating expiration for metadata in older commits and
-        revert-back to TUF metadata validation on the latest commit"""
-        trusted_metadata_set.TrustedMetadataSet = cls
-
-    def revert_tuf_patch_on_last_commit(f):
-        """
-        We only want to validate metadata expiration date for most recent commit.
-        Since we turned off metadata validation for all commits, we want to revert this patch for the most recent commit.
-        This decorator reverts our metadata expiration patch to original TUF implementation.
-        """
-        wraps(f)
-
-        def wrapper(self):
-            if self.current_commit_index + 1 == (len(self.commits) - 1):
-                self._patch_tuf_metadata_set(self._original_tuf_trusted_metadata_set)
-            return f(self)
-
-        return wrapper
-
     def set_validation_repo(self, path, urls):
         """
         Used outside of GitUpdater to access validation auth repo.
@@ -269,7 +240,6 @@ class GitUpdater(FetcherInterface):
             self.current_commit, f"metadata/{filepath}", raw=raw
         )
 
-    @revert_tuf_patch_on_last_commit  # type: ignore
     def update_done(self):
         """Used to indicate whether updater has finished with update.
         Update is considered done when all commits have been validated"""
