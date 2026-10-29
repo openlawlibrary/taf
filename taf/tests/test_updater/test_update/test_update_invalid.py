@@ -357,6 +357,37 @@ def test_update_invalid_target_file_deleted_without_signing(
     [
         {
             "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        }
+    ],
+    indirect=True,
+)
+def test_update_invalid_metadata_deleted_without_signing(origin_auth_repo, client_dir):
+    clone_repositories(origin_auth_repo, client_dir)
+    client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
+    client_auth_head = client_auth_repo.head_commit()
+
+    (origin_auth_repo.path / "metadata" / "targets.json").unlink()
+    origin_auth_repo.commit("Delete targets metadata without signing")
+
+    config = UpdateConfig(
+        operation=OperationType.UPDATE,
+        remote_url=str(origin_auth_repo.path),
+        update_from_filesystem=True,
+        path=str(client_dir / origin_auth_repo.name),
+        library_dir=str(client_dir),
+    )
+    with pytest.raises(UpdateFailedError, match=r"targets\.json"):
+        update_repository(config)
+
+    assert client_auth_repo.head_commit() == client_auth_head
+    assert client_auth_repo.last_validated_commit == client_auth_head.value
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
         },
     ],
     indirect=True,
