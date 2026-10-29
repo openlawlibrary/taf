@@ -2639,7 +2639,7 @@ def _run_tuf_updater(git_fetcher, auth_repo_name):
 
     last_validated_commit = None
     try:
-        while not git_fetcher.update_done():
+        while True:
             # only the newest commit's metadata is checked for expiration
             check_expiration = (
                 git_fetcher.current_commit_index == len(git_fetcher.commits) - 1
@@ -2662,6 +2662,8 @@ def _run_tuf_updater(git_fetcher, auth_repo_name):
                     " metadata expired"
                 )
             last_validated_commit = current_commit
+            if git_fetcher.update_done():
+                break
     except UpdateFailedError as e:
         return last_validated_commit, e
 

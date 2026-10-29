@@ -29,6 +29,7 @@ from taf.tests.test_updater.conftest import (
     clone_client_repo,
     point_target_to_unsigned_commit,
     set_allow_unauthenticated_commits,
+    squash_into_one_commit,
     swap_last_two_commits,
     update_metadata_invalid_signature,
     update_expiration_dates,
@@ -672,6 +673,30 @@ def test_clone_invalid_target_invalid_singature(origin_auth_repo, client_dir):
     client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
     # make sure that the last validated commit does not exist
     check_if_last_validated_commit_exists(client_auth_repo, True)
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        }
+    ],
+    indirect=True,
+)
+def test_clone_invalid_single_commit(origin_auth_repo, client_dir):
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(update_timestamp_metadata_invalid_signature)
+    setup_manager.execute_tasks()
+    squash_into_one_commit(origin_auth_repo)
+
+    update_invalid_repos_and_check_if_repos_exist(
+        OperationType.CLONE,
+        origin_auth_repo,
+        client_dir,
+        INVALID_KEYS_PATTERN,
+        False,
+    )
 
 
 @pytest.mark.parametrize(

@@ -856,6 +856,12 @@ def remove_commits_from_auth_repo(
     auth_repo.reset_num_of_commits(num_of_commits, hard=True)
 
 
+def squash_into_one_commit(auth_repo: AuthenticationRepository):
+    num_of_commits = len(auth_repo.all_commits_on_branch(auth_repo.default_branch))
+    auth_repo.reset_num_of_commits(num_of_commits - 1)
+    auth_repo._git("commit --amend --no-edit -a")
+
+
 def reset_to_commit(auth_repo: AuthenticationRepository, commit: Commitish):
     auth_repo.reset_to_commit(commit, hard=True)
 
