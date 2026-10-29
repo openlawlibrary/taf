@@ -24,6 +24,9 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Show a clear error instead of `[WinError 2]` when git is not installed or not on PATH ([827])
+- Bundle the pre-push hook and package metadata in the standalone executables, fixing `repo clone` and `--version` ([827])
+- Finish removing the updater's temp folder when taf exits and print its path in the cleanup warning ([827])
 - Check metadata expiration per validation, not process-wide ([824])
 - Validate delegated roles without targets and expired newest commits ([821])
 - Sign new delegated roles with all of their keys ([821])
@@ -34,6 +37,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Use the repository name from the last validated commit when cloning without a path ([817])
 - Check that each target repository's commit is on its branch before resetting ([815])
 
+[827]: https://github.com/openlawlibrary/taf/pull/827
 [824]: https://github.com/openlawlibrary/taf/pull/824
 [821]: https://github.com/openlawlibrary/taf/pull/821
 [819]: https://github.com/openlawlibrary/taf/pull/819
