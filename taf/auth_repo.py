@@ -1,6 +1,5 @@
 import json
 import os
-import fnmatch
 import pygit2
 
 from typing import Any, Callable, Dict, List, Optional, Union
@@ -17,6 +16,7 @@ from taf.tuf.repository import (
     get_target_path,
 )
 from taf.constants import INFO_JSON_PATH, KEYS_MAPPING_PATH
+from taf.exceptions import TAFError
 from taf.yubikey.yubikey_manager import PinManager
 
 
@@ -293,11 +293,10 @@ class AuthenticationRepository(GitRepository):
                             are many delegations.
 
         Returns:
-        Repositories' path from repositories.json that matches given role paths
+        Repositories from repositories.json that the given role signs
 
         Raises:
-        - securesystemslib.exceptions.FormatError: If the arguments are improperly formatted.
-        - securesystemslib.exceptions.UnknownRoleError: If 'rolename' has not been delegated by this
+        - TAFError if the role does not exist
         """
         if self.is_bare_repository:
             # raise an error for now
@@ -306,13 +305,15 @@ class AuthenticationRepository(GitRepository):
                 "Getting role repositories from a bare repository is not yet supported."
             )
 
-        role_paths = self._tuf_repository.get_role_paths(role)
-
+        if not self.check_if_role_exists(role):
+            raise TAFError(f"Role {role} does not exist")
         target_repositories = self._get_target_repositories_from_disk()
         return [
             repo
-            for repo in target_repositories
-            if any([fnmatch.fnmatch(repo, path) for path in role_paths])
+            for repo, signing_role in self.map_signing_roles(
+                target_repositories
+            ).items()
+            if signing_role == role
         ]
 
     def is_commit_authenticated(self, target_name: str, commit: Commitish) -> bool:

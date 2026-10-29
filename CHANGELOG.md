@@ -9,11 +9,13 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Run tests on Windows in CI ([823])
 - Add doctests for the attrs models and tests which check that the keys-description examples in the docs and in the commands' help are valid ([819])
 - Integrate benchmark tests into CI ([597])
 
 ### Changed
 
+- `get_role_repositories` returns the repositories a role signs, so the top-level `targets` role no longer gets every repository ([823])
 - Always check that commit metadata matches what TUF validated ([821])
 - Print a confirmation when `taf yubikey check-pin` finds the PIN valid ([818])
 - Warn when `exclude_filter` is passed to an update instead of just ignoring it ([815])
@@ -25,6 +27,8 @@ and this project adheres to [Semantic Versioning][semver].
 ### Fixed
 
 - Check metadata expiration per validation, not process-wide ([824])
+- Match target paths to delegated roles the same way python-tuf does ([823])
+- Fix cloning from disk across drives ([823])
 - Validate delegated roles without targets and expired newest commits ([821])
 - Sign new delegated roles with all of their keys ([821])
 - Fail validation when a signed target file is missing ([821])
@@ -35,6 +39,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Check that each target repository's commit is on its branch before resetting ([815])
 
 [824]: https://github.com/openlawlibrary/taf/pull/824
+[823]: https://github.com/openlawlibrary/taf/pull/823
 [821]: https://github.com/openlawlibrary/taf/pull/821
 [819]: https://github.com/openlawlibrary/taf/pull/819
 [818]: https://github.com/openlawlibrary/taf/pull/818

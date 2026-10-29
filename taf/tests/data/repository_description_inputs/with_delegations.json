@@ -30,7 +30,8 @@
         "delegated_role": {
           "paths": [
             "dir1/*",
-            "dir2/path1"
+            "dir2/path1",
+            "dir2/path2"
             ],
           "threshold": 1,
           "yubikeys": [

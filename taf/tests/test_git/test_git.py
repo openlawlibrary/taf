@@ -6,6 +6,7 @@ from typing import List
 from pygit2 import AlreadyExistsError
 from taf.models.types import Commitish
 import pytest
+import shutil
 import tempfile
 import time
 from taf.exceptions import (
@@ -24,6 +25,7 @@ from taf.tests.test_git.conftest import (
     push_new_branch,
 )
 from taf.tests.utils import nested_git_repository
+from taf.utils import on_rm_error
 
 
 def test_initial_commit(repository):
@@ -1344,11 +1346,10 @@ def test_fetch(origin_repo: GitRepository, clone_repository: GitRepository):
 def test_fetch_retries_on_failure_then_succeeds(
     origin_repo: GitRepository,
     cloned_repository: GitRepository,
-    tmp_path: Path,
     monkeypatch,
 ):
     origin_repo.create_branch("feature")
-    moved_origin = tmp_path / "moved_origin"
+    moved_origin = origin_repo.path.with_name("moved_origin")
     origin_repo.path.rename(moved_origin)
     sleeps: List[float] = []
 
@@ -1368,10 +1369,9 @@ def test_fetch_retries_on_failure_then_succeeds(
 def test_fetch_raises_after_exhausting_retries(
     origin_repo: GitRepository,
     cloned_repository: GitRepository,
-    tmp_path: Path,
     monkeypatch,
 ):
-    moved_origin = tmp_path / "moved_origin"
+    moved_origin = origin_repo.path.with_name("moved_origin")
     origin_repo.path.rename(moved_origin)
     sleeps: List[float] = []
     monkeypatch.setattr(git_module.time, "sleep", sleeps.append)
@@ -1559,21 +1559,22 @@ def test_clone_from_disk_bare_source_populates_origin_refs(
     assert any(default_branch in ref for ref in origin_refs), origin_refs
 
 
-@pytest.mark.skipif(
-    not hasattr(os, "getuid"), reason="hardlink nlink check is POSIX-only"
-)
-def test_clone_from_disk_hardlinks_objects(repository: GitRepository, tmp_path):
-    # git clone --local hardlinks objects on the same volume
-    dest = GitRepository(path=tmp_path / "linked")
-    dest.clone_from_disk(repository.path, keep_remote=True)
+def test_clone_from_disk_hardlinks_objects(repository: GitRepository):
+    # tmp_path is on another drive on Windows CI
+    dest = GitRepository(path=repository.path.with_name("linked"))
+    try:
+        dest.clone_from_disk(repository.path, keep_remote=True)
 
-    def loose_objects(base):
-        objects = Path(base) / ".git" / "objects"
-        if not objects.exists():
-            objects = Path(base) / "objects"
-        return [f for d in objects.glob("??") for f in d.iterdir() if f.is_file()]
+        def loose_objects(base):
+            objects = Path(base) / ".git" / "objects"
+            if not objects.exists():
+                objects = Path(base) / "objects"
+            return [f for d in objects.glob("??") for f in d.iterdir() if f.is_file()]
 
-    dest_objs = loose_objects(dest.path)
-    assert dest_objs, "expected loose objects in the clone"
-    # at least one object is hardlinked (st_nlink > 1) to the source copy
-    assert any(os.stat(obj).st_nlink > 1 for obj in dest_objs)
+        dest_objs = loose_objects(dest.path)
+        assert dest_objs, "expected loose objects in the clone"
+        # at least one object is hardlinked (st_nlink > 1) to the source copy
+        assert any(os.stat(obj).st_nlink > 1 for obj in dest_objs)
+    finally:
+        dest.cleanup()
+        shutil.rmtree(dest.path, onerror=on_rm_error)

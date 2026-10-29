@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from taf.api.roles import (
     add_role,
@@ -199,7 +200,7 @@ def test_add_role_paths(
         "add-role-paths", paths=", ".join(NEW_PATHS), role=ROLE_NAME
     )
     roles_paths = auth_repo_with_delegations.get_role_paths(ROLE_NAME)
-    assert len(roles_paths) == 3
+    assert len(roles_paths) == 4
     assert "some-path3" in roles_paths
 
 
@@ -225,8 +226,25 @@ def test_remove_role_paths(
         "remove-role-paths", paths=", ".join(REMOVED_PATHS), role=ROLE_NAME
     )
     roles_paths = auth_repo_with_delegations.get_role_paths(ROLE_NAME)
-    assert len(roles_paths) == 1
+    assert len(roles_paths) == 2
     assert REMOVED_PATHS[0] not in roles_paths
+
+
+def test_get_role_repositories(auth_repo_delegation_paths: AuthenticationRepository):
+    repositories = ["dir1/repo1", "dir1/sub/repo2", "dir5/repo3", "other/repo4"]
+    (auth_repo_delegation_paths.path / "targets" / "repositories.json").write_text(
+        json.dumps({"repositories": {name: {} for name in repositories}})
+    )
+    expected = {
+        "delegated_role1": ["dir1/repo1"],
+        "delegated_role2": ["dir5/repo3"],
+        "targets": ["dir1/sub/repo2", "other/repo4"],
+    }
+    actual = {
+        role: auth_repo_delegation_paths.get_role_repositories(role)
+        for role in expected
+    }
+    assert actual == expected
 
 
 # TODO enable when remove role is reimplemented

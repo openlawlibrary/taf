@@ -62,7 +62,7 @@ def test_roles_add_role_paths_cmd_expect_success(
             ],
         )
         roles_paths = auth_repo_with_delegations.get_role_paths(role_name)
-        assert len(roles_paths) == 3
+        assert len(roles_paths) == 4
         assert "some-path3" in roles_paths
 
 
