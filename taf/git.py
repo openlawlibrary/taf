@@ -946,14 +946,11 @@ class GitRepository:
         if not PYGIT2_AVAILABLE:
             raise PygitError("pygit2 is not installed")
         self.path.mkdir(parents=True, exist_ok=True)
-        # `git clone --local` hardlinks objects when source and destination share
-        # a volume (TempPartition guarantees this), which is far cheaper than the
-        # file-by-file object copy pygit2 performs. git silently falls back to
-        # copying when hardlinks are not possible, so this is never slower.
+        # without --local, git copies objects it cannot hardlink instead of failing
         bare_flag = "--bare " if is_bare else ""
         # local_path as a `{}` arg keeps it one token even with spaces
         self._git(
-            f"clone --local {bare_flag}{{}} .",
+            f"clone {bare_flag}{{}} .",
             str(local_path),
             error_if_not_exists=False,
             reraise_error=True,
@@ -2196,8 +2193,7 @@ class GitRepository:
     def clone_bare_from_local(self, local_path: Path) -> None:
         """Seed a bare repo from a local path (no network).
 
-        Uses `git clone --local`, which hardlinks objects on the same volume
-        instead of copying them. Does not detect default_branch — the caller
+        Hardlinks objects on the same volume. Does not detect default_branch — the caller
         must do that after updating origin to the real remote URL, otherwise
         remote show origin contacts local_path which may be in detached HEAD and
         returns a bogus branch name that then gets cached and blocks the correct
@@ -2205,7 +2201,7 @@ class GitRepository:
         """
         self.path.mkdir(parents=True, exist_ok=True)
         self._git(
-            "clone --local --bare {} .",
+            "clone --bare {} .",
             str(local_path),
             error_if_not_exists=False,
             reraise_error=True,

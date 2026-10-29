@@ -1,10 +1,8 @@
 """TUF metadata repository"""
 
-from fnmatch import fnmatch
 from functools import reduce
 import json
 import operator
-import os
 from pathlib import Path
 import logging
 from collections import defaultdict
@@ -122,7 +120,12 @@ def get_target_path(target_name: str) -> str:
     Return:
         Path of the specified target file relative to the repository's root
     """
-    return f"{TARGETS_DIRECTORY_NAME}/{target_name}"
+    return f"{TARGETS_DIRECTORY_NAME}/{to_tuf_target_path(target_name)}"
+
+
+def to_tuf_target_path(target_path: str) -> str:
+    """Paths built with Path on Windows use \\, but TUF only uses /"""
+    return str(target_path).replace("\\", "/")
 
 
 def is_delegated_role(role: str) -> bool:
@@ -1102,7 +1105,7 @@ class MetadataRepository(Repository):
         - TAFError if the role does not exist
         """
         if role == "targets":
-            return "*"
+            return ["*"]
         role = self._role_obj(role)
         if role is None:
             raise TAFError(f"Role {role} does not exist")
@@ -1211,6 +1214,7 @@ class MetadataRepository(Repository):
         """
         Return a custom data of a given target.
         """
+        target_path = to_tuf_target_path(target_path)
         try:
             role = self.get_role_from_target_paths([target_path])
             if role is None:
@@ -1231,6 +1235,7 @@ class MetadataRepository(Repository):
         Raises:
         - TAFError if the target does not exist
         """
+        target_path = to_tuf_target_path(target_path)
         try:
             role = self.get_role_from_target_paths([target_path])
             if role is None:
@@ -1461,33 +1466,37 @@ class MetadataRepository(Repository):
 
     def map_signing_roles(self, target_filenames: List) -> Dict:
         """
-        For each target file, find delegated role responsible for that target file based
-        on the delegated paths. The most specific role (meaning most deeply nested) whose
-        delegation path matches the target's path is returned as that file's matching role.
-        If there are no delegated roles with a path that matches the target file's path,
-        'targets' role will be returned as that file's matching role. Delegation path
-        is expected to be relative to the targets directory. It can be defined as a glob
-        pattern.
+        For each target file, find the role responsible for it the way python-tuf
+        clients look it up: starting from targets, follow the first delegation that
+        covers the file's path, as far as delegations go. If no delegation covers it,
+        'targets' is returned. Delegation paths are relative to the targets directory
+        and can be glob patterns.
         """
+        delegations_of_roles: Dict = {}
 
-        roles = ["targets"]
-        roles_targets = {
-            target_filename: "targets" for target_filename in target_filenames
-        }
-        while roles:
-            role = roles.pop()
-            path_patterns = self.get_role_paths(role)
-            for path_pattern in path_patterns:
-                for target_filename in target_filenames:
-                    if fnmatch(
-                        target_filename.lstrip(os.sep),
-                        path_pattern.lstrip(os.sep),
-                    ):
-                        roles_targets[target_filename] = role
+        def _first_role_covering(role, target_path):
+            if role not in delegations_of_roles:
+                delegations_of_roles[role] = self.signed_obj(role).delegations
+            delegations = delegations_of_roles[role]
+            if delegations is None:
+                return None
+            return next(
+                (name for name, _ in delegations.get_roles_for_target(target_path)),
+                None,
+            )
 
-            for delegation in self.get_delegations_of_role(role):
-                roles.append(delegation)
-
+        roles_targets = {}
+        for target_filename in target_filenames:
+            target_path = to_tuf_target_path(target_filename)
+            role = "targets"
+            visited = {role}
+            while True:
+                delegated_role = _first_role_covering(role, target_path)
+                if delegated_role is None or delegated_role in visited:
+                    break
+                role = delegated_role
+                visited.add(role)
+            roles_targets[target_filename] = role
         return roles_targets
 
     def modify_targets(
@@ -1523,8 +1532,14 @@ class MetadataRepository(Repository):
         Returns:
         - Role whose targets were updates
         """
-        added_data = {} if added_data is None else added_data
-        removed_data = {} if removed_data is None else removed_data
+        added_data = {
+            to_tuf_target_path(path): target_data
+            for path, target_data in (added_data or {}).items()
+        }
+        removed_data = {
+            to_tuf_target_path(path): target_data
+            for path, target_data in (removed_data or {}).items()
+        }
         data = dict(added_data, **removed_data)
         if not data:
             raise TargetsError("Nothing to be modified!")

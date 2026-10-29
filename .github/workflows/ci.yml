@@ -12,6 +12,9 @@ on:
     - cron: '0 0 1 * *'
   workflow_dispatch: {}
 
+permissions:
+  contents: read
+
 env:
   VERSIONS: "['3.10', '3.11', '3.12', '3.13']"
   LAST_VERSION: "3.13"
@@ -65,6 +68,48 @@ jobs:
         run: |
           pre-commit run --all-files
           pytest taf/tests
+
+  run_tests_windows:
+    runs-on: windows-latest
+    needs: set_python_versions
+    if: github.event_name != 'schedule'
+    defaults:
+      run:
+        shell: bash
+    steps:
+      # before checkout, so the checkout uses these settings
+      - name: Setup Git
+        run: |
+          git config --global core.autocrlf false
+          git config --global core.longpaths true
+          git config --global user.name oll-bot
+          git config --global user.email developers@openlawlib.org
+
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 #@v4
+
+      - name: Set up Python ${{ needs.set_python_versions.outputs.last_version }}
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b #@v5
+        with:
+          python-version: ${{ needs.set_python_versions.outputs.last_version }}
+
+      - name: Install dependencies
+        run: |
+          choco install swig
+          python -m pip install --upgrade pip setuptools wheel
+          pip install -e .[test,yubikey]
+
+      # the full updater tests take long on Windows, so other pushes run all other
+      # tests and only the valid clone and update tests
+      - name: Run tests
+        run: |
+          if [ "${{ github.event_name }}" = "release" ] || [ "${{ github.ref }}" = "refs/heads/master" ]; then
+            pytest taf/tests
+          else
+            status=0
+            pytest taf/tests --ignore=taf/tests/test_updater || status=1
+            pytest taf/tests/test_updater/test_clone/test_clone_valid.py taf/tests/test_updater/test_update/test_update_valid.py || status=1
+            exit $status
+          fi
 
   run_benchmarks:
     runs-on: ubuntu-latest
@@ -183,6 +228,8 @@ jobs:
   build-and-test-executables:
     needs: [set_python_versions, run_tests]
     if: github.event_name == 'release'
+    permissions:
+      contents: write
 
     strategy:
       matrix:

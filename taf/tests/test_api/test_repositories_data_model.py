@@ -90,6 +90,7 @@ def test_with_delegations_delegations(with_delegations_json_input: Dict):
     assert roles_keys_data.roles.targets.delegations["delegated_role"].paths == [
         "dir1/*",
         "dir2/path1",
+        "dir2/path2",
     ]
     assert roles_keys_data.roles.targets.delegations["delegated_role"].number == 2
     assert roles_keys_data.roles.targets.delegations["delegated_role"].threshold == 1
