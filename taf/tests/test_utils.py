@@ -3,11 +3,13 @@ import os
 import pytest
 from pathlib import Path
 
+from taf.exceptions import ExecutableNotFoundError
 from taf.utils import (
     TempPartition,
     _background_cleanup_threads,
     format_command_args,
     normalize_line_endings,
+    run,
     safely_save_json_to_disk,
     safely_move_file,
 )
@@ -26,6 +28,14 @@ def test_format_command_args_drops_empty_args():
 def test_format_command_args_fills_multiple_placeholders_in_one_token():
     tokens = format_command_args("update-ref refs/heads/{}/{} {}", "a", "b", "c")
     assert tokens == ["update-ref", "refs/heads/a/b", "c"]
+
+
+def test_run_raises_executable_not_found_error_when_executable_is_missing(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setenv("PATH", str(tmp_path))
+    with pytest.raises(ExecutableNotFoundError, match="Could not run git"):
+        run("git", "--version")
 
 
 def test_normalize_line_ending_extra_lines():
