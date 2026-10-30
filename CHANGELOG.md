@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+### Changed
+
+### Removed
+
+### Fixed
+
+
+## [0.42.0]
+
+### Added
+
 - Run tests on Windows in CI ([823])
 - Add doctests for the attrs models and tests which check that the keys-description examples in the docs and in the commands' help are valid ([819])
 - Integrate benchmark tests into CI ([597])
@@ -2026,7 +2037,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
-[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.41.0...HEAD
+[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.42.0...HEAD
+[0.42.0]: https://github.com/openlawlibrary/taf/compare/v0.41.0...v0.42.0
 [0.41.0]: https://github.com/openlawlibrary/taf/compare/v0.40.0...v0.41.0
 [0.40.0]: https://github.com/openlawlibrary/taf/compare/v0.39.3...v0.40.0
 [0.39.3]: https://github.com/openlawlibrary/taf/compare/v0.39.2...v0.39.3
