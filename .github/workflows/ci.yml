@@ -230,7 +230,7 @@ jobs:
 
 
   build-and-test-executables:
-    needs: set_python_versions
+    needs: [set_python_versions, run_tests]
     if: github.event_name == 'release' || github.ref == 'refs/heads/master'
 
     strategy:
