@@ -69,6 +69,7 @@ WRONG_UPDATE_TYPE_TEST_REPO = r"Update of (\w+\/\w+) failed due to error: Reposi
 WRONG_UPDATE_TYPE_OFFICIAL_REPO = r"Update of (\w+\/\w+) failed due to error: Repository (\w+\/\w+) is not a test repository, but update was called with the \"--expected-repo-type\" test$"
 METADATA_EXPIRED = r"Update of (\w+\/\w+) failed due to error: Validation of authentication repository (\w+\/\w+) failed at revision [0-9a-f]+ due to error: .+ is expired"
 NO_INFO_JSON = "Update of repository failed due to error: Error during info.json parse. If the authentication repository's path is not specified, info.json metadata is expected to be in targets/protected"
+GIT_NOT_FOUND_PATTERN = r"Update of ([\w\/]+) failed due to error: Could not run git: it is not installed or not on PATH"
 UNCOMMITTED_CHANGES = r"Update of (\w+\/\w+) failed due to error: Repositories (\w+\/\w+) have uncommitted changes\. Commit and push or use --force to revert and run the command again\."
 UPDATE_ERROR_PATTERN = r"Update of (\w+\/\w+) failed due to error: Validation of authentication repository (\w+\/\w+) failed at revision ([0-9a-f]+) due to error: .*"
 TARGET_FILE_MISSING_PATTERN = r"^Update of ([\w\/-]+) failed due to error: Validation of authentication repository ([\w\/-]+) failed at revision ([0-9a-f]{40}) due to error: Signed target files (.+) are missing$"

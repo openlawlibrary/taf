@@ -7,6 +7,7 @@ from taf.exceptions import UpdateFailedError
 from taf.tests.test_updater.conftest import (
     TARGET_FILE_MISSING_PATTERN,
     sign_target_repositories,
+    GIT_NOT_FOUND_PATTERN,
     KEYSTORE_PATH,
     TARGET_HASH_MISMATCH_PATTERN,
     INVALID_KEYS_PATTERN,
@@ -777,6 +778,29 @@ def test_clone_invalid_when_no_info_json_and_no_path(origin_auth_repo, client_di
     client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
     # make sure that the last validated commit does not exist
     check_if_last_validated_commit_exists(client_auth_repo, False)
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        },
+    ],
+    indirect=True,
+)
+def test_clone_invalid_when_git_is_not_installed(
+    origin_auth_repo, client_dir, tmp_path, monkeypatch
+):
+    monkeypatch.setenv("PATH", str(tmp_path))
+
+    update_invalid_repos_and_check_if_repos_exist(
+        OperationType.CLONE,
+        origin_auth_repo,
+        client_dir,
+        GIT_NOT_FOUND_PATTERN,
+        expect_partial_update=False,
+    )
 
 
 # # @pytest.mark.parametrize(

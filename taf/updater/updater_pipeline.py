@@ -2157,9 +2157,9 @@ but commit not on branch {current_branch}"
             self.state.temp_root.cleanup_async()
             if final_cleanup:
                 self.state.temp_root = None  # Solves double cleanup issues
-        except Exception:
+        except Exception as e:
             taf_logger.warning(
-                f"WARNING: Could not remove clean up temp folder: {self.state.temp_root}. Please remove it manually."
+                f"WARNING: Could not remove temp folder {self.state.temp_root.temp_dir}: {e}. Please remove it manually."
             )
         return self.state.update_status
 

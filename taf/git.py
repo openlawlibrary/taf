@@ -2177,7 +2177,8 @@ class GitRepository:
                     pass
 
         self._log_debug(
-            f"Cannot determine default branch with git -C at {self.path}: {errors}"
+            f"Cannot determine default branch with git -C at {self.path}: "
+            + "; ".join(str(error) for error in errors)
         )
         # Do not cache None — the repo may not exist yet (e.g. temp path at
         # instantiation time). The next call after the repo is created will

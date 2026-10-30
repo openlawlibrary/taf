@@ -37,7 +37,7 @@ def taf_command_loader(name):
         "yubikey": lambda: taf_command_loader("yubikey"),
     },
 )
-@click.version_option()
+@click.version_option(package_name="taf")
 def taf():
     """TAF Command Line Interface"""
     pass
