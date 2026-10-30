@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+### Changed
+
+### Removed
+
+### Fixed
+
+
+## [0.42.0]
+
+### Added
+
 - Run tests on Windows in CI ([823])
 - Add doctests for the attrs models and tests which check that the keys-description examples in the docs and in the commands' help are valid ([819])
 - Integrate benchmark tests into CI ([597])
@@ -26,6 +37,9 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Show a clear error instead of `[WinError 2]` when git is not installed or not on PATH ([827])
+- Bundle the pre-push hook and package metadata in the standalone executables, fixing `repo clone` and `--version` ([827])
+- Finish removing the updater's temp folder when taf exits and print its path in the cleanup warning ([827])
 - Check metadata expiration per validation, not process-wide ([824])
 - Match target paths to delegated roles the same way python-tuf does ([823])
 - Fix cloning from disk across drives ([823])
@@ -38,6 +52,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Use the repository name from the last validated commit when cloning without a path ([817])
 - Check that each target repository's commit is on its branch before resetting ([815])
 
+[827]: https://github.com/openlawlibrary/taf/pull/827
 [824]: https://github.com/openlawlibrary/taf/pull/824
 [823]: https://github.com/openlawlibrary/taf/pull/823
 [821]: https://github.com/openlawlibrary/taf/pull/821
@@ -2022,7 +2037,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
-[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.41.0...HEAD
+[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.42.0...HEAD
+[0.42.0]: https://github.com/openlawlibrary/taf/compare/v0.41.0...v0.42.0
 [0.41.0]: https://github.com/openlawlibrary/taf/compare/v0.40.0...v0.41.0
 [0.40.0]: https://github.com/openlawlibrary/taf/compare/v0.39.3...v0.40.0
 [0.39.3]: https://github.com/openlawlibrary/taf/compare/v0.39.2...v0.39.3

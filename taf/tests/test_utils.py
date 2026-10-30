@@ -1,13 +1,17 @@
 import json
 import os
+import subprocess
+import sys
 import pytest
 from pathlib import Path
 
+from taf.exceptions import ExecutableNotFoundError
 from taf.utils import (
     TempPartition,
     _background_cleanup_threads,
     format_command_args,
     normalize_line_endings,
+    run,
     safely_save_json_to_disk,
     safely_move_file,
 )
@@ -26,6 +30,14 @@ def test_format_command_args_drops_empty_args():
 def test_format_command_args_fills_multiple_placeholders_in_one_token():
     tokens = format_command_args("update-ref refs/heads/{}/{} {}", "a", "b", "c")
     assert tokens == ["update-ref", "refs/heads/a/b", "c"]
+
+
+def test_run_raises_executable_not_found_error_when_executable_is_missing(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setenv("PATH", str(tmp_path))
+    with pytest.raises(ExecutableNotFoundError, match="Could not run git"):
+        run("git", "--version")
 
 
 def test_normalize_line_ending_extra_lines():
@@ -84,6 +96,47 @@ def test_temp_partition_cleanup_async(output_path):
     for thread in _background_cleanup_threads:
         thread.join(timeout=30)
     assert not list(temp_dir.parent.glob(f"*{TempPartition.TRASH_SUFFIX}"))
+
+
+def test_temp_partition_cleanup_async_finishes_at_interpreter_exit(output_path):
+    """cleanup_async must remove the temp folder even when the process exits
+    right after calling it, as the CLI does at the end of an update.
+
+    cleanup_async renames the temp folder to a trash folder and deletes it in
+    a background thread that uses a thread pool. Once Python starts shutting
+    down, the pool refuses new work ("cannot schedule new futures after
+    interpreter shutdown"), which used to leave the trash folder behind with a
+    "Could not remove temp folder" warning.
+
+    The script below reproduces that in a fresh Python process: it creates a
+    TempPartition with a few subfolders, prints the temp folder's path,
+    starts the asynchronous cleanup and exits immediately. The test then
+    checks that no warning was printed and that no trash folder derived from
+    that path is left behind.
+    """
+    script = (
+        "import sys\n"
+        "from pathlib import Path\n"
+        "from taf.utils import TempPartition\n"
+        "temp_partition = TempPartition(Path(sys.argv[1]))\n"
+        "temp_dir = Path(temp_partition.temp_dir)\n"
+        "for index in range(3):\n"
+        "    (temp_dir / f'repo{index}' / 'nested').mkdir(parents=True)\n"
+        "print(temp_dir)\n"
+        "temp_partition.cleanup_async()\n"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", script, str(output_path)],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    temp_dir = Path(result.stdout.splitlines()[0])
+
+    assert "Could not remove temp folder" not in result.stdout + result.stderr
+    assert not list(
+        temp_dir.parent.glob(f"{temp_dir.name}*{TempPartition.TRASH_SUFFIX}")
+    )
 
 
 def test_temp_partition_sweeps_stale_trash(output_path):

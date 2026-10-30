@@ -29,7 +29,7 @@ from cryptography.hazmat.primitives.serialization import (
 from json import JSONDecoder
 from taf.log import taf_logger
 import taf.settings
-from taf.exceptions import PINMissmatchError
+from taf.exceptions import ExecutableNotFoundError, PINMissmatchError
 from typing import List, Optional, Tuple, Dict
 from securesystemslib.hash import digest_fileobject
 from securesystemslib.storage import FilesystemBackend, StorageBackendInterface
@@ -222,12 +222,7 @@ def run(*command, **kwargs):
             options.update(input=data)
 
         options.update(kwargs)
-        if not timeout:
-            options.update(check=True)
-            completed = subprocess.run(command, **options)
-        else:
-            options.update(text=True, bufsize=1)
-            completed = run_with_timeout(command, options, timeout)
+        completed = _start_command(command, options, timeout)
 
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as err:
         if err.stdout:
@@ -250,6 +245,19 @@ def run(*command, **kwargs):
         return None
 
     return completed.stdout if raw else completed.stdout.rstrip()
+
+
+def _start_command(command, options, timeout):
+    try:
+        if not timeout:
+            options.update(check=True)
+            return subprocess.run(command, **options)
+        options.update(text=True, bufsize=1)
+        return run_with_timeout(command, options, timeout)
+    except FileNotFoundError as err:
+        if shutil.which(command[0]) is None:
+            raise ExecutableNotFoundError(command[0]) from err
+        raise
 
 
 def run_with_timeout(command, options, timeout=300):
@@ -558,11 +566,14 @@ def _remove_trash_dir(trash_dir):
     trash_dir = Path(trash_dir)
     try:
         subdirs = [path for path in trash_dir.iterdir() if path.is_dir()]
-        with ThreadPoolExecutor(max_workers=8) as executor:
-            for _ in executor.map(
-                lambda path: shutil.rmtree(path, onerror=on_rm_error), subdirs
-            ):
-                pass
+        try:
+            with ThreadPoolExecutor(max_workers=8) as executor:
+                for _ in executor.map(
+                    lambda path: shutil.rmtree(path, onerror=on_rm_error), subdirs
+                ):
+                    pass
+        except RuntimeError:
+            pass
         shutil.rmtree(trash_dir, onerror=on_rm_error)
     except Exception as e:
         taf_logger.warning(

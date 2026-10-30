@@ -28,6 +28,15 @@ class CommandValidationError(TAFError):
     pass
 
 
+class ExecutableNotFoundError(TAFError):
+    def __init__(self, executable: str):
+        self.executable = executable
+        self.message = (
+            f"Could not run {executable}: it is not installed or not on PATH. "
+            f"Install {executable}, make sure it is on PATH and try again."
+        )
+
+
 class FetchException(TAFError):
     def __init__(self, path: str):
         self.message = f"Cannot fetch changes. Repo: {path}"
