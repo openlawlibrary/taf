@@ -33,8 +33,7 @@ from taf.utils import TempPartition, on_rm_error, ensure_pre_push_hook
 from taf.updater.in_memory_updater import InMemoryUpdater
 from taf.log import taf_logger
 from taf.tools.cli import safe_cleanup
-
-EXPIRED_METADATA_ERROR = "ExpiredMetadataError"
+from tuf.api.exceptions import ExpiredMetadataError
 
 
 class UpdateStatus(Enum):
@@ -849,6 +848,8 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             local_head = auth_repo.head_commit()
             remote_head = auth_repo.get_last_remote_commit()
             if local_head == remote_head:
+                # validation is skipped, but expiration is still checked
+                _check_metadata_expiration(auth_repo, local_head)
                 self.state.event = Event.UNCHANGED
                 self.repos_synced_with_remote = True
                 return UpdateStatus.SUCCESS
@@ -2639,7 +2640,7 @@ def _run_tuf_updater(git_fetcher, auth_repo_name):
 
     last_validated_commit = None
     try:
-        while not git_fetcher.update_done():
+        while True:
             # only the newest commit's metadata is checked for expiration
             check_expiration = (
                 git_fetcher.current_commit_index == len(git_fetcher.commits) - 1
@@ -2662,6 +2663,8 @@ def _run_tuf_updater(git_fetcher, auth_repo_name):
                     " metadata expired"
                 )
             last_validated_commit = current_commit
+            if git_fetcher.update_done():
+                break
     except UpdateFailedError as e:
         return last_validated_commit, e
 
@@ -2698,10 +2701,7 @@ def _update_tuf_current_revision(git_fetcher, updater, auth_repo_name):
         _validate_metadata_on_disk(git_fetcher)
         return current_commit
     except Exception as e:
-        metadata_expired = EXPIRED_METADATA_ERROR in type(
-            e
-        ).__name__ or EXPIRED_METADATA_ERROR in str(e)
-        if not metadata_expired or settings.strict:
+        if not isinstance(e, ExpiredMetadataError) or settings.strict:
             taf_logger.error(
                 f"{auth_repo_name}: Validation of authentication repository failed at revision {current_commit} due to error: {e}"
             )
@@ -2712,6 +2712,22 @@ def _update_tuf_current_revision(git_fetcher, updater, auth_repo_name):
         taf_logger.warning(
             f"{auth_repo_name}: Metadata at revision {current_commit} expired: {e}"
         )
+
+
+def _check_metadata_expiration(auth_repo, commit):
+    with auth_repo.repository_at_revision(commit):
+        expired_roles, _ = auth_repo.check_roles_expiration_dates(interval=0)
+    if not expired_roles:
+        return
+    error = f"{next(iter(expired_roles))}.json is expired"
+    if settings.strict:
+        raise UpdateFailedError(
+            f"Validation of authentication repository {auth_repo.name}"
+            f" failed at revision {commit} due to error: {error}"
+        )
+    taf_logger.warning(
+        f"{auth_repo.name}: Metadata at revision {commit} expired: {error}"
+    )
 
 
 def _check_if_commit_on_branch(repo, commit, branch, include_remotes=True):

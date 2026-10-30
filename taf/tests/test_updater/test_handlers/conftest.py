@@ -3,7 +3,6 @@ from taf.tests.conftest import TEST_DATA_PATH
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
-from tuf.ngclient._internal import trusted_metadata_set
 from pytest import fixture
 
 HANDLERS_DATA_INPUT_DIR = TEST_DATA_PATH / "handler_inputs"
@@ -15,8 +14,6 @@ REPO_HANDLERS_DATA_VALID_INPUT_IDR = HANDLERS_DATA_INPUT_DIR / "valid" / "repo"
 UPDATE_HANDLERS_DATA_VALID_INPUT_IDR = HANDLERS_DATA_INPUT_DIR / "valid" / "update"
 REPO_HANDLERS_DATA_INVALID_INPUT_IDR = HANDLERS_DATA_INPUT_DIR / "invalid" / "repo"
 UPDATE_HANDLERS_DATA_INVALID_INPUT_IDR = HANDLERS_DATA_INPUT_DIR / "invalid" / "update"
-
-original_tuf_trusted_metadata_set = trusted_metadata_set.TrustedMetadataSet
 
 
 @fixture
