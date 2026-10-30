@@ -99,6 +99,21 @@ def test_temp_partition_cleanup_async(output_path):
 
 
 def test_temp_partition_cleanup_async_finishes_at_interpreter_exit(output_path):
+    """cleanup_async must remove the temp folder even when the process exits
+    right after calling it, as the CLI does at the end of an update.
+
+    cleanup_async renames the temp folder to a trash folder and deletes it in
+    a background thread that uses a thread pool. Once Python starts shutting
+    down, the pool refuses new work ("cannot schedule new futures after
+    interpreter shutdown"), which used to leave the trash folder behind with a
+    "Could not remove temp folder" warning.
+
+    The script below reproduces that in a fresh Python process: it creates a
+    TempPartition with a few subfolders, prints the temp folder's path,
+    starts the asynchronous cleanup and exits immediately. The test then
+    checks that no warning was printed and that no trash folder derived from
+    that path is left behind.
+    """
     script = (
         "import sys\n"
         "from pathlib import Path\n"
