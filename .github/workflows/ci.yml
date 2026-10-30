@@ -283,6 +283,15 @@ jobs:
           pip install .[executable]
           pip install pyinstaller
 
+      # the executable gets a single libssl, so it has to be the newer one
+      # ssl needs, not the older copy pygit2 ships with
+      - name: Use Python's OpenSSL in pygit2 (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          python_lib="$(python -c 'import sys; print(sys.base_prefix)')/lib"
+          pygit2_dylibs="$(python -c 'import os, pygit2; print(os.path.dirname(pygit2.__file__))')/.dylibs"
+          cp "$python_lib/libssl.3.dylib" "$python_lib/libcrypto.3.dylib" "$pygit2_dylibs/"
+
       - name: Build and test standalone executable (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: |
