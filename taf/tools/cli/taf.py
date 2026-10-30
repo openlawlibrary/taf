@@ -1,3 +1,6 @@
+# in the macOS executable, ssl has to load its own libssl before pygit2 loads
+# the older copy it ships with, which ssl would then use and fail on
+import ssl  # noqa: F401
 import click
 from taf.tools.cli.lazy_group import LazyGroup
 
