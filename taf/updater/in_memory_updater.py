@@ -91,10 +91,13 @@ class InMemoryUpdater(Updater):
                 roles_to_visit.append(role)
 
     def signed_target_paths(self) -> Set[str]:
-        """Paths of the target files listed by the targets roles verified so far."""
+        """Paths of the target files listed by the targets roles verified so far.
+        A path listed by a role that is not delegated for it is left out, since
+        TUF does not find it there either."""
         return {
             target_path
             for signed in self._trusted_set
             if isinstance(signed, Targets)
             for target_path in signed.targets
+            if self.get_targetinfo(target_path) is not None
         }

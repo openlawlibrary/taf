@@ -47,7 +47,7 @@ from taf.tests.conftest import (
 )
 from taf.yubikey.yubikey_manager import PinManager
 
-from tuf.api.metadata import Timestamp
+from tuf.api.metadata import TargetFile, Timestamp
 
 KEYS_DESCRIPTION = str(TEST_INIT_DATA_PATH / "keys.json")
 
@@ -969,6 +969,23 @@ def update_timestamp_metadata_invalid_signature(
     auth_repo: AuthenticationRepository,
 ):
     update_metadata_invalid_signature(auth_repo, Timestamp.type)
+
+
+def sign_target_outside_delegated_paths(
+    auth_repo: AuthenticationRepository, role: str, target_path: str
+):
+    with manage_repo_and_signers(
+        auth_repo,
+        [role],
+        keystore=KEYSTORE_PATH,
+        prompt_for_keys=False,
+        commit=True,
+        commit_msg="Sign target outside delegated paths",
+        push=False,
+    ):
+        target_file = TargetFile.from_data(target_path, b"not delegated")
+        auth_repo._modify_targets_role([target_file], [], role)
+        auth_repo.update_snapshot_and_timestamp()
 
 
 def update_metadata_invalid_signature(auth_repo: AuthenticationRepository, role: str):

@@ -14,6 +14,7 @@ from taf.tests.test_updater.conftest import (
     remove_last_validated_data,
     revert_last_validated_commit,
     set_allow_unauthenticated_commits,
+    sign_target_outside_delegated_paths,
     update_and_sign_metadata_without_clean_check,
     update_expiration_dates,
     update_role_metadata_without_signing,
@@ -87,6 +88,38 @@ def test_update_after_adding_new_role_and_target_repo(origin_auth_repo, client_d
         kwargs={"target_name": "target_via_new_role", "role_name": "root3"},
     )
     setup_manager.execute_tasks()
+
+    update_and_check_commit_shas(
+        OperationType.UPDATE,
+        origin_auth_repo,
+        client_dir,
+    )
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        },
+    ],
+    indirect=True,
+)
+def test_update_valid_when_delegated_role_lists_target_outside_its_paths(
+    origin_auth_repo, client_dir
+):
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(
+        add_new_role_and_target_repo,
+        kwargs={"target_name": "target3", "role_name": "delegated_role1"},
+    )
+    setup_manager.execute_tasks()
+    clone_repositories(origin_auth_repo, client_dir)
+
+    namespace = origin_auth_repo.name.split("/")[0]
+    sign_target_outside_delegated_paths(
+        origin_auth_repo, "delegated_role1", f"{namespace}/not_delegated"
+    )
 
     update_and_check_commit_shas(
         OperationType.UPDATE,
