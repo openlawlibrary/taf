@@ -15,6 +15,12 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Validate the first commit of the authentication repository ([825])
+- Check metadata expiration when there are no new commits ([825])
+- Don't require target files listed by a role that is not delegated for them ([825])
+
+[825]: https://github.com/openlawlibrary/taf/pull/825
+
 
 ## [0.42.0]
 
