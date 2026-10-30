@@ -231,8 +231,7 @@ jobs:
 
   build-and-test-executables:
     needs: set_python_versions
-    # TEMP: also run on pushes to this branch until the executables pass
-    if: github.event_name == 'release' || github.ref == 'refs/heads/renatav/release-executables'
+    if: github.event_name == 'release' || github.ref == 'refs/heads/master'
 
     strategy:
       matrix:
