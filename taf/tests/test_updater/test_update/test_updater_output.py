@@ -22,7 +22,7 @@ from taf.updater.types.update import OperationType
     ],
     indirect=True,
 )
-def test_update_valid_when_several_updates(origin_auth_repo, client_dir):
+def test_update_output_when_several_updates(origin_auth_repo, client_dir):
     clone_repositories(origin_auth_repo, client_dir)
 
     setup_manager = SetupManager(origin_auth_repo)
