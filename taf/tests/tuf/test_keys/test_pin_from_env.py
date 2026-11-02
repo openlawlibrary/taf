@@ -3,7 +3,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from taf.yubikey.yubikey import _pin_from_keys_mapping
+from taf.exceptions import InvalidPINError
+from taf.yubikey.yubikey import _pin_from_keys_mapping, _resolve_and_cache_pin
+from taf.yubikey.yubikey_manager import PinManager
 
 
 class DummyKey(SimpleNamespace):
@@ -36,6 +38,19 @@ def test_pin_found():
     key = DummyKey(pem)
 
     assert _pin_from_keys_mapping(key, mapping) == "123456"
+
+
+def test_resolve_and_cache_pin_when_pin_from_environment_is_wrong(fake_yubikey):
+    os.environ[f"PIN_{fake_yubikey.serial}"] = "000000"
+    pin_manager = PinManager()
+
+    with pytest.raises(
+        InvalidPINError, match="from the environment is incorrect, 2 retries left"
+    ):
+        _resolve_and_cache_pin(
+            pin_manager, fake_yubikey.serial, None, None, "root1", False, False, None
+        )
+    assert pin_manager.get_pin(fake_yubikey.serial) is None
 
 
 def test_pin_not_found():
