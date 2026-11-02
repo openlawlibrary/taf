@@ -44,7 +44,7 @@ def test_repo_create_cmd_when_it_fails_keeps_existing_directory(keystore_delegat
         repositories_json.parent.mkdir(parents=True)
         repositories_json.write_text("{}")
 
-        result = runner.invoke(
+        runner.invoke(
             taf,
             [
                 "repo",
