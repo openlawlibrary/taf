@@ -37,6 +37,31 @@ def test_repo_create_cmd_expect_success(
         assert (cwd / "test/law" / "targets").exists()
 
 
+def test_repo_create_cmd_when_it_fails_keeps_existing_directory(keystore_delegations):
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        repositories_json = Path("test/law/targets/repositories.json")
+        repositories_json.parent.mkdir(parents=True)
+        repositories_json.write_text("{}")
+
+        result = runner.invoke(
+            taf,
+            [
+                "repo",
+                "create",
+                "test/law",
+                "--keys-description",
+                "not a keys description",
+                "--keystore",
+                f"{str(keystore_delegations)}",
+                "--no-commit",
+            ],
+        )
+
+        assert not (Path("test/law") / "metadata").exists()
+        assert repositories_json.exists()
+
+
 def test_repo_create_cmd_when_repo_already_created_expect_error(
     keystore_delegations, with_delegations_no_yubikeys_path, caplog
 ):

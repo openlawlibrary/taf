@@ -6,6 +6,7 @@ import threading
 import functools
 from functools import partial, wraps
 from logging import ERROR
+from pathlib import Path
 from logdecorator import log_on_error
 
 from taf.exceptions import (
@@ -43,6 +44,9 @@ def catch_cli_exception(
     @wraps(func)
     def wrapper(*args, **kwargs):
         successful = False
+        # only a directory created by the command is removed on error, never one
+        # that already held the user's files
+        path_existed = "path" in kwargs and Path(kwargs["path"]).exists()
         try:
             result = func(*args, **kwargs)
             successful = True
@@ -64,7 +68,7 @@ def catch_cli_exception(
                     repo.restore(["metadata"])
                     # repo.clean_and_reset()
 
-                if remove_dir_on_error:
+                if remove_dir_on_error and not path_existed:
                     shutil.rmtree(path, onerror=on_rm_error)
 
     return wrapper
