@@ -139,9 +139,14 @@ def _load_dependencies(
                     urls = _get_urls(mirrors, name, repo_data)
                 else:
                     urls = [name]
-            except RepositoryInstantiationError:
-                commit_dependencies.clear()
-                break
+            except RepositoryInstantiationError as e:
+                taf_logger.warning(
+                    "Auth repo {}: skipping dependency {}: {}",
+                    auth_repo.path,
+                    name,
+                    str(e),
+                )
+                continue
 
             out_of_band_authentication = repo_data.get("out-of-band-authentication")
             custom = _get_custom_data(repo_data, None)
