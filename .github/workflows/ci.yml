@@ -231,8 +231,7 @@ jobs:
 
   build-and-test-executables:
     needs: [set_python_versions, run_tests]
-    # TEMP: also run on pushes to this branch to test the Windows check
-    if: github.event_name == 'release' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/renatav/windows-executable-check'
+    if: github.event_name == 'release' || github.ref == 'refs/heads/master'
 
     strategy:
       matrix:
