@@ -38,7 +38,8 @@ axis:
         - remote is consistent with local - no trailing unauthenticated commits
             - happy path
         - remote is consistent with local - trailing unauthenticated commits on remote 
-            - DEFAULT: update to last validatable commit on remote; then fail for any unauthenticate commits on repos that don't allow; notify of commits on repos that do allow
+            - DEFAULT: update to last validatable commit on remote; notify of unauthenticated commits. Target repositories are only checked if the authentication repository changed
+            - --upstream: also check target repositories when the authentication repository did not change; fail for any unauthenticated commits on repos that don't allow them
         - remote is consistent with local - trailing unauthenticated commits on local
             - DEFAULT: update to the last authenticatable commit on remote; FAIL if repo does not allow trailing commits or do nothing if repo allows trailing commits
             - --force: remove trailing commits
