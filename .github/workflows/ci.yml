@@ -231,7 +231,8 @@ jobs:
 
   build-and-test-executables:
     needs: [set_python_versions, run_tests]
-    if: github.event_name == 'release' || github.ref == 'refs/heads/master'
+    # TEMP: also run on pushes to this branch to test the Windows check
+    if: github.event_name == 'release' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/renatav/windows-executable-check'
 
     strategy:
       matrix:
@@ -301,9 +302,10 @@ jobs:
 
       - name: Build and test standalone executable (Windows)
         if: matrix.os == 'windows-latest'
+        shell: bash
         run: |
           pyinstaller --onefile --hidden-import=yubikey_manager --hidden-import=lxml --collect-submodules taf.tools --add-data "taf/resources:taf/resources" --copy-metadata taf --name taf-windows.exe -y taf/tools/cli/taf.py
-          ./dist/taf-windows.exe --help | Select-String "TAF Command Line Interface" -quiet
+          ./dist/taf-windows.exe --help | grep "TAF Command Line Interface" || { echo "Error: Expected text not found in the executable output"; exit 1; }
           ./dist/taf-windows.exe --version
 
       - name: Build and test standalone executable (macOS)
