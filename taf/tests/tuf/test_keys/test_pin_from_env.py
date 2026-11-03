@@ -48,7 +48,14 @@ def test_resolve_and_cache_pin_when_pin_from_environment_is_wrong(fake_yubikey):
         InvalidPINError, match="from the environment is incorrect, 2 retries left"
     ):
         _resolve_and_cache_pin(
-            pin_manager, fake_yubikey.serial, None, None, "root1", False, False, None
+            pin_manager,
+            fake_yubikey.serial,
+            public_key=None,
+            taf_dir=None,
+            key_name="root1",
+            pin_confirm=False,
+            pin_repeat=False,
+            key_id_pins=None,
         )
     assert pin_manager.get_pin(fake_yubikey.serial) is None
 

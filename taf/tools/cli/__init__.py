@@ -44,8 +44,7 @@ def catch_cli_exception(
     @wraps(func)
     def wrapper(*args, **kwargs):
         successful = False
-        # only a directory created by the command is removed on error, never one
-        # that already held the user's files
+        # only remove a directory the command created
         path_existed = "path" in kwargs and Path(kwargs["path"]).exists()
         try:
             result = func(*args, **kwargs)
