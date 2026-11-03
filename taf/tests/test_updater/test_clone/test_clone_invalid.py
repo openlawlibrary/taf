@@ -688,8 +688,8 @@ def test_clone_invalid_target_invalid_singature(origin_auth_repo, client_dir):
 def test_clone_invalid_single_commit(origin_auth_repo, client_dir):
     setup_manager = SetupManager(origin_auth_repo)
     setup_manager.add_task(update_timestamp_metadata_invalid_signature)
+    setup_manager.add_task(squash_into_one_commit)
     setup_manager.execute_tasks()
-    squash_into_one_commit(origin_auth_repo)
 
     update_invalid_repos_and_check_if_repos_exist(
         OperationType.CLONE,

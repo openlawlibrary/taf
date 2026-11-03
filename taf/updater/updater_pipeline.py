@@ -848,7 +848,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             local_head = auth_repo.head_commit()
             remote_head = auth_repo.get_last_remote_commit()
             if local_head == remote_head:
-                # validation is skipped, but expiration is still checked
                 _check_metadata_expiration(auth_repo, local_head)
                 self.state.event = Event.UNCHANGED
                 self.repos_synced_with_remote = True
@@ -2719,7 +2718,8 @@ def _check_metadata_expiration(auth_repo, commit):
         expired_roles, _ = auth_repo.check_roles_expiration_dates(interval=0)
     if not expired_roles:
         return
-    error = f"{next(iter(expired_roles))}.json is expired"
+    expired_files = ", ".join(f"{role}.json" for role in expired_roles)
+    error = f"{expired_files} {'is' if len(expired_roles) == 1 else 'are'} expired"
     if settings.strict:
         raise UpdateFailedError(
             f"Validation of authentication repository {auth_repo.name}"
