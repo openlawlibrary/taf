@@ -479,7 +479,7 @@ def validate_repo_command():
         during validate if any/all warnings are found. By default, --strict is disabled.
         """)
     @find_repository
-    @catch_cli_exception(handle=UpdateFailedError)
+    @catch_cli_exception(handle=UpdateFailedError, skip_cleanup=True)
     @click.option(
         "--path",
         default=".",
@@ -592,7 +592,7 @@ def reset_repo_command():
         else an error will be raised if there are any those.
         """)
     @find_repository
-    @catch_cli_exception(handle=UpdateFailedError)
+    @catch_cli_exception(handle=UpdateFailedError, skip_cleanup=True)
     @click.option(
         "--path",
         default=".",
@@ -655,7 +655,7 @@ def latest_commit_and_branch_command():
         Integrated into the pre-push git hook"""
     )
     @find_repository
-    @catch_cli_exception
+    @catch_cli_exception(skip_cleanup=True)
     @click.option(
         "--path",
         default=".",
@@ -675,7 +675,7 @@ def status_command():
         help="Prints the whole state of the library, including authentication repositories and its dependencies."
     )
     @find_repository
-    @catch_cli_exception
+    @catch_cli_exception(skip_cleanup=True)
     @click.option(
         "--path",
         default=".",
