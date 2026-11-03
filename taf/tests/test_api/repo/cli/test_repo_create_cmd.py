@@ -38,13 +38,13 @@ def test_repo_create_cmd_expect_success(
         assert (cwd / "test/law" / "targets").exists()
 
 
-def test_repo_create_cmd_uses_keystore_from_keys_description_over_found_keystore(
+def test_repo_create_cmd_uses_keystore_from_keys_description_over_default_keystore(
     keystore_delegations, with_delegations_no_yubikeys_path
 ):
     runner = CliRunner()
     with runner.isolated_filesystem():
-        found_keystore = Path(".taf/keystore")
-        found_keystore.mkdir(parents=True)
+        default_keystore = Path(".taf/keystore")
+        default_keystore.mkdir(parents=True)
         keys_description = json.loads(
             Path(with_delegations_no_yubikeys_path).read_text()
         )
@@ -63,7 +63,7 @@ def test_repo_create_cmd_uses_keystore_from_keys_description_over_found_keystore
         )
 
         assert (Path("test/law") / "metadata").exists()
-        assert not any(found_keystore.iterdir())
+        assert not any(default_keystore.iterdir())
 
 
 def test_repo_create_cmd_when_it_fails_keeps_existing_directory(keystore_delegations):
