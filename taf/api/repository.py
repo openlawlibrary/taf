@@ -73,12 +73,13 @@ def create_repository(
     if not _check_if_can_create_repository(Path(path)):
         return
 
+    found_keystore = None
     if not keystore and path is not None:
         keystore_path = find_keystore(path)
         if keystore_path is not None:
-            keystore = str(keystore_path)
+            found_keystore = str(keystore_path)
     roles_key_infos_dict, keystore, skip_prompt = initialize_roles_and_keystore(
-        roles_key_infos, keystore
+        roles_key_infos, keystore, default_keystore=found_keystore
     )
 
     roles_keys_data = from_dict(roles_key_infos_dict, RolesKeysData)

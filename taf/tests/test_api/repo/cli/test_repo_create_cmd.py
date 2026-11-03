@@ -1,3 +1,4 @@
+import json
 import os
 from pathlib import Path
 
@@ -35,6 +36,34 @@ def test_repo_create_cmd_expect_success(
         cwd = Path.cwd()
         assert (cwd / "test/law" / "metadata").exists()
         assert (cwd / "test/law" / "targets").exists()
+
+
+def test_repo_create_cmd_uses_keystore_from_keys_description_over_found_keystore(
+    keystore_delegations, with_delegations_no_yubikeys_path
+):
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        found_keystore = Path(".taf/keystore")
+        found_keystore.mkdir(parents=True)
+        keys_description = json.loads(
+            Path(with_delegations_no_yubikeys_path).read_text()
+        )
+        keys_description["keystore"] = str(keystore_delegations)
+
+        runner.invoke(
+            taf,
+            [
+                "repo",
+                "create",
+                "test/law",
+                "--keys-description",
+                json.dumps(keys_description),
+                "--no-commit",
+            ],
+        )
+
+        assert (Path("test/law") / "metadata").exists()
+        assert not any(found_keystore.iterdir())
 
 
 def test_repo_create_cmd_when_it_fails_keeps_existing_directory(keystore_delegations):

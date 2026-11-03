@@ -833,6 +833,7 @@ def initialize_roles_and_keystore(
     roles_key_infos: Optional[str],
     keystore: Optional[str],
     enter_info: Optional[bool] = True,
+    default_keystore: Optional[str] = None,
 ) -> Tuple[Dict, Optional[str], bool]:
     """
     Read information about roles and keys from a json file or ask the user to enter
@@ -849,6 +850,8 @@ def initialize_roles_and_keystore(
         keystore: Location of the keystore files.
         enter_info (optional): Indicates if the user should be asked to enter information about the
         roles and keys if not specified. Set to True by default.
+        default_keystore (optional): Keystore to use if neither keystore nor roles_key_infos
+        specifies one.
 
 
     Side Effects:
@@ -874,6 +877,9 @@ def initialize_roles_and_keystore(
 
     if not use_yubikeys and not keystore:
         keystore = roles_key_infos_dict.get("keystore")
+        if not keystore and default_keystore:
+            keystore = default_keystore
+            taf_logger.log("NOTICE", f"Using keystore found at {keystore}")
         if not keystore:
             while True:
                 use_keystore = (
