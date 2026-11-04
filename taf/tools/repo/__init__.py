@@ -1,4 +1,5 @@
 from pathlib import Path
+import shutil
 import sys
 import click
 import json
@@ -9,6 +10,7 @@ from taf.auth_repo import AuthenticationRepository
 from taf.exceptions import TAFError, UpdateFailedError
 from taf.log import initialize_logger_handlers, taf_logger
 from taf.tools.cli import catch_cli_exception, find_repository
+from taf.utils import on_rm_error
 from taf.updater import live_display
 from taf.updater.types.update import UpdateType
 from taf.updater.updater import (
@@ -182,7 +184,7 @@ def create_repo_command():
         If the test flag is set, a special target file will be created. This means that when
         calling the updater, it'll be necessary to use the --authenticate-test-repo flag.
         """)
-    @catch_cli_exception(handle=TAFError, remove_dir_on_error=True)
+    @catch_cli_exception(handle=TAFError)
     @click.argument(
         "path",
         type=click.Path(exists=False, file_okay=False, dir_okay=True, writable=True),
@@ -208,14 +210,21 @@ def create_repo_command():
     )
     @pin_managed
     def create(path, keys_description, keystore, no_commit, test, pin_manager):
-        create_repository(
-            path=path,
-            pin_manager=pin_manager,
-            keystore=keystore,
-            roles_key_infos=keys_description,
-            commit=not no_commit,
-            test=test,
-        )
+        path_existed = Path(path).exists()
+        created = False
+        try:
+            create_repository(
+                path=path,
+                pin_manager=pin_manager,
+                keystore=keystore,
+                roles_key_infos=keys_description,
+                commit=not no_commit,
+                test=test,
+            )
+            created = True
+        finally:
+            if not created and not path_existed:
+                shutil.rmtree(path, onerror=on_rm_error)
 
     return create
 

@@ -1,4 +1,3 @@
-import shutil
 import sys
 import click
 import signal
@@ -6,7 +5,6 @@ import threading
 import functools
 from functools import partial, wraps
 from logging import ERROR
-from pathlib import Path
 from logdecorator import log_on_error
 
 from taf.exceptions import (
@@ -18,7 +16,7 @@ from taf.exceptions import (
 from taf.log import taf_logger
 from taf.repository_utils import find_valid_repository
 from taf.git import GitRepository
-from taf.utils import is_run_from_python_executable, on_rm_error
+from taf.utils import is_run_from_python_executable
 
 
 def catch_cli_exception(
@@ -26,7 +24,6 @@ def catch_cli_exception(
     *,
     handle=TAFError,
     print_error=False,
-    remove_dir_on_error=False,
     skip_cleanup=False,
     errors_to_always_print=[RepositoryNotCleanError, RepositoryNotSynced],
 ):
@@ -35,7 +32,6 @@ def catch_cli_exception(
             catch_cli_exception,
             handle=handle,
             print_error=print_error,
-            remove_dir_on_error=remove_dir_on_error,
             skip_cleanup=skip_cleanup,
         )
 
@@ -44,8 +40,6 @@ def catch_cli_exception(
     @wraps(func)
     def wrapper(*args, **kwargs):
         successful = False
-        # only remove a directory the command created
-        path_existed = "path" in kwargs and Path(kwargs["path"]).exists()
         try:
             result = func(*args, **kwargs)
             successful = True
@@ -66,9 +60,6 @@ def catch_cli_exception(
                 if repo.is_git_repository and not repo.is_bare_repository:
                     repo.restore(["metadata"])
                     # repo.clean_and_reset()
-
-                if remove_dir_on_error and not path_existed:
-                    shutil.rmtree(path, onerror=on_rm_error)
 
     return wrapper
 
