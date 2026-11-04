@@ -335,6 +335,11 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     self.should_update_auth_repos,
                 ),
                 (
+                    self.check_newest_metadata_expiration,
+                    RunMode.ALL,
+                    self.should_check_newest_metadata_expiration,
+                ),
+                (
                     self.run_tuf_updater,
                     RunMode.ALL,
                     self.should_update_auth_repos,
@@ -531,6 +536,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
 
     def should_update_auth_repos(self):
         return not self.repos_synced_with_remote
+
+    def should_check_newest_metadata_expiration(self):
+        return settings.strict and self.should_update_auth_repos()
 
     def should_run_if_not_synced(self):
         return not self.repos_synced_with_remote
@@ -1116,6 +1124,24 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                                         "\nRun 'taf repo reset' to sync your local repositories, or run the updater with the --force flag to validate from the first commit"
                                     )
 
+        except Exception as e:
+            self.state.errors.append(e)
+            self.state.event = Event.FAILED
+            return UpdateStatus.FAILED
+
+    def check_newest_metadata_expiration(self):
+        """In strict mode, fail before validating anything if the newest commit's
+        metadata expired, since older commits are not any less expired."""
+        try:
+            validation_auth_repo = self.state.validation_auth_repo
+            _check_metadata_expiration(
+                validation_auth_repo,
+                validation_auth_repo.top_commit_of_branch(
+                    validation_auth_repo.default_branch
+                ),
+                self.state.auth_repo_name,
+            )
+            return UpdateStatus.SUCCESS
         except Exception as e:
             self.state.errors.append(e)
             self.state.event = Event.FAILED
@@ -2713,7 +2739,8 @@ def _update_tuf_current_revision(git_fetcher, updater, auth_repo_name):
         )
 
 
-def _check_metadata_expiration(auth_repo, commit):
+def _check_metadata_expiration(auth_repo, commit, auth_repo_name=None):
+    auth_repo_name = auth_repo_name or auth_repo.name
     with auth_repo.repository_at_revision(commit):
         expired_roles, _ = auth_repo.check_roles_expiration_dates(interval=0)
     if not expired_roles:
@@ -2722,11 +2749,11 @@ def _check_metadata_expiration(auth_repo, commit):
     error = f"{expired_files} {'is' if len(expired_roles) == 1 else 'are'} expired"
     if settings.strict:
         raise UpdateFailedError(
-            f"Validation of authentication repository {auth_repo.name}"
+            f"Validation of authentication repository {auth_repo_name}"
             f" failed at revision {commit} due to error: {error}"
         )
     taf_logger.warning(
-        f"{auth_repo.name}: Metadata at revision {commit} expired: {error}"
+        f"{auth_repo_name}: Metadata at revision {commit} expired: {error}"
     )
 
 
