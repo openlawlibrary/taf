@@ -149,8 +149,7 @@ class GitUpdater(FetcherInterface):
         of commits of the authentication repository newer than the most recent
         commit of the client's repository. These commits need to be validated.
         If the client's repository does not exist, all commits should be validated.
-        We have to presume that the initial metadata is correct though (or at least
-        the initial root.json).
+        The first commit is validated against its own root.json.
         """
         last_validated_commit = Commitish.from_hash(
             settings.last_validated_commit.get(self.repository_name)

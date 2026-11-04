@@ -10,6 +10,7 @@ from taf.tests.test_updater.conftest import (
     add_valid_target_commits,
     update_timestamp_metadata_invalid_signature,
 )
+from taf.tests.test_updater.test_update_library.conftest import set_dependency
 from taf.updater.types.update import UpdateType
 from taf.tests.test_updater.update_utils import clone_full_library
 
@@ -57,6 +58,41 @@ def test_clone_with_invalid_dependency_repo(
             client_dir,
             expected_repo_type=UpdateType.EITHER,
         )
+
+
+@pytest.mark.parametrize(
+    "library_with_dependencies",
+    [
+        {
+            "dependencies_config": [
+                {"name": "namespace1/auth"},
+                {"name": "namespace2/auth"},
+            ],
+        },
+    ],
+    indirect=True,
+)
+def test_clone_with_dependency_without_out_of_band_commit(
+    library_with_dependencies, origin_dir, client_dir
+):
+    setup_manager = SetupManager(library_with_dependencies["root/auth"]["auth_repo"])
+    setup_manager.add_task(
+        set_dependency,
+        kwargs={"dependency_name": "namespace1/auth", "dependency_data": {}},
+    )
+    setup_manager.execute_tasks()
+
+    with pytest.raises(
+        UpdateFailedError,
+        match="Dependency namespace1/auth has no out-of-band authentication commit",
+    ):
+        clone_full_library(
+            library_with_dependencies,
+            origin_dir,
+            client_dir,
+            expected_repo_type=UpdateType.EITHER,
+        )
+    assert not (client_dir / "namespace1" / "auth").exists()
 
 
 @pytest.mark.parametrize(

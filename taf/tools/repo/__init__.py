@@ -287,7 +287,7 @@ def clone_repo_command():
     @click.option(
         "--upstream/--no-upstream",
         default=False,
-        help="Skips comparison with remote repositories upstream",
+        help="Always compare with the remote repositories and fail on unauthenticated commits in target repositories that don't allow them. Off by default as it is slower.",
     )
     @click.option(
         "-v",
@@ -406,7 +406,7 @@ def update_repo_command():
     @click.option(
         "--upstream/--no-upstream",
         default=False,
-        help="Skips comparison with remote repositories upstream",
+        help="Always compare with the remote repositories and fail on unauthenticated commits in target repositories that don't allow them. Off by default as it is slower.",
     )
     @click.option(
         "-v",
@@ -517,7 +517,7 @@ def validate_repo_command():
     @click.option(
         "--upstream/--no-upstream",
         default=False,
-        help="Skips comparison with remote repositories upstream",
+        help="Always compare with the remote repositories and fail on unauthenticated commits in target repositories that don't allow them. Off by default as it is slower.",
     )
     @click.option(
         "--no-deps",

@@ -605,6 +605,11 @@ def _update_dependencies(update_config, child_auth_repos):
     with ThreadPoolExecutor() as executor:
         futures = {}
         for repo in child_auth_repos:
+            if repo.out_of_band_authentication is None:
+                errors.append(
+                    f"Dependency {repo.name} has no out-of-band authentication commit"
+                )
+                continue
             child_config = copy.copy(update_config)
             child_config.operation = (
                 OperationType.UPDATE if repo.is_git_repository else OperationType.CLONE
