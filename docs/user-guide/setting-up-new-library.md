@@ -339,7 +339,7 @@ For more information about the updater and how to use it, see [the update proces
 
 ## Update metadata files if they expired
 
-By default, timestamp needs to be resigned every day, while snapshot expires a week after being signed. The updater will raise an error if the top metadata file has expired. To resign metadata files, run:
+By default, timestamp needs to be resigned every day, while snapshot expires a week after being signed. If the newest metadata has expired, the updater logs a warning, or raises an error when run with `--strict`. To resign metadata files, run:
 
 ```bash
 taf metadata update-expiration-dates --path auth_repo_path --keystore keystore_path --role targets1 --role targets2 --interval days

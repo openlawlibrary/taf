@@ -12,6 +12,7 @@ from taf.tests.test_updater.conftest import (
     INVALID_KEYS_PATTERN,
     INVALID_METADATA_PATTERN,
     LVC_NOT_IN_REMOTE_PATTERN,
+    METADATA_EXPIRED,
     TARGET_MISSING_BRANCH_PATTERN,
     TARGET_MISSMATCH_PATTERN,
     TARGET_MISSMATCH_UNAUTHENTICATED_PATTERN,
@@ -319,6 +320,35 @@ def test_update_invalid_target_changed_in_unsigned_commit_when_metadata_expired(
     assert (
         client_auth_repo.last_validated_commit != origin_auth_repo.head_commit().value
     )
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        }
+    ],
+    indirect=True,
+)
+def test_update_invalid_when_no_new_commits_and_metadata_expired_strict_flag(
+    origin_auth_repo, client_dir
+):
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(update_expiration_dates, kwargs={"date": "2021-01-01"})
+    setup_manager.execute_tasks()
+    clone_repositories(origin_auth_repo, client_dir)
+
+    for no_upstream in (True, False):
+        update_invalid_repos_and_check_if_repos_exist(
+            OperationType.UPDATE,
+            origin_auth_repo,
+            client_dir,
+            METADATA_EXPIRED,
+            True,
+            strict=True,
+            no_upstream=no_upstream,
+        )
 
 
 @pytest.mark.parametrize(

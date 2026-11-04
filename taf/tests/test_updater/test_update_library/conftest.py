@@ -1,3 +1,4 @@
+import json
 import re
 from taf.constants import TARGETS_DIRECTORY_NAME
 from taf.repositoriesdb import (
@@ -13,10 +14,7 @@ from taf.tests.conftest import (
     KEYSTORE_PATH,
     TEST_INIT_DATA_PATH,
 )
-from tuf.ngclient._internal import trusted_metadata_set
 from pytest import fixture
-
-original_tuf_trusted_metadata_set = trusted_metadata_set.TrustedMetadataSet
 
 NAMESPACE1 = "namespace1"
 NAMESPACE2 = "namespace2"
@@ -84,3 +82,16 @@ def library_with_dependencies(origin_dir, pin_manager, request):
 
     library[root_auth_repo.name] = {"auth_repo": root_auth_repo, "target_repos": []}
     yield library
+
+
+def set_dependency(auth_repo, pin_manager, dependency_name, dependency_data):
+    dependencies_path = auth_repo.path / TARGETS_DIRECTORY_NAME / DEPENDENCIES_JSON_NAME
+    dependencies = json.loads(dependencies_path.read_text())
+    dependencies["dependencies"][dependency_name] = dependency_data
+    dependencies_path.write_text(json.dumps(dependencies, indent=4))
+    sign_target_files(
+        auth_repo.path.parent.parent,
+        auth_repo.name,
+        keystore=KEYSTORE_PATH,
+        pin_manager=pin_manager,
+    )
