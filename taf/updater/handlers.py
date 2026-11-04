@@ -5,7 +5,7 @@ from typing import Dict
 from urllib import parse
 
 from taf.models.types import Commitish
-from taf.exceptions import GitError
+from taf.exceptions import FileTooLargeError, GitError
 from taf.log import taf_logger
 import taf.settings as settings
 from taf.auth_repo import AuthenticationRepository
@@ -13,8 +13,10 @@ from taf.exceptions import UpdateFailedError
 from taf.utils import on_rm_error
 from taf.tuf.key_cache import enable_public_key_cache
 
+from tuf.ngclient.config import UpdaterConfig
 from tuf.ngclient.fetcher import FetcherInterface
 from tuf.api.exceptions import DownloadHTTPError, DownloadLengthMismatchError
+from tuf.api.metadata import Root, Snapshot, Timestamp
 
 enable_public_key_cache()
 
@@ -110,11 +112,15 @@ class GitUpdater(FetcherInterface):
                 "Could not load metadata. Check if the URL and filesystem paths are correct."
             )
 
-    def _fetch(self, url):
+    def _fetch(self, url, max_length=None):
         try:
             return [
-                self.validation_auth_repo.get_file(self.current_commit, url, raw=True)
+                self.validation_auth_repo.get_file(
+                    self.current_commit, url, raw=True, max_length=max_length
+                )
             ]
+        except FileTooLargeError as e:
+            raise DownloadLengthMismatchError(str(e))
         except GitError:
             raise DownloadHTTPError(f"Could not find {url}", status_code=404)
         except Exception as e:
@@ -133,15 +139,10 @@ class GitUpdater(FetcherInterface):
         That guard is the size bound TUF applies *before* the role's
         signatures, hashes, version and expiry are verified later in
         ``refresh()``; for roles whose trusted length isn't known yet (root,
-        timestamp) it is the only bound, so it must stay.
+        timestamp) it is the only bound, so it must stay. The size is checked
+        before the file is read.
         """
-        data = b"".join(self.fetch(url))
-        if len(data) > max_length:
-            raise DownloadLengthMismatchError(
-                f"Downloaded {len(data)} bytes exceeding the maximum allowed "
-                f"length of {max_length}"
-            )
-        return data
+        return b"".join(self._fetch(url, max_length))
 
     def _init_commits(self):
         """
@@ -187,9 +188,20 @@ class GitUpdater(FetcherInterface):
         metadata_files = self.validation_auth_repo.list_files_at_revision(
             self.current_commit, "metadata"
         )
+        config = UpdaterConfig()
+        max_lengths = {
+            Root.type: config.root_max_length,
+            Timestamp.type: config.timestamp_max_length,
+            Snapshot.type: config.snapshot_max_length,
+        }
         for filename in metadata_files:
+            # numbered root files, like 2.root.json, are bound as root
+            role = filename[: -len(".json")].split(".")[-1]
             metadata = self.validation_auth_repo.get_file(
-                self.current_commit, "metadata/" + filename, raw=True
+                self.current_commit,
+                "metadata/" + filename,
+                raw=True,
+                max_length=max_lengths.get(role, config.targets_max_length),
             )
             self.metadata_store[self._metadata_store_key(filename)] = metadata
 
@@ -230,9 +242,9 @@ class GitUpdater(FetcherInterface):
         except GitError:
             return []
 
-    def get_current_target_data(self, filepath, raw=False):
+    def get_current_target_data(self, filepath, raw=False, max_length=None):
         return self.validation_auth_repo.get_file(
-            self.current_commit, f"targets/{filepath}", raw=raw
+            self.current_commit, f"targets/{filepath}", raw=raw, max_length=max_length
         )
 
     def get_current_metadata_data(self, filepath, raw=False):

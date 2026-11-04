@@ -12,6 +12,7 @@ from taf.tests.test_updater.conftest import (
     INVALID_KEYS_PATTERN,
     INVALID_METADATA_PATTERN,
     LVC_NOT_IN_REMOTE_PATTERN,
+    METADATA_TOO_LARGE_PATTERN,
     TARGET_MISSING_BRANCH_PATTERN,
     TARGET_MISSMATCH_PATTERN,
     TARGET_MISSMATCH_UNAUTHENTICATED_PATTERN,
@@ -24,6 +25,7 @@ from taf.tests.test_updater.conftest import (
     add_valid_target_commits,
     create_file_without_committing,
     delete_target_branch,
+    pad_metadata_without_signing,
     point_target_to_unsigned_commit,
     set_last_validated_commit_of_auth_repo,
     switch_target_branch_and_sign,
@@ -45,6 +47,36 @@ from taf.updater.lifecycle_handlers import Event
 from taf.exceptions import UpdateFailedError
 
 from taf.git import GitRepository
+from taf.pygit import PyGitRepository
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        }
+    ],
+    indirect=True,
+)
+def test_update_invalid_metadata_larger_than_allowed(origin_auth_repo, client_dir):
+    clone_repositories(origin_auth_repo, client_dir)
+
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(
+        pad_metadata_without_signing, kwargs={"role": "timestamp", "size": 20000}
+    )
+    setup_manager.execute_tasks()
+    padded_blob_id = origin_auth_repo._git("rev-parse HEAD:metadata/timestamp.json")
+
+    update_invalid_repos_and_check_if_repos_exist(
+        OperationType.UPDATE,
+        origin_auth_repo,
+        client_dir,
+        METADATA_TOO_LARGE_PATTERN,
+        True,
+    )
+    assert padded_blob_id not in PyGitRepository._files_cache
 
 
 @pytest.mark.parametrize(
