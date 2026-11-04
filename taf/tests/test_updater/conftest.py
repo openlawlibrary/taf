@@ -67,7 +67,7 @@ INVALID_METADATA_PATTERN = r"^Update of (\w+)\/(\w+) failed due to error: Valida
 INVALID_VERSION_NUMBER_PATTERN = r"^Update of (\w+\/\w+) failed due to error: Validation of authentication repository (\w+\/\w+) failed at revision ([0-9a-f]+) due to error: New (\w+) version (\d) must be >= (\d+)$"
 WRONG_UPDATE_TYPE_TEST_REPO = r"Update of (\w+\/\w+) failed due to error: Repository (\w+\/\w+) is a test repository. Call update with \"--expected-repo-type\" test to update a test repository$"
 WRONG_UPDATE_TYPE_OFFICIAL_REPO = r"Update of (\w+\/\w+) failed due to error: Repository (\w+\/\w+) is not a test repository, but update was called with the \"--expected-repo-type\" test$"
-METADATA_TOO_LARGE_PATTERN = r"^Update of (\w+\/\w+) failed due to error: Validation of authentication repository (\w+\/\w+) failed at revision ([0-9a-f]{40}) due to error: metadata/(\w+)\.json is (\d+) bytes, more than the allowed (\d+)$"
+FILE_TOO_LARGE_PATTERN = r"^Update of (\w+\/\w+) failed due to error: Validation of authentication repository (\w+\/\w+) failed at revision ([0-9a-f]{40}) due to error: ([\w\/.-]+) is (\d+) bytes, more than the allowed (\d+)$"
 METADATA_EXPIRED = r"Update of (\w+\/\w+) failed due to error: Validation of authentication repository (\w+\/\w+) failed at revision [0-9a-f]+ due to error: .+ (is|are) expired"
 NO_INFO_JSON = "Update of repository failed due to error: Error during info.json parse. If the authentication repository's path is not specified, info.json metadata is expected to be in targets/protected"
 GIT_NOT_FOUND_PATTERN = r"Update of ([\w\/]+) failed due to error: Could not run git: it is not installed or not on PATH"
@@ -946,12 +946,12 @@ def update_auth_repo_without_committing(
     )
 
 
-def pad_metadata_without_signing(
-    auth_repo: AuthenticationRepository, role: str, size: int
+def pad_file_without_signing(
+    auth_repo: AuthenticationRepository, file_path: str, size: int
 ):
-    metadata_path = auth_repo.path / "metadata" / f"{role}.json"
-    metadata_path.write_text(metadata_path.read_text() + " " * size)
-    auth_repo.commit(f"Pad {role} metadata without signing")
+    path = auth_repo.path / file_path
+    path.write_text(path.read_text() + " " * size)
+    auth_repo.commit(f"Pad {file_path} without signing")
 
 
 def update_role_metadata_without_signing(
