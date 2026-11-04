@@ -13,6 +13,7 @@ from taf.tests.test_updater.conftest import (
     update_expiration_dates,
     update_role_metadata_without_signing,
     cleanup_directory,
+    squash_into_one_commit,
 )
 from taf.tests.test_updater.update_utils import (
     clone_client_target_repos_without_updater,
@@ -51,6 +52,21 @@ def test_clone_valid_happy_path(origin_auth_repo, client_dir):
         expected_repo_type=expected_repo_type,
     )
     cleanup_directory(client_dir)
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        },
+    ],
+    indirect=True,
+)
+def test_clone_valid_single_commit(origin_auth_repo, client_dir):
+    squash_into_one_commit(origin_auth_repo)
+
+    update_and_check_commit_shas(OperationType.CLONE, origin_auth_repo, client_dir)
 
 
 @pytest.mark.parametrize(

@@ -47,7 +47,7 @@ from taf.tests.conftest import (
 )
 from taf.yubikey.yubikey_manager import PinManager
 
-from tuf.api.metadata import Timestamp
+from tuf.api.metadata import TargetFile, Timestamp
 
 KEYS_DESCRIPTION = str(TEST_INIT_DATA_PATH / "keys.json")
 
@@ -68,7 +68,7 @@ INVALID_VERSION_NUMBER_PATTERN = r"^Update of (\w+\/\w+) failed due to error: Va
 WRONG_UPDATE_TYPE_TEST_REPO = r"Update of (\w+\/\w+) failed due to error: Repository (\w+\/\w+) is a test repository. Call update with \"--expected-repo-type\" test to update a test repository$"
 WRONG_UPDATE_TYPE_OFFICIAL_REPO = r"Update of (\w+\/\w+) failed due to error: Repository (\w+\/\w+) is not a test repository, but update was called with the \"--expected-repo-type\" test$"
 METADATA_TOO_LARGE_PATTERN = r"^Update of (\w+\/\w+) failed due to error: Validation of authentication repository (\w+\/\w+) failed at revision ([0-9a-f]{40}) due to error: metadata/(\w+)\.json is (\d+) bytes, more than the allowed (\d+)$"
-METADATA_EXPIRED = r"Update of (\w+\/\w+) failed due to error: Validation of authentication repository (\w+\/\w+) failed at revision [0-9a-f]+ due to error: .+ is expired"
+METADATA_EXPIRED = r"Update of (\w+\/\w+) failed due to error: Validation of authentication repository (\w+\/\w+) failed at revision [0-9a-f]+ due to error: .+ (is|are) expired"
 NO_INFO_JSON = "Update of repository failed due to error: Error during info.json parse. If the authentication repository's path is not specified, info.json metadata is expected to be in targets/protected"
 GIT_NOT_FOUND_PATTERN = r"Update of ([\w\/]+) failed due to error: Could not run git: it is not installed or not on PATH"
 UNCOMMITTED_CHANGES = r"Update of (\w+\/\w+) failed due to error: Repositories (\w+\/\w+) have uncommitted changes\. Commit and push or use --force to revert and run the command again\."
@@ -240,7 +240,7 @@ def origin_auth_repo(
 ):
     targets_config_list = request.param["targets_config"]
     is_test_repo = request.param.get("is_test_repo", False)
-    date = request.param.get("data")
+    date = request.param.get("date")
     setup_type = request.param.get("setup_type", SetupState.ALL_FILES_INITIALLY)
     # When parametrizing tests, there are unsupported symbols added "[" and "]"
     clean_test_name = test_name.replace("[", "_").replace("]", "")
@@ -858,6 +858,12 @@ def remove_commits_from_auth_repo(
     auth_repo.reset_num_of_commits(num_of_commits, hard=True)
 
 
+def squash_into_one_commit(auth_repo: AuthenticationRepository):
+    num_of_commits = len(auth_repo.all_commits_on_branch(auth_repo.default_branch))
+    auth_repo.reset_num_of_commits(num_of_commits - 1)
+    auth_repo._git("commit --amend --no-edit -a")
+
+
 def reset_to_commit(auth_repo: AuthenticationRepository, commit: Commitish):
     auth_repo.reset_to_commit(commit, hard=True)
 
@@ -973,6 +979,23 @@ def update_timestamp_metadata_invalid_signature(
     auth_repo: AuthenticationRepository,
 ):
     update_metadata_invalid_signature(auth_repo, Timestamp.type)
+
+
+def sign_target_outside_delegated_paths(
+    auth_repo: AuthenticationRepository, role: str, target_path: str
+):
+    with manage_repo_and_signers(
+        auth_repo,
+        [role],
+        keystore=KEYSTORE_PATH,
+        prompt_for_keys=False,
+        commit=True,
+        commit_msg="Sign target outside delegated paths",
+        push=False,
+    ):
+        target_file = TargetFile.from_data(target_path, b"not delegated")
+        auth_repo._modify_targets_role([target_file], [], role)
+        auth_repo.update_snapshot_and_timestamp()
 
 
 def update_metadata_invalid_signature(auth_repo: AuthenticationRepository, role: str):

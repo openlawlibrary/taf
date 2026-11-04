@@ -429,7 +429,7 @@ communication, maintainers are expected to provide a commit SHA, which serves as
 This will often be the first commit. The updater can be used to validate all commits following this
 out-of-band commit. If, for any reason, there is an issue with the first `n` commits (e.g., a used
 hashing or signing algorithm was broken), commit `n+1` can be specified instead.
-This commit SHA can then be recorded in `dependencies.json` file. When the updater tool processes
+This commit SHA must be recorded in `dependencies.json` file. When the updater tool processes
 the repositories, it checks for the presence of this  out-of-band commit. If the commit is not found,
 the updater raises an error, signaling a potential security issue.
 
@@ -917,16 +917,17 @@ and its target repositories.
 
 Within TAF, an authentication repository has the capability to reference other authentication
 repositories. This relationship is defined in the `dependencies.json` file. Alongside the name of
-each referenced repository, the file can also specify out-of-band commits. The URLs for these
+each referenced repository, the file must specify its out-of-band commit. The URLs for these
 referenced authentication repositories are determined similarly to target repositories. This involves
 combining their full names in a `namespace/name`format with URL templates specified in `mirrors.
 json`.
 
 Once the primary authentication repository (including its own contents and targets) has been
 validated without errors, the updater processes each repository listed in the `dependencies.json`. It
-determines their URLs and then recursively updates each referenced authentication repository. When an
-out-of-band commit is specified for a referenced repository, it is included in the update function.
-The updater then conducts a validation check based on this commit, as described earlier.
+determines their URLs and then recursively updates each referenced authentication repository. The
+out-of-band commit of each referenced repository is included in the update function, and the updater
+conducts a validation check based on it, as described earlier. If a referenced repository has no
+out-of-band commit, the update fails.
 
 ## [6 Future directions and open questions](#6-future-directions-and-open-questions)
 
