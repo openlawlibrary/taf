@@ -1,4 +1,6 @@
 import pytest
+from taf.tests.test_updater.conftest import SetupManager
+from taf.tests.test_updater.test_update_library.conftest import set_dependency
 from taf.updater import live_display
 from taf.updater.live_display import RowState
 from taf.updater.types.update import UpdateType
@@ -39,6 +41,34 @@ def test_clone_repository_with_dependencies(
     origin_dir,
     client_dir,
 ):
+    clone_full_library(
+        library_with_dependencies,
+        origin_dir,
+        client_dir,
+        expected_repo_type=UpdateType.EITHER,
+    )
+
+
+@pytest.mark.parametrize(
+    "library_with_dependencies",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+            "dependencies_config": DEPENDENCIES_CONFIG,
+        },
+    ],
+    indirect=True,
+)
+def test_clone_repository_with_dependencies_when_one_name_is_invalid(
+    library_with_dependencies, origin_dir, client_dir
+):
+    setup_manager = SetupManager(library_with_dependencies["root/auth"]["auth_repo"])
+    setup_manager.add_task(
+        set_dependency,
+        kwargs={"dependency_name": "namespace3-auth", "dependency_data": {}},
+    )
+    setup_manager.execute_tasks()
+
     clone_full_library(
         library_with_dependencies,
         origin_dir,

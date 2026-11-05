@@ -460,6 +460,13 @@ def _resolve_and_cache_pin(
         return
     taf_logger.debug("Attempting to load key pin from environment variables")
     pin = get_pin_from_env(public_key, serial_num, taf_dir)
+    if pin is not None and not creating_new_key:
+        valid_pin, retries = is_valid_pin(pin, serial_num)
+        if not valid_pin:
+            raise InvalidPINError(
+                f"The PIN for YubiKey {serial_num} from the environment is incorrect, "
+                f"{retries} retries left"
+            )
     if creating_new_key:
         # skips validation against the card, unlike get_and_validate_pin below
         if pin is None:
