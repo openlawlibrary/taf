@@ -1020,13 +1020,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                         self.state.validation_auth_repo, top_commit_of_validation_repo
                     )
                 )
-                destination = Path(self.library_dir, self.state.auth_repo_name)
-                if self.operation == OperationType.CLONE and is_non_empty_directory(
-                    destination
-                ):
-                    raise UpdateFailedError(
-                        f"Destination path {destination} already exists and is not an empty directory. Run 'taf repo update' to update it."
-                    )
+                self._check_clone_destination()
 
             if (
                 self.state.users_auth_repo
@@ -1260,6 +1254,15 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     self.state.auth_repo_name,
                     urls=self.urls,
                 )
+
+    def _check_clone_destination(self):
+        destination = Path(self.library_dir, self.state.auth_repo_name)
+        if self.operation == OperationType.CLONE and is_non_empty_directory(
+            destination
+        ):
+            raise UpdateFailedError(
+                f"Destination path {destination} already exists and is not an empty directory. Run 'taf repo update' to update it."
+            )
 
     def _validate_operation_type(self):
         if self.operation == OperationType.CLONE and self.state.existing_repo:
