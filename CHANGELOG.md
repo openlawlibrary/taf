@@ -15,11 +15,18 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Abort the push in the pre-push hook when taf fails ([831])
+- Don't delete an existing directory when `repo create` fails ([831])
+- Validate a YubiKey PIN from the environment ([831])
+- Skip only an invalid dependency instead of all of them ([831])
+- Keep uncommitted metadata changes when `repo validate`, `reset` or `status` fails ([831])
+- Prefer the keys description's keystore over one found in a parent folder ([831])
 - Validate the first commit of the authentication repository ([825])
 - Check metadata expiration when there are no new commits ([825])
 - Don't require target files listed by a role that is not delegated for them ([825])
 - Require an out-of-band commit for every dependency ([825])
 
+[831]: https://github.com/openlawlibrary/taf/pull/831
 [825]: https://github.com/openlawlibrary/taf/pull/825
 
 

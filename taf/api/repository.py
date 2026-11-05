@@ -27,7 +27,7 @@ from taf.keys import load_sorted_keys_of_new_roles
 import taf.repositoriesdb as repositoriesdb
 from taf.api.utils._conf import find_keystore
 from taf.tuf.repository import METADATA_DIRECTORY_NAME
-from taf.utils import ensure_pre_push_hook
+from taf.utils import ensure_pre_push_hook, read_input_dict
 from taf.log import taf_logger
 from taf.yubikey.yubikey_manager import PinManager
 from taf.models.types import Commitish
@@ -73,10 +73,15 @@ def create_repository(
     if not _check_if_can_create_repository(Path(path)):
         return
 
-    if not keystore and path is not None:
+    if (
+        not keystore
+        and path is not None
+        and not read_input_dict(roles_key_infos).get("keystore")
+    ):
         keystore_path = find_keystore(path)
         if keystore_path is not None:
             keystore = str(keystore_path)
+            taf_logger.log("NOTICE", f"Using keystore found at {keystore}")
     roles_key_infos_dict, keystore, skip_prompt = initialize_roles_and_keystore(
         roles_key_infos, keystore
     )

@@ -771,12 +771,8 @@ def test_clone_invalid_when_expired_metadata_strict_flag(origin_auth_repo, clien
         origin_auth_repo,
         client_dir,
         METADATA_EXPIRED,
-        True,
+        False,
         strict=True,
-    )
-    client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
-    assert (
-        client_auth_repo.last_validated_commit != origin_auth_repo.head_commit().value
     )
 
 

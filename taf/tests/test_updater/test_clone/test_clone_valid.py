@@ -1,4 +1,7 @@
 import pytest
+from click.testing import CliRunner
+
+from taf.tools.cli.taf import taf
 from taf.tests.test_updater.conftest import (
     SetupManager,
     add_new_target_repo_without_target_file,
@@ -52,6 +55,33 @@ def test_clone_valid_happy_path(origin_auth_repo, client_dir):
         expected_repo_type=expected_repo_type,
     )
     cleanup_directory(client_dir)
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        },
+    ],
+    indirect=True,
+)
+def test_clone_valid_from_cli_without_path(origin_auth_repo, client_dir):
+    result = CliRunner().invoke(
+        taf,
+        [
+            "repo",
+            "clone",
+            str(origin_auth_repo.path),
+            "--library-dir",
+            str(client_dir),
+            "--from-fs",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert (client_dir / origin_auth_repo.name).is_dir()
+    verify_repos_exist(client_dir, origin_auth_repo)
 
 
 @pytest.mark.parametrize(
