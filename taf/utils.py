@@ -332,7 +332,8 @@ def on_rm_error(_func, path, _exc_info):
     are deleted.
     """
     try:
-        os.chmod(path, stat.S_IWRITE)
+        # add write permission, setting only S_IWRITE would remove the others
+        os.chmod(path, os.stat(path).st_mode | stat.S_IWRITE)
     except OSError as e:
         taf_logger.debug(f"File at path {path} not found, error trace - {e}")
         return

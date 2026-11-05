@@ -301,9 +301,10 @@ jobs:
 
       - name: Build and test standalone executable (Windows)
         if: matrix.os == 'windows-latest'
+        shell: bash
         run: |
           pyinstaller --onefile --hidden-import=yubikey_manager --hidden-import=lxml --collect-submodules taf.tools --add-data "taf/resources:taf/resources" --copy-metadata taf --name taf-windows.exe -y taf/tools/cli/taf.py
-          ./dist/taf-windows.exe --help | Select-String "TAF Command Line Interface" -quiet
+          ./dist/taf-windows.exe --help | grep "TAF Command Line Interface" || { echo "Error: Expected text not found in the executable output"; exit 1; }
           ./dist/taf-windows.exe --version
 
       - name: Build and test standalone executable (macOS)
