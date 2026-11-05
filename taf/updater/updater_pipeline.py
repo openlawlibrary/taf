@@ -2712,7 +2712,9 @@ def _update_tuf_current_revision(git_fetcher, updater, auth_repo_name):
         current_targets = git_fetcher.get_current_targets()
         for target_filepath in current_targets:
             targetinfo = updater.get_targetinfo(target_filepath)
-            target_data = git_fetcher.get_current_target_data(target_filepath, raw=True)
+            target_data = git_fetcher.get_current_target_data(
+                target_filepath, raw=True, max_length=targetinfo.length
+            )
             targetinfo.verify_length_and_hashes(target_data)
 
             taf_logger.debug(

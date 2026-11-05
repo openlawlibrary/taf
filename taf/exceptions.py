@@ -42,6 +42,11 @@ class FetchException(TAFError):
         self.message = f"Cannot fetch changes. Repo: {path}"
 
 
+class FileTooLargeError(TAFError):
+    def __init__(self, path: str, size: int, max_length: int):
+        self.message = f"{path} is {size} bytes, more than the allowed {max_length}"
+
+
 class GitError(TAFError):
     def __init__(
         self,
