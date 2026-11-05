@@ -29,7 +29,12 @@ from taf.exceptions import (
 from taf.updater.handlers import GitUpdater
 from taf.updater.lifecycle_handlers import Event
 from taf.updater.types.update import OperationType, UpdateType
-from taf.utils import TempPartition, on_rm_error, ensure_pre_push_hook
+from taf.utils import (
+    TempPartition,
+    on_rm_error,
+    ensure_pre_push_hook,
+    is_non_empty_directory,
+)
 from taf.updater.in_memory_updater import InMemoryUpdater
 from taf.log import taf_logger
 from taf.tools.cli import safe_cleanup
@@ -1015,6 +1020,13 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                         self.state.validation_auth_repo, top_commit_of_validation_repo
                     )
                 )
+                destination = Path(self.library_dir, self.state.auth_repo_name)
+                if self.operation == OperationType.CLONE and is_non_empty_directory(
+                    destination
+                ):
+                    raise UpdateFailedError(
+                        f"Destination path {destination} already exists and is not an empty directory. Run 'taf repo update' to update it."
+                    )
 
             if (
                 self.state.users_auth_repo
