@@ -23,14 +23,13 @@ class PyGitRepository:
     def _get_child(self, parent, path_part):
         """
         Return the child object of a parent object.
-        Used for walking a git tree.
+        Used for walking a git tree. The child's content is read only when
+        it is used, so a blob's size can be checked before reading it.
         """
         try:
-            out = parent[path_part]
+            return parent[path_part]
         except KeyError:
             return None
-        else:
-            return self.repo[out.id]
 
     def _get_object_at_path(self, obj, path):
         """
