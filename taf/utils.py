@@ -586,6 +586,7 @@ class TempPartition:
     TRASH_SUFFIX = ".taf-trash"
 
     def __init__(self, ref_path):
+        ref_path = Path(ref_path).absolute()
         self.ref_partition = self.get_partition_root(ref_path)
         configured_dir = os.environ.get("TAF_TMP")
 
@@ -598,10 +599,29 @@ class TempPartition:
             if temp_dir_partition == self.ref_partition:
                 self.temp_dir = Path(tempfile.mkdtemp())
             else:
-                taf_dir = self.ref_partition / ".taf"
-                taf_dir.mkdir(exist_ok=True)
-                self.temp_dir = Path(tempfile.mkdtemp(dir=str(taf_dir)))
+                self.temp_dir = self._mkdtemp_on_ref_partition(ref_path)
         self._sweep_stale_trash()
+
+    def _mkdtemp_on_ref_partition(self, ref_path):
+        candidates = [self.ref_partition]
+        for parent in ref_path.parents:
+            if parent == self.ref_partition:
+                break
+            candidates.insert(1, parent)
+        for parent in candidates:
+            taf_dir = parent / ".taf"
+            try:
+                taf_dir.mkdir(exist_ok=True)
+                return Path(tempfile.mkdtemp(dir=str(taf_dir)))
+            except OSError:
+                continue
+        taf_logger.warning(
+            f"Could not create a temp folder on the same filesystem as {ref_path}, "
+            f"so using {tempfile.gettempdir()}, which makes updates slower and uses "
+            "more space there. Set TAF_TMP to a writable folder on the same "
+            "filesystem to avoid this."
+        )
+        return Path(tempfile.mkdtemp())
 
     def _sweep_stale_trash(self):
         # Remove leftovers of cleanups that did not finish (crash, timeout).

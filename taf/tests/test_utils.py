@@ -2,6 +2,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 import pytest
 from pathlib import Path
 
@@ -194,3 +195,48 @@ def test_safely_move_file_same_filesystem(output_path):
     assert not src_path.is_file()
     assert dst_path.is_file()
     assert dst_path.read_text() == data
+
+
+def _simulate_separate_temp_filesystem(monkeypatch, partition_root):
+    def get_partition_root(self, path):
+        path = Path(path).absolute()
+        if path == partition_root or partition_root in path.parents:
+            return partition_root
+        return Path(tempfile.gettempdir())
+
+    monkeypatch.delenv("TAF_TMP", raising=False)
+    monkeypatch.setattr(TempPartition, "get_partition_root", get_partition_root)
+
+
+def test_temp_partition_skips_unwritable_partition_root(tmp_path, monkeypatch):
+    partition_root = tmp_path / "partition"
+    home = partition_root / "home"
+    auth_path = home / "library" / "namespace" / "auth"
+    auth_path.mkdir(parents=True)
+    (partition_root / ".taf").write_text("")
+    _simulate_separate_temp_filesystem(monkeypatch, partition_root)
+
+    temp_partition = TempPartition(auth_path)
+    try:
+        assert Path(temp_partition.temp_dir).parent == home / ".taf"
+    finally:
+        temp_partition.cleanup()
+
+
+def test_temp_partition_falls_back_to_system_temp(tmp_path, monkeypatch):
+    partition_root = tmp_path / "partition"
+    auth_path = partition_root / "library" / "namespace" / "auth"
+    auth_path.mkdir(parents=True)
+    for parent in (
+        partition_root,
+        partition_root / "library",
+        partition_root / "library" / "namespace",
+    ):
+        (parent / ".taf").write_text("")
+    _simulate_separate_temp_filesystem(monkeypatch, partition_root)
+
+    temp_partition = TempPartition(auth_path)
+    try:
+        assert Path(temp_partition.temp_dir).parent == Path(tempfile.gettempdir())
+    finally:
+        temp_partition.cleanup()
