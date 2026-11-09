@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Fix updates when `/tmp` is on a different filesystem than the library ([834])
 - Check a file's size before reading it during validation ([832])
 - Refuse to clone into an existing repository without `--path` before validating it ([833])
 - Abort the push in the pre-push hook when taf fails ([831])
@@ -31,6 +32,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Don't require target files listed by a role that is not delegated for them ([825])
 - Require an out-of-band commit for every dependency ([825])
 
+[834]: https://github.com/openlawlibrary/taf/pull/834
 [833]: https://github.com/openlawlibrary/taf/pull/833
 [832]: https://github.com/openlawlibrary/taf/pull/832
 [831]: https://github.com/openlawlibrary/taf/pull/831
