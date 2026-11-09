@@ -213,12 +213,15 @@ def test_temp_partition_skips_unwritable_partition_root(tmp_path, monkeypatch):
     home = partition_root / "home"
     auth_path = home / "library" / "namespace" / "auth"
     auth_path.mkdir(parents=True)
-    (partition_root / ".taf").write_text("")
+    (partition_root / TempPartition.TEMP_DIR_NAME).write_text("")
     _simulate_separate_temp_filesystem(monkeypatch, partition_root)
 
     temp_partition = TempPartition(auth_path)
     try:
-        assert Path(temp_partition.temp_dir).parent == home / ".taf"
+        assert (
+            Path(temp_partition.temp_dir).parent == home / TempPartition.TEMP_DIR_NAME
+        )
+        assert not list(partition_root.rglob(".taf"))
     finally:
         temp_partition.cleanup()
 
@@ -232,11 +235,50 @@ def test_temp_partition_falls_back_to_system_temp(tmp_path, monkeypatch):
         partition_root / "library",
         partition_root / "library" / "namespace",
     ):
-        (parent / ".taf").write_text("")
+        (parent / TempPartition.TEMP_DIR_NAME).write_text("")
     _simulate_separate_temp_filesystem(monkeypatch, partition_root)
 
     temp_partition = TempPartition(auth_path)
     try:
         assert Path(temp_partition.temp_dir).parent == Path(tempfile.gettempdir())
+    finally:
+        temp_partition.cleanup()
+
+
+def test_temp_partition_stays_on_library_mount(tmp_path, monkeypatch):
+    library_mount = tmp_path / "library"
+    library_mount.mkdir()
+    (library_mount / TempPartition.TEMP_DIR_NAME).write_text("")
+    _simulate_separate_temp_filesystem(monkeypatch, library_mount)
+
+    temp_partition = TempPartition(library_mount)
+    try:
+        assert Path(temp_partition.temp_dir).parent == Path(tempfile.gettempdir())
+        assert not (tmp_path / TempPartition.TEMP_DIR_NAME).exists()
+    finally:
+        temp_partition.cleanup()
+
+
+def test_temp_partition_skips_symlinked_temp_folder(tmp_path, monkeypatch):
+    partition_root = tmp_path / "partition"
+    home = partition_root / "home"
+    auth_path = home / "library" / "namespace" / "auth"
+    auth_path.mkdir(parents=True)
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    try:
+        (partition_root / TempPartition.TEMP_DIR_NAME).symlink_to(
+            elsewhere, target_is_directory=True
+        )
+    except OSError:
+        pytest.skip("creating symlinks is not permitted")
+    _simulate_separate_temp_filesystem(monkeypatch, partition_root)
+
+    temp_partition = TempPartition(auth_path)
+    try:
+        assert (
+            Path(temp_partition.temp_dir).parent == home / TempPartition.TEMP_DIR_NAME
+        )
+        assert not list(elsewhere.iterdir())
     finally:
         temp_partition.cleanup()

@@ -584,6 +584,7 @@ def _remove_trash_dir(trash_dir):
 
 class TempPartition:
     TRASH_SUFFIX = ".taf-trash"
+    TEMP_DIR_NAME = ".taf-tmp"
 
     def __init__(self, ref_path):
         ref_path = Path(ref_path).absolute()
@@ -603,15 +604,17 @@ class TempPartition:
         self._sweep_stale_trash()
 
     def _mkdtemp_on_ref_partition(self, ref_path):
-        candidates = [self.ref_partition]
-        for parent in ref_path.parents:
-            if parent == self.ref_partition:
-                break
-            candidates.insert(1, parent)
+        candidates = [self.ref_partition] + [
+            parent
+            for parent in reversed(ref_path.parents)
+            if self.ref_partition in parent.parents
+        ]
         for parent in candidates:
-            taf_dir = parent / ".taf"
+            taf_dir = parent / self.TEMP_DIR_NAME
             try:
                 taf_dir.mkdir(exist_ok=True)
+                if not self._is_own_dir(taf_dir):
+                    continue
                 return Path(tempfile.mkdtemp(dir=str(taf_dir)))
             except OSError:
                 continue
@@ -622,6 +625,15 @@ class TempPartition:
             "filesystem to avoid this."
         )
         return Path(tempfile.mkdtemp())
+
+    @staticmethod
+    def _is_own_dir(path):
+        if path.is_symlink() or not path.is_dir():
+            return False
+        try:
+            return os.lstat(path).st_uid == os.getuid()
+        except AttributeError:
+            return True
 
     def _sweep_stale_trash(self):
         # Remove leftovers of cleanups that did not finish (crash, timeout).
