@@ -11,6 +11,7 @@ from taf.utils import (
     _background_cleanup_threads,
     format_command_args,
     normalize_line_endings,
+    on_rm_error,
     run,
     safely_save_json_to_disk,
     safely_move_file,
@@ -38,6 +39,15 @@ def test_run_raises_executable_not_found_error_when_executable_is_missing(
     monkeypatch.setenv("PATH", str(tmp_path))
     with pytest.raises(ExecutableNotFoundError, match="Could not run git"):
         run("git", "--version")
+
+
+def test_on_rm_error_keeps_folder_usable_when_it_cannot_be_removed(tmp_path):
+    folder = tmp_path / "client"
+    (folder / "leftover").mkdir(parents=True)
+
+    on_rm_error(os.rmdir, str(folder), None)
+
+    (folder / "next_test").mkdir()
 
 
 def test_normalize_line_ending_extra_lines():

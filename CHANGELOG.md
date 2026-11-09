@@ -11,11 +11,14 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- Run master's benchmarks in the same CI job as the branch's and compare against those ([833])
+
 ### Removed
 
 ### Fixed
 
 - Check a file's size before reading it during validation ([832])
+- Refuse to clone into an existing repository without `--path` before validating it ([833])
 - Abort the push in the pre-push hook when taf fails ([831])
 - Don't delete an existing directory when `repo create` fails ([831])
 - Validate a YubiKey PIN from the environment ([831])
@@ -28,6 +31,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Don't require target files listed by a role that is not delegated for them ([825])
 - Require an out-of-band commit for every dependency ([825])
 
+[833]: https://github.com/openlawlibrary/taf/pull/833
 [832]: https://github.com/openlawlibrary/taf/pull/832
 [831]: https://github.com/openlawlibrary/taf/pull/831
 [825]: https://github.com/openlawlibrary/taf/pull/825
