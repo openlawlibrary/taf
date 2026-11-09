@@ -967,7 +967,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
     def clone_auth_to_temp(self):
         try:
             users_path = self.auth_path or self.library_dir
-            self.state.temp_root = TempPartition(Path(users_path))
+            self.state.temp_root = TempPartition(
+                Path(users_path), library_dir=self.library_dir
+            )
 
             if self.auth_path:
                 auth_repo_name = GitRepository(path=self.auth_path).name

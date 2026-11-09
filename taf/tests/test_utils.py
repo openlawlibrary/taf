@@ -282,3 +282,43 @@ def test_temp_partition_skips_symlinked_temp_folder(tmp_path, monkeypatch):
         assert not list(elsewhere.iterdir())
     finally:
         temp_partition.cleanup()
+
+
+def test_temp_partition_uses_library_dir_when_ancestors_are_unwritable(
+    tmp_path, monkeypatch
+):
+    partition_root = tmp_path / "partition"
+    library_dir = partition_root / "srv" / "library"
+    library_dir.mkdir(parents=True)
+    for parent in (partition_root, partition_root / "srv"):
+        (parent / TempPartition.TEMP_DIR_NAME).write_text("")
+    _simulate_separate_temp_filesystem(monkeypatch, partition_root)
+
+    temp_partition = TempPartition(library_dir, library_dir=library_dir)
+    try:
+        assert (
+            Path(temp_partition.temp_dir).parent
+            == library_dir / TempPartition.TEMP_DIR_NAME
+        )
+    finally:
+        temp_partition.cleanup()
+
+
+def test_temp_partition_ignores_library_dir_on_another_filesystem(
+    tmp_path, monkeypatch
+):
+    partition_root = tmp_path / "partition"
+    auth_path = partition_root / "namespace" / "auth"
+    auth_path.mkdir(parents=True)
+    (partition_root / TempPartition.TEMP_DIR_NAME).write_text("")
+    (partition_root / "namespace" / TempPartition.TEMP_DIR_NAME).write_text("")
+    library_dir = tmp_path / "other-library"
+    library_dir.mkdir()
+    _simulate_separate_temp_filesystem(monkeypatch, partition_root)
+
+    temp_partition = TempPartition(auth_path, library_dir=library_dir)
+    try:
+        assert Path(temp_partition.temp_dir).parent == Path(tempfile.gettempdir())
+        assert not (library_dir / TempPartition.TEMP_DIR_NAME).exists()
+    finally:
+        temp_partition.cleanup()

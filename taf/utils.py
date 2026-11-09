@@ -586,8 +586,11 @@ class TempPartition:
     TRASH_SUFFIX = ".taf-trash"
     TEMP_DIR_NAME = ".taf-tmp"
 
-    def __init__(self, ref_path):
+    def __init__(self, ref_path, library_dir=None):
         ref_path = Path(ref_path).absolute()
+        self.library_dir = (
+            Path(library_dir).absolute() if library_dir is not None else None
+        )
         self.ref_partition = self.get_partition_root(ref_path)
         configured_dir = os.environ.get("TAF_TMP")
 
@@ -609,6 +612,12 @@ class TempPartition:
             for parent in reversed(ref_path.parents)
             if self.ref_partition in parent.parents
         ]
+        if (
+            self.library_dir is not None
+            and self.library_dir not in candidates
+            and self.get_partition_root(self.library_dir) == self.ref_partition
+        ):
+            candidates.append(self.library_dir)
         for parent in candidates:
             taf_dir = parent / self.TEMP_DIR_NAME
             try:
