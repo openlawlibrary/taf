@@ -1,7 +1,7 @@
 from typing import Dict
 import pygit2
 from collections import defaultdict
-from taf.exceptions import GitError
+from taf.exceptions import FileTooLargeError, GitError
 import os.path
 
 from taf.models.types import Commitish
@@ -23,14 +23,13 @@ class PyGitRepository:
     def _get_child(self, parent, path_part):
         """
         Return the child object of a parent object.
-        Used for walking a git tree.
+        Used for walking a git tree. The child's content is read only when
+        it is used, so a blob's size can be checked before reading it.
         """
         try:
-            out = parent[path_part]
+            return parent[path_part]
         except KeyError:
             return None
-        else:
-            return self.repo[out.id]
 
     def _get_object_at_path(self, obj, path):
         """
@@ -63,11 +62,13 @@ class PyGitRepository:
         """
         self.repo.free()
 
-    def get_file(self, commit: Commitish, path, raw=False):
+    def get_file(self, commit: Commitish, path, raw=False, max_length=None):
         """
         for the given commit string,
         return the string contents of the blob at the
-        given path, if it exists, otherwise raise GitError
+        given path, if it exists, otherwise raise GitError.
+        If max_length is given, raise FileTooLargeError for a larger blob
+        without reading its content.
         """
         obj = self.repo.get(commit.hash)
         blob = self._get_blob_at_path(obj, path)
@@ -79,10 +80,28 @@ class PyGitRepository:
         else:
             git_id = str(blob.id)
             type = "raw" if raw else "decoded"
-            if git_id not in self._files_cache or type not in self._files_cache[git_id]:
+            cached = self._files_cache.get(git_id, {})
+            if max_length is not None:
+                size = len(cached["raw"]) if "raw" in cached else self._blob_size(blob)
+                if size > max_length:
+                    raise FileTooLargeError(path, size, max_length)
+            if type not in cached:
                 content = blob.read_raw() if raw else blob.read_raw().decode()
                 self._files_cache[git_id] |= {type: content}
             return git_id, self._files_cache[git_id][type]
+
+    def _blob_size(self, blob) -> int:
+        """
+        Read the blob's size from its object header. Reading the content first could
+        use far more memory, since a small compressed object can unpack to a large file.
+        """
+        for backend in self.repo.odb.backends:
+            try:
+                _, size = backend.read_header(blob.id)
+                return size
+            except (KeyError, pygit2.GitError):
+                continue
+        return blob.size
 
     def _list_files_at_revision(self, tree, path="", results=None):
         """

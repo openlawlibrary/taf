@@ -7,7 +7,10 @@ from pygit2 import AlreadyExistsError
 from taf.models.types import Commitish
 import pytest
 import shutil
+import subprocess
+import sys
 import tempfile
+import textwrap
 import time
 from taf.exceptions import (
     GitAccessDeniedException,
@@ -82,6 +85,40 @@ def test_pygit_requires_pygit2(monkeypatch, repository):
 
     with pytest.raises(PygitError, match="pygit2 is not installed"):
         _ = repo.pygit
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="needs the resource module")
+def test_get_file_larger_than_max_length_is_not_read(repository: GitRepository):
+    size = 100 * 1024 * 1024
+    with open(repository.path / "large.json", "wb") as f:
+        f.truncate(size)
+    repository.commit(message="Add large.json")
+    (repository.path / "large.json").unlink()
+
+    # measured in a new process, since this one may already have used more memory
+    script = textwrap.dedent("""
+        import resource, sys
+        from taf.exceptions import FileTooLargeError
+        from taf.git import GitRepository
+        repo = GitRepository(path=sys.argv[1])
+        commit = repo.head_commit()
+        before = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        try:
+            repo.pygit.get_file(commit, "large.json", raw=True, max_length=1000)
+            sys.exit("large.json was read")
+        except FileTooLargeError:
+            pass
+        print(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss - before)
+        """)
+    output = subprocess.run(
+        [sys.executable, "-c", script, str(repository.path)],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    # ru_maxrss is in bytes on macOS and in kilobytes elsewhere
+    unit = 1 if sys.platform == "darwin" else 1024
+    assert int(output) * unit < size / 10
 
 
 def test_remote_exists(repository: GitRepository, origin_repo: GitRepository):

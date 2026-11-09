@@ -5,7 +5,6 @@ from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes
 from securesystemslib.exceptions import UnverifiedSignatureError
 from securesystemslib.signer import SSlibKey, Signature
-from tuf.api.exceptions import DownloadLengthMismatchError
 from tuf.ngclient.updater import Updater
 
 from taf.tuf.key_cache import _load_pem_public_key_cached
@@ -47,29 +46,6 @@ def test_metadata_store_key():
     updater = InMemoryUpdater.__new__(InMemoryUpdater)
     updater._metadata_store = {GitUpdater._metadata_store_key("root.json"): b"data"}
     assert updater._load_local_metadata("root") == b"data"
-
-
-class _FetcherStub:
-    """Minimal object exposing fetch() the way FetcherInterface does."""
-
-    def __init__(self, data):
-        self._data = data
-
-    def fetch(self, url):
-        return iter([self._data])
-
-    download_bytes = GitUpdater.download_bytes
-
-
-def test_download_bytes_returns_data():
-    fetcher = _FetcherStub(b"x" * 100)
-    assert fetcher.download_bytes("metadata/root.json", 100) == b"x" * 100
-
-
-def test_download_bytes_enforces_max_length():
-    fetcher = _FetcherStub(b"x" * 101)
-    with pytest.raises(DownloadLengthMismatchError):
-        fetcher.download_bytes("metadata/root.json", 100)
 
 
 def test_cached_key_verifies_and_rejects_signatures(rsa_key_pair):

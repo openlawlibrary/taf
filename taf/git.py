@@ -24,6 +24,7 @@ from taf.exceptions import (
     TAFError,
     CloneRepoException,
     FetchException,
+    FileTooLargeError,
     InvalidBranchError,
     InvalidRepositoryError,
     GitError,
@@ -1322,16 +1323,21 @@ class GitRepository:
         path: str,
         raw: Optional[bool] = False,
         with_id: Optional[bool] = False,
+        max_length: Optional[int] = None,
     ) -> Tuple[str, str] | str:
         path = Path(path).as_posix()
         try:
-            git_id, content = self.pygit.get_file(commit, path, raw)
+            git_id, content = self.pygit.get_file(commit, path, raw, max_length)
             if with_id:
                 return git_id, content
             return content
         except TAFError as e:
             raise e
         except Exception:
+            if max_length is not None:
+                size = int(self._git("cat-file -s {}:{}", commit, path))
+                if size > max_length:
+                    raise FileTooLargeError(path, size, max_length)
             return self._git("show {}:{}", commit, path, raw=raw)
 
     def get_first_commit_on_branch(
