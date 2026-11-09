@@ -96,11 +96,11 @@ def test_get_file_larger_than_max_length_is_not_read(repository: GitRepository):
     (repository.path / "large.json").unlink()
 
     # measured in a new process, since this one may already have used more memory
-    script = textwrap.dedent(f"""
+    script = textwrap.dedent("""
         import resource, sys
         from taf.exceptions import FileTooLargeError
         from taf.git import GitRepository
-        repo = GitRepository(path=r"{repository.path}")
+        repo = GitRepository(path=sys.argv[1])
         commit = repo.head_commit()
         before = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
         try:
@@ -111,7 +111,10 @@ def test_get_file_larger_than_max_length_is_not_read(repository: GitRepository):
         print(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss - before)
         """)
     output = subprocess.run(
-        [sys.executable, "-c", script], capture_output=True, text=True, check=True
+        [sys.executable, "-c", script, str(repository.path)],
+        capture_output=True,
+        text=True,
+        check=True,
     ).stdout
     # ru_maxrss is in bytes on macOS and in kilobytes elsewhere
     unit = 1 if sys.platform == "darwin" else 1024
