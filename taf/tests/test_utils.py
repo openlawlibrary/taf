@@ -2,6 +2,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 import pytest
 from pathlib import Path
 
@@ -194,3 +195,130 @@ def test_safely_move_file_same_filesystem(output_path):
     assert not src_path.is_file()
     assert dst_path.is_file()
     assert dst_path.read_text() == data
+
+
+def _simulate_separate_temp_filesystem(monkeypatch, partition_root):
+    def get_partition_root(self, path):
+        path = Path(path).absolute()
+        if path == partition_root or partition_root in path.parents:
+            return partition_root
+        return Path(tempfile.gettempdir())
+
+    monkeypatch.delenv("TAF_TMP", raising=False)
+    monkeypatch.setattr(TempPartition, "get_partition_root", get_partition_root)
+
+
+def test_temp_partition_skips_unwritable_partition_root(tmp_path, monkeypatch):
+    partition_root = tmp_path / "partition"
+    home = partition_root / "home"
+    auth_path = home / "library" / "namespace" / "auth"
+    auth_path.mkdir(parents=True)
+    (partition_root / TempPartition.TEMP_DIR_NAME).write_text("")
+    _simulate_separate_temp_filesystem(monkeypatch, partition_root)
+
+    temp_partition = TempPartition(auth_path)
+    try:
+        assert (
+            Path(temp_partition.temp_dir).parent == home / TempPartition.TEMP_DIR_NAME
+        )
+        assert not list(partition_root.rglob(".taf"))
+    finally:
+        temp_partition.cleanup()
+
+
+def test_temp_partition_falls_back_to_system_temp(tmp_path, monkeypatch):
+    partition_root = tmp_path / "partition"
+    auth_path = partition_root / "library" / "namespace" / "auth"
+    auth_path.mkdir(parents=True)
+    for parent in (
+        partition_root,
+        partition_root / "library",
+        partition_root / "library" / "namespace",
+    ):
+        (parent / TempPartition.TEMP_DIR_NAME).write_text("")
+    _simulate_separate_temp_filesystem(monkeypatch, partition_root)
+
+    temp_partition = TempPartition(auth_path)
+    try:
+        assert Path(temp_partition.temp_dir).parent == Path(tempfile.gettempdir())
+    finally:
+        temp_partition.cleanup()
+
+
+def test_temp_partition_stays_on_library_mount(tmp_path, monkeypatch):
+    library_mount = tmp_path / "library"
+    library_mount.mkdir()
+    (library_mount / TempPartition.TEMP_DIR_NAME).write_text("")
+    _simulate_separate_temp_filesystem(monkeypatch, library_mount)
+
+    temp_partition = TempPartition(library_mount)
+    try:
+        assert Path(temp_partition.temp_dir).parent == Path(tempfile.gettempdir())
+        assert not (tmp_path / TempPartition.TEMP_DIR_NAME).exists()
+    finally:
+        temp_partition.cleanup()
+
+
+def test_temp_partition_skips_symlinked_temp_folder(tmp_path, monkeypatch):
+    partition_root = tmp_path / "partition"
+    home = partition_root / "home"
+    auth_path = home / "library" / "namespace" / "auth"
+    auth_path.mkdir(parents=True)
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    try:
+        (partition_root / TempPartition.TEMP_DIR_NAME).symlink_to(
+            elsewhere, target_is_directory=True
+        )
+    except OSError:
+        pytest.skip("creating symlinks is not permitted")
+    _simulate_separate_temp_filesystem(monkeypatch, partition_root)
+
+    temp_partition = TempPartition(auth_path)
+    try:
+        assert (
+            Path(temp_partition.temp_dir).parent == home / TempPartition.TEMP_DIR_NAME
+        )
+        assert not list(elsewhere.iterdir())
+    finally:
+        temp_partition.cleanup()
+
+
+def test_temp_partition_uses_library_dir_when_ancestors_are_unwritable(
+    tmp_path, monkeypatch
+):
+    partition_root = tmp_path / "partition"
+    library_dir = partition_root / "srv" / "library"
+    library_dir.mkdir(parents=True)
+    for parent in (partition_root, partition_root / "srv"):
+        (parent / TempPartition.TEMP_DIR_NAME).write_text("")
+    _simulate_separate_temp_filesystem(monkeypatch, partition_root)
+
+    temp_partition = TempPartition(library_dir, library_dir=library_dir)
+    try:
+        assert (
+            Path(temp_partition.temp_dir).parent
+            == library_dir / TempPartition.TEMP_DIR_NAME
+        )
+    finally:
+        temp_partition.cleanup()
+
+
+def test_temp_partition_ignores_library_dir_on_another_filesystem(
+    tmp_path, monkeypatch
+):
+    partition_root = tmp_path / "partition"
+    auth_path = partition_root / "namespace" / "auth"
+    auth_path.mkdir(parents=True)
+    (partition_root / TempPartition.TEMP_DIR_NAME).write_text("")
+    (partition_root / "namespace" / TempPartition.TEMP_DIR_NAME).write_text("")
+    library_dir = tmp_path / "other-library"
+    library_dir.mkdir()
+    _simulate_separate_temp_filesystem(monkeypatch, partition_root)
+
+    temp_partition = TempPartition(auth_path, library_dir=library_dir)
+    try:
+        assert Path(temp_partition.temp_dir).parent == Path(tempfile.gettempdir())
+        assert not (library_dir / TempPartition.TEMP_DIR_NAME).exists()
+    finally:
+        temp_partition.cleanup()

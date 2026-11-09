@@ -584,8 +584,13 @@ def _remove_trash_dir(trash_dir):
 
 class TempPartition:
     TRASH_SUFFIX = ".taf-trash"
+    TEMP_DIR_NAME = ".taf-tmp"
 
-    def __init__(self, ref_path):
+    def __init__(self, ref_path, library_dir=None):
+        ref_path = Path(ref_path).absolute()
+        self.library_dir = (
+            Path(library_dir).absolute() if library_dir is not None else None
+        )
         self.ref_partition = self.get_partition_root(ref_path)
         configured_dir = os.environ.get("TAF_TMP")
 
@@ -598,10 +603,46 @@ class TempPartition:
             if temp_dir_partition == self.ref_partition:
                 self.temp_dir = Path(tempfile.mkdtemp())
             else:
-                taf_dir = self.ref_partition / ".taf"
-                taf_dir.mkdir(exist_ok=True)
-                self.temp_dir = Path(tempfile.mkdtemp(dir=str(taf_dir)))
+                self.temp_dir = self._mkdtemp_on_ref_partition(ref_path)
         self._sweep_stale_trash()
+
+    def _mkdtemp_on_ref_partition(self, ref_path):
+        candidates = [self.ref_partition] + [
+            parent
+            for parent in reversed(ref_path.parents)
+            if self.ref_partition in parent.parents
+        ]
+        if (
+            self.library_dir is not None
+            and self.library_dir not in candidates
+            and self.get_partition_root(self.library_dir) == self.ref_partition
+        ):
+            candidates.append(self.library_dir)
+        for parent in candidates:
+            taf_dir = parent / self.TEMP_DIR_NAME
+            try:
+                taf_dir.mkdir(exist_ok=True)
+                if not self._is_own_dir(taf_dir):
+                    continue
+                return Path(tempfile.mkdtemp(dir=str(taf_dir)))
+            except OSError:
+                continue
+        taf_logger.warning(
+            f"Could not create a temp folder on the same filesystem as {ref_path}, "
+            f"so using {tempfile.gettempdir()}, which makes updates slower and uses "
+            "more space there. Set TAF_TMP to a writable folder on the same "
+            "filesystem to avoid this."
+        )
+        return Path(tempfile.mkdtemp())
+
+    @staticmethod
+    def _is_own_dir(path):
+        if path.is_symlink() or not path.is_dir():
+            return False
+        try:
+            return os.lstat(path).st_uid == os.getuid()
+        except AttributeError:
+            return True
 
     def _sweep_stale_trash(self):
         # Remove leftovers of cleanups that did not finish (crash, timeout).
