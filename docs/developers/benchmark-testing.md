@@ -34,7 +34,7 @@ For further options, see https://pytest-benchmark.readthedocs.io/en/latest/usage
 
 ## Thresholds
 
-On branches, CI fails the benchmarks when they are more than 20% slower than master's latest results. If a branch is expected to be slower, add it to `benchmark_thresholds.json` with the allowed percentage, a whole number from 0 to 99:
+On branches, CI runs master's benchmarks and the branch's on the same runner and fails when the branch is more than 20% slower. If a branch is expected to be slower, add it to `benchmark_thresholds.json` with the allowed percentage, a whole number from 0 to 99:
 
 ```json
 {

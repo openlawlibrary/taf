@@ -29,7 +29,12 @@ from taf.exceptions import (
 from taf.updater.handlers import GitUpdater
 from taf.updater.lifecycle_handlers import Event
 from taf.updater.types.update import OperationType, UpdateType
-from taf.utils import TempPartition, on_rm_error, ensure_pre_push_hook
+from taf.utils import (
+    TempPartition,
+    on_rm_error,
+    ensure_pre_push_hook,
+    is_non_empty_directory,
+)
 from taf.updater.in_memory_updater import InMemoryUpdater
 from taf.log import taf_logger
 from taf.tools.cli import safe_cleanup
@@ -335,6 +340,11 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     self.should_update_auth_repos,
                 ),
                 (
+                    self.check_clone_destination,
+                    RunMode.UPDATE,
+                    self.should_check_clone_destination,
+                ),
+                (
                     self.check_newest_metadata_expiration,
                     RunMode.ALL,
                     self.should_check_newest_metadata_expiration,
@@ -539,6 +549,14 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
 
     def should_check_newest_metadata_expiration(self):
         return settings.strict and self.should_update_auth_repos()
+
+    def should_check_clone_destination(self):
+        # with --path, clone_repository checks the destination before the pipeline
+        return (
+            self.operation == OperationType.CLONE
+            and not self.auth_path
+            and self.should_update_auth_repos()
+        )
 
     def should_run_if_not_synced(self):
         return not self.repos_synced_with_remote
@@ -1124,6 +1142,21 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                                         "\nRun 'taf repo reset' to sync your local repositories, or run the updater with the --force flag to validate from the first commit"
                                     )
 
+        except Exception as e:
+            self.state.errors.append(e)
+            self.state.event = Event.FAILED
+            return UpdateStatus.FAILED
+
+    def check_clone_destination(self):
+        """Without --path, the destination is known only once the name is read from
+        info.json, so check it here, before validating anything."""
+        try:
+            destination = Path(self.library_dir, self.state.auth_repo_name)
+            if is_non_empty_directory(destination):
+                raise UpdateFailedError(
+                    f"Destination path {destination} already exists and is not an empty directory. Run 'taf repo update' to update it."
+                )
+            return UpdateStatus.SUCCESS
         except Exception as e:
             self.state.errors.append(e)
             self.state.event = Event.FAILED

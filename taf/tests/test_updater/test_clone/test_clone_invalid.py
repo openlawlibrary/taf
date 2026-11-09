@@ -5,6 +5,7 @@ from taf.auth_repo import AuthenticationRepository
 from taf.constants import INFO_JSON_PATH
 from taf.exceptions import UpdateFailedError
 from taf.tests.test_updater.conftest import (
+    DESTINATION_EXISTS_PATTERN,
     TARGET_FILE_MISSING_PATTERN,
     sign_target_repositories,
     GIT_NOT_FOUND_PATTERN,
@@ -39,6 +40,7 @@ from taf.tests.test_updater.conftest import (
 )
 from taf.tests.test_updater.update_utils import (
     check_if_last_validated_commit_exists,
+    clone_repositories,
     update_invalid_repos_and_check_if_repos_exist,
     verify_repos_exist,
 )
@@ -799,6 +801,31 @@ def test_clone_invalid_when_no_info_json_and_no_path(origin_auth_repo, client_di
     client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
     # make sure that the last validated commit does not exist
     check_if_last_validated_commit_exists(client_auth_repo, False)
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        },
+    ],
+    indirect=True,
+)
+def test_clone_invalid_when_repo_exists_and_no_path(origin_auth_repo, client_dir):
+    clone_repositories(origin_auth_repo, client_dir)
+    client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
+    head_commit = client_auth_repo.head_commit()
+
+    update_invalid_repos_and_check_if_repos_exist(
+        OperationType.CLONE,
+        origin_auth_repo,
+        client_dir,
+        DESTINATION_EXISTS_PATTERN,
+        expect_partial_update=False,
+        auth_repo_name_exists=False,
+    )
+    assert client_auth_repo.head_commit() == head_commit
 
 
 @pytest.mark.parametrize(
