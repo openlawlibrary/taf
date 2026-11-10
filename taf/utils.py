@@ -6,6 +6,7 @@ import datetime
 import time
 import json
 import os
+import shlex
 import stat
 import subprocess
 import tempfile
@@ -489,6 +490,15 @@ def get_file_details(
     return file_length, file_hashes
 
 
+def _installing_taf_command() -> str:
+    """The command that runs this taf, quoted for bash. sys.executable is not
+    resolved, since a venv's python is a symlink to a python outside the venv."""
+    executable = shlex.quote(Path(sys.executable).as_posix())
+    if getattr(sys, "frozen", False):
+        return executable
+    return f"{executable} -m taf.tools.cli.taf"
+
+
 def ensure_pre_push_hook(auth_repo_path: Path) -> bool:
     hooks_dir = auth_repo_path / ".git" / "hooks"
     hooks_dir.mkdir(parents=True, exist_ok=True)
@@ -498,8 +508,10 @@ def ensure_pre_push_hook(auth_repo_path: Path) -> bool:
     ).resolve()
 
     # always copy the newest version of the pre-push hook
-
-    shutil.copy(resources_pre_push_script, pre_push_script)
+    hook = resources_pre_push_script.read_bytes().replace(
+        b"__TAF_CLI__", _installing_taf_command().encode()
+    )
+    pre_push_script.write_bytes(hook)
     try:
         if platform.system() != "Windows":
             # Unix-like systems

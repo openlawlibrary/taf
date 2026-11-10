@@ -1,9 +1,13 @@
 #!/bin/bash
 
-# Path to the TAF CLI executable
-TAF_CLI="taf"
+# The taf that installed this hook, filled in by taf, so that the hook works
+# without taf on PATH. Falls back to taf on PATH if it can't be run.
+TAF_CLI=(__TAF_CLI__)
+if ! command -v "${TAF_CLI[0]}" > /dev/null 2>&1; then
+    TAF_CLI=(taf)
+fi
 
-output=$($TAF_CLI repo latest-commit-and-branch)
+output=$("${TAF_CLI[@]}" repo latest-commit-and-branch)
 status=$?
 DEFAULT_BRANCH=$(echo "$output" | cut -d ',' -f 1)
 LAST_VALIDATED_COMMIT=$(echo "$output" | cut -d ',' -f 2)
@@ -36,7 +40,7 @@ fi
 
 
 # Run the TAF validation command with --from-latest
-$TAF_CLI repo validate --from-latest --no-deps
+"${TAF_CLI[@]}" repo validate --from-latest --no-deps
 VALIDATION_STATUS=$?
 
 # Check the validation status
