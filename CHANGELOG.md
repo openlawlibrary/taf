@@ -11,6 +11,17 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+### Removed
+
+### Fixed
+
+
+## [0.42.1]
+
+### Added
+
+### Changed
+
 - Run master's benchmarks in the same CI job as the branch's and compare against those ([833])
 
 ### Removed
@@ -2060,7 +2071,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
-[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.42.0...HEAD
+[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.42.1...HEAD
+[0.42.1]: https://github.com/openlawlibrary/taf/compare/v0.42.0...v0.42.1
 [0.42.0]: https://github.com/openlawlibrary/taf/compare/v0.41.0...v0.42.0
 [0.41.0]: https://github.com/openlawlibrary/taf/compare/v0.40.0...v0.41.0
 [0.40.0]: https://github.com/openlawlibrary/taf/compare/v0.39.3...v0.40.0
