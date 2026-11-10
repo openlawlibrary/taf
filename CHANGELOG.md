@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- Upgrade to python-tuf 7, which requires Python 3.10 or newer, and depend on `requests` directly
+
 ### Removed
 
 ### Fixed

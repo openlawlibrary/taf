@@ -364,6 +364,30 @@ def test_clone_valid_when_only_root_metadata_updated(origin_auth_repo, client_di
     [{"targets_config": [{"name": "target1"}, {"name": "target2"}]}],
     indirect=True,
 )
+def test_clone_valid_when_root_updated_writes_nothing_to_working_dir(
+    origin_auth_repo, client_dir, tmp_path, monkeypatch
+):
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(update_expiration_dates, kwargs={"roles": ["root"]})
+    setup_manager.execute_tasks()
+
+    monkeypatch.chdir(tmp_path)
+    update_and_check_commit_shas(
+        OperationType.CLONE,
+        origin_auth_repo,
+        client_dir,
+        expected_repo_type=UpdateType.EITHER,
+    )
+    # python-tuf keeps root versions in its metadata directory, which taf
+    # replaces with an in-memory store
+    assert list(tmp_path.iterdir()) == []
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [{"targets_config": [{"name": "target1"}, {"name": "target2"}]}],
+    indirect=True,
+)
 def test_clone_valid_when_root_version_skipped(origin_auth_repo, client_dir):
     setup_manager = SetupManager(origin_auth_repo)
     setup_manager.add_task(

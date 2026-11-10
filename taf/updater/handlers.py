@@ -75,9 +75,10 @@ class GitUpdater(FetcherInterface):
 
     @property
     def metadata_dir(self) -> str:
-        # the updater keeps metadata in memory (see metadata_store); this only
-        # satisfies the TUF Updater constructor, which stores but never uses it
-        return ""
+        # the updater keeps metadata in memory (see metadata_store), so this
+        # folder is never created. The TUF updater still looks for newer root
+        # versions in it, which must not be found so that they are read from git.
+        return str(self.validation_auth_repo.path.parent / "tuf_metadata")
 
     @property
     def targets_dir(self) -> str:
