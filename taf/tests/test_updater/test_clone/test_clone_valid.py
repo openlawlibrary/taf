@@ -1,6 +1,12 @@
+import os
+import shutil
+import subprocess
+
 import pytest
 from click.testing import CliRunner
 
+from taf.auth_repo import AuthenticationRepository
+from taf.git import GitRepository
 from taf.tools.cli.taf import taf
 from taf.tests.test_updater.conftest import (
     SetupManager,
@@ -20,6 +26,7 @@ from taf.tests.test_updater.conftest import (
 )
 from taf.tests.test_updater.update_utils import (
     clone_client_target_repos_without_updater,
+    clone_repositories,
     update_and_check_commit_shas,
     verify_repos_exist,
     verify_excluded_lvc_entries,
@@ -82,6 +89,44 @@ def test_clone_valid_from_cli_without_path(origin_auth_repo, client_dir):
     assert result.exit_code == 0, result.output
     assert (client_dir / origin_auth_repo.name).is_dir()
     verify_repos_exist(client_dir, origin_auth_repo)
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        },
+    ],
+    indirect=True,
+)
+def test_clone_valid_pre_push_hook_runs_without_taf_on_path(
+    origin_auth_repo, client_dir, tmp_path
+):
+    clone_repositories(origin_auth_repo, client_dir)
+    client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
+    (client_auth_repo.path / "README.md").write_text("pre-push hook test")
+    commit = client_auth_repo.commit("Add README")
+    remote = GitRepository(path=tmp_path / "remote.git")
+    remote.clone_from_disk(origin_auth_repo.path, is_bare=True)
+
+    path = os.pathsep.join(
+        folder
+        for folder in os.environ["PATH"].split(os.pathsep)
+        if not shutil.which("taf", path=folder)
+    )
+    assert shutil.which("git", path=path)
+    result = subprocess.run(
+        ["git", "push", str(remote.path), client_auth_repo.default_branch],
+        cwd=client_auth_repo.path,
+        env={**os.environ, "PATH": path},
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "Starting validation" in result.stdout + result.stderr
+    assert remote.top_commit_of_branch(client_auth_repo.default_branch) == commit
 
 
 @pytest.mark.parametrize(
