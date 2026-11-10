@@ -26,7 +26,9 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
-- Run the pre-push hook with the taf that installed it, so pushing works when taf is not on `PATH`
+- Run the pre-push hook with the taf that installed it, so pushing works when taf is not on `PATH` ([837])
+
+[837]: https://github.com/openlawlibrary/taf/pull/837
 
 
 ## [0.42.1]
