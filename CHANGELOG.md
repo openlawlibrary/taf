@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Show the real error when an update fails on an invalid remote URL or local `repositories.json`
+
 
 ## [0.42.2]
 

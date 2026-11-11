@@ -591,45 +591,57 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
     def set_users_auth_repo(self):
         settings.update_from_filesystem = self.update_from_filesystem
         self.state.existing_repo = False
-        if self.auth_path:
-            self.state.users_auth_repo = AuthenticationRepository(
-                path=self.auth_path, urls=self.urls
-            )
-            self.state.auth_repo_name = self.state.users_auth_repo.name
-            if self.state.users_auth_repo.is_git_repository_root:
-                self.state.existing_repo = True
+        try:
+            if self.auth_path:
+                self.state.users_auth_repo = AuthenticationRepository(
+                    path=self.auth_path, urls=self.urls
+                )
+                self.state.auth_repo_name = self.state.users_auth_repo.name
+                if self.state.users_auth_repo.is_git_repository_root:
+                    self.state.existing_repo = True
+        except Exception as e:
+            self.state.errors.append(e)
+            self.state.event = Event.FAILED
+            return UpdateStatus.FAILED
 
     def set_existing_target_repositories(self):
         taf_logger.debug(
             f"{self.state.auth_repo_name}: Checking which repositories are already on disk..."
         )
         self.state.repos_on_disk = {}
-        if self.state.users_auth_repo is not None:
-            if self.state.users_auth_repo.is_git_repository_root:
-                # load target repositories in order to check if they are clean or synced
-                # after updating the authentication repotiory, we need to load them again
-                # since repositories.json could've changed
-                repositoriesdb.load_repositories(
-                    self.state.users_auth_repo,
-                    library_dir=self.library_dir,
-                    only_load_targets=True,
-                    exclude_filter=self.exclude_filter,
-                    raise_error_if_no_urls=True,
-                )
-                target_repositories = repositoriesdb.get_deduplicated_repositories(
-                    self.state.users_auth_repo,
-                    exclude_filter=self.exclude_filter,
-                    raise_error_if_no_urls=True,
-                )
-                self.state.repos_on_disk = {
-                    target_repo.name: target_repo
-                    for target_repo in target_repositories.values()
-                    if target_repo.is_git_repository_root
-                }
-                # scoped to this repo only - dependencies run their own
-                # pipelines at the same time, and a full clear here could wipe
-                # another one's data while it's still using it
-                repositoriesdb.clear_repositories_db(self.state.users_auth_repo.path)
+        try:
+            if self.state.users_auth_repo is not None:
+                if self.state.users_auth_repo.is_git_repository_root:
+                    # load target repositories in order to check if they are clean or synced
+                    # after updating the authentication repotiory, we need to load them again
+                    # since repositories.json could've changed
+                    repositoriesdb.load_repositories(
+                        self.state.users_auth_repo,
+                        library_dir=self.library_dir,
+                        only_load_targets=True,
+                        exclude_filter=self.exclude_filter,
+                        raise_error_if_no_urls=True,
+                    )
+                    target_repositories = repositoriesdb.get_deduplicated_repositories(
+                        self.state.users_auth_repo,
+                        exclude_filter=self.exclude_filter,
+                        raise_error_if_no_urls=True,
+                    )
+                    self.state.repos_on_disk = {
+                        target_repo.name: target_repo
+                        for target_repo in target_repositories.values()
+                        if target_repo.is_git_repository_root
+                    }
+                    # scoped to this repo only - dependencies run their own
+                    # pipelines at the same time, and a full clear here could wipe
+                    # another one's data while it's still using it
+                    repositoriesdb.clear_repositories_db(
+                        self.state.users_auth_repo.path
+                    )
+        except Exception as e:
+            self.state.errors.append(e)
+            self.state.event = Event.FAILED
+            return UpdateStatus.FAILED
         return UpdateStatus.SUCCESS
 
     def _get_last_validated_commit(self, repo_name) -> Commitish:
