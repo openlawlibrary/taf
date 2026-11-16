@@ -2,6 +2,7 @@ import atexit
 import platform
 import click
 import errno
+import hashlib
 import datetime
 import time
 import json
@@ -17,7 +18,6 @@ import sys
 
 from concurrent.futures import ThreadPoolExecutor
 
-from io import BytesIO
 from getpass import getpass
 from functools import wraps
 from pathlib import Path
@@ -32,7 +32,6 @@ from taf.log import taf_logger
 import taf.settings
 from taf.exceptions import ExecutableNotFoundError, PINMissmatchError
 from typing import List, Optional, Tuple, Dict
-from securesystemslib.hash import digest_fileobject
 from securesystemslib.storage import FilesystemBackend, StorageBackendInterface
 
 
@@ -475,17 +474,12 @@ def get_file_details(
     file_length = os.path.getsize(filepath)
 
     # Getting the file hashes
-    file_hashes = {}
     with storage_backend.get(filepath) as fileobj:
-        original_content = fileobj.read()
-        normalized_content = normalize_line_endings(original_content)
-        fileobj = BytesIO(normalized_content)
-        for algorithm in hash_algorithms:
-            digest_object = digest_fileobject(fileobj, algorithm)
-            file_hashes.update({algorithm: digest_object.hexdigest()})
-            fileobj.seek(
-                0
-            )  # Reset file object position after reading for the next hash
+        normalized_content = normalize_line_endings(fileobj.read())
+    file_hashes = {
+        algorithm: hashlib.new(algorithm, normalized_content).hexdigest()
+        for algorithm in hash_algorithms
+    }
 
     return file_length, file_hashes
 
