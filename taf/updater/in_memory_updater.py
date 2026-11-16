@@ -44,10 +44,12 @@ class InMemoryUpdater(Updater):
 
     Only the private methods that read or write the local metadata directory
     are overridden; all verification runs through unmodified python-tuf.
-    python-tuf's ``_load_root`` also looks for newer root versions in
-    ``<metadata_dir>/root_history`` before downloading them, so
-    ``GitUpdater.metadata_dir`` points to a folder that never exists and every
-    new root is read from git. ``test_in_memory_updater`` covers the
+    python-tuf 6+ keeps every trusted root in ``<metadata_dir>/root_history``
+    and checks it before downloading newer roots. taf does not need this, as
+    roots are kept in memory and read from git, so ``_persist_root`` and
+    ``_update_root_symlink`` are overridden and ``GitUpdater.metadata_dir``
+    never exists: a root found there would be used instead of the commit's.
+    ``test_in_memory_updater`` covers the
     store mechanics and the private-API guard, and the full ``test_updater``
     suite exercises real clone/update validation through this path. In
     ``--strict`` mode the store is additionally cross-checked against the
@@ -84,13 +86,14 @@ class InMemoryUpdater(Updater):
         self._metadata_store[parse.quote(rolename, "")] = data
 
     def _persist_root(self, version: int, data: bytes) -> None:
-        # python-tuf keeps every root version on disk, but only the newest
-        # trusted root is needed to verify the next commit
+        # tuf saves root to root_history/<version>.root.json instead of through
+        # _persist_metadata; store it under the root key, where the next commit
+        # loads it from
         self._persist_metadata(Root.type, data)
 
     def _update_root_symlink(self) -> None:
-        # python-tuf links root.json to the newest saved root version, which
-        # _persist_root already stored under the root key
+        # tuf links root.json to the newest file in root_history; nothing is
+        # saved on disk, so there is nothing to link
         pass
 
     def load_all_targets_roles(self) -> None:
