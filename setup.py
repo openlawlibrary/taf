@@ -15,7 +15,7 @@ packages = find_packages()
 
 ci_require = [
     "bandit>=1.6.0",
-    "black==26.3.1",
+    "black==26.10.1",
     "coverage==4.5.3",
     "pre-commit>=1.18.3",
     "pytest-cov==2.7.1",
@@ -24,7 +24,7 @@ ci_require = [
 
 executable_require = ["lxml"]
 
-dev_require = ["bandit>=1.6.0", "black==26.3.1", "pre-commit>=1.18.3"]
+dev_require = ["bandit>=1.6.0", "black==26.10.1", "pre-commit>=1.18.3"]
 
 tests_require = [
     "pytest==8.*",
@@ -62,7 +62,7 @@ kwargs = {
         "tuf==7.*",
         "requests==2.*",
         "cryptography==43.0.*",
-        "securesystemslib==1.4.*",
+        "securesystemslib==1.6.*",
         "loguru==0.7.*",
         'pygit2==1.9.*; python_version < "3.11"',
         'pygit2==1.16.*; python_version >= "3.11"',
