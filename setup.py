@@ -55,6 +55,7 @@ kwargs = {
     "include_package_data": True,
     "data_files": [("lib/site-packages/taf", ["./LICENSE.md", "./README.md"])],
     "zip_safe": False,
+    "python_requires": ">=3.10",
     "install_requires": [
         "cattrs>=23.1.2",
         "click==8.*",
