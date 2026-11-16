@@ -141,11 +141,15 @@ jobs:
           ref: master
           path: master
 
+      # master gets its own virtualenv, since its code may not work with
+      # this branch's dependencies
       - name: Run master's benchmark tests
         working-directory: master
-        env:
-          PYTHONPATH: ${{ github.workspace }}/master
-        run: pytest taf/tests/test_updater -o python_files='benchmark_*.py' --benchmark-storage="$BENCHMARK_STORAGE" --benchmark-save=master
+        run: |
+          python -m venv ../master-venv
+          ../master-venv/bin/pip install --upgrade pip setuptools wheel
+          ../master-venv/bin/pip install -e .[test]
+          ../master-venv/bin/pytest taf/tests/test_updater -o python_files='benchmark_*.py' --benchmark-storage="$BENCHMARK_STORAGE" --benchmark-save=master
 
       - name: Run benchmark tests
         env:
