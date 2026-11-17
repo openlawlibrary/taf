@@ -93,43 +93,17 @@ def new_public_key_cmd_prompt() -> SSlibKey:
             return key
 
 
-def load_signer_from_private_keystore(
-    keystore: str,
-    key_name: str,
-    password: Optional[str] = None,
-) -> CryptoSigner:
+def load_signer_from_private_keystore(keystore: str, key_name: str) -> CryptoSigner:
     key_path = Path(keystore, key_name).expanduser().resolve()
     if not key_path.is_file():
         raise KeystoreError(f"{str(key_path)} does not exist")
 
-    def _read_key(path, password):
-        def _read_key_or_keystore_error(path, password):
-            try:
-                return load_signer_from_file(path, password or None)
-            except TypeError:
-                raise
-            except Exception as e:
-                raise KeystoreError(e)
-
-        try:
-            # try to load with a given password or None
-            return _read_key_or_keystore_error(path, password)
-        except TypeError:
-            password = getpass(
-                f"Enter {key_name} keystore file password and press ENTER"
-            )
-            try:
-                return _read_key_or_keystore_error(path, password)
-            except Exception:
-                return None
-        except Exception:
-            return None
-
     while True:
-        signer = _read_key(key_path, password)
-        if signer is not None:
-            return signer
-        if not click.confirm(f"Could not open keystore file {key_path}. Try again?"):
+        try:
+            return load_signer_from_file(key_path)
+        except Exception as e:
+            print(f"Could not open keystore file {key_path}: {e}")
+        if not click.confirm("Try again?"):
             raise KeystoreError(f"Could not open keystore file {key_path}")
 
 

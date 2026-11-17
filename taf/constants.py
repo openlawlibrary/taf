@@ -1,6 +1,5 @@
 import attrs
 import datetime
-from typing import List, Optional
 
 TARGETS_DIRECTORY_NAME = "targets"
 METADATA_DIRECTORY_NAME = "metadata"
@@ -22,7 +21,6 @@ class RoleSetupParams:
     yubikey: bool = attrs.field(default=False)
     scheme: str = attrs.field(default=DEFAULT_RSA_SIGNATURE_SCHEME)
     length: int = attrs.field(default=3072)
-    passwords: Optional[List[str]] = attrs.field(default=None)
     terminating: bool = attrs.field(default=True)
 
     def __getitem__(self, key):

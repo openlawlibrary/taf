@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Removed
 
+- Password-protected keystore files
+
 ### Fixed
 
 - Fix generating a key that is not written to the keystore

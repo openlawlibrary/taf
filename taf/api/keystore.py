@@ -16,13 +16,12 @@ from taf.tuf.keys import generate_and_write_rsa_keypair, generate_rsa_keypair
 
 @log_on_start(INFO, "Generating '{key_path:s}'", logger=taf_logger)
 @log_on_end(INFO, "Generated '{key_path:s}", logger=taf_logger)
-def _generate_rsa_key(key_path: str, password: str, bits: Optional[int] = None) -> None:
+def _generate_rsa_key(key_path: str, bits: Optional[int] = None) -> None:
     """
     Generate public and private key
 
     Arguments:
         key_path (optional): The path to write the private key to.
-        password (optional): An encryption password.
         bits (optional): The number of bits of the generated RSA key.
 
     Raises:
@@ -38,7 +37,7 @@ def _generate_rsa_key(key_path: str, password: str, bits: Optional[int] = None) 
         None
     """
     try:
-        generate_and_write_rsa_keypair(path=key_path, key_size=bits, password=password)
+        generate_and_write_rsa_keypair(path=key_path, key_size=bits)
         taf_logger.log("NOTICE", f"Generated key {key_path}")
     except Exception:
         taf_logger.error(f"An error occurred while generating rsa key {key_path}")
@@ -90,11 +89,8 @@ def generate_keys(
             for key_num in range(role.number):
                 key_name = get_key_name(role.name, key_num, role.number)
                 if keystore is not None:
-                    password = input(
-                        f"Enter {key_name} keystore password and press ENTER (can be left empty)"
-                    )
                     key_path = str(Path(keystore, key_name))
-                    _generate_rsa_key(key_path, password, role.length)
+                    _generate_rsa_key(key_path, role.length)
                 else:
                     rsa_key, _ = generate_rsa_keypair(role.length)
                     print(f"{role.name} key:\n\n{rsa_key.decode()}\n\n")

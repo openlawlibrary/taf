@@ -28,7 +28,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from taf.constants import DEFAULT_ECDSA_SIGNATURE_SCHEME, DEFAULT_RSA_SIGNATURE_SCHEME
 
 
-def generate_rsa_keypair(key_size=3072, password=None) -> Tuple[bytes, bytes]:
+def generate_rsa_keypair(key_size=3072) -> Tuple[bytes, bytes]:
     """
     Generate a private-public key pair. Returns the generated keys as bytes in PEM format..
     """
@@ -36,17 +36,11 @@ def generate_rsa_keypair(key_size=3072, password=None) -> Tuple[bytes, bytes]:
         public_exponent=65537, key_size=key_size, backend=default_backend()
     )
 
-    # Encrypt the private key if a password is provided
-    if password:
-        encryption_algorithm = serialization.BestAvailableEncryption(password.encode())
-    else:
-        encryption_algorithm = serialization.NoEncryption()
-
     # Serialize private key
     private_pem = private_key.private_bytes(
         encoding=serialization.Encoding.PEM,
         format=serialization.PrivateFormat.TraditionalOpenSSL,
-        encryption_algorithm=encryption_algorithm,
+        encryption_algorithm=serialization.NoEncryption(),
     )
 
     # Get the public key from the private key
@@ -60,14 +54,12 @@ def generate_rsa_keypair(key_size=3072, password=None) -> Tuple[bytes, bytes]:
     return private_pem, public_pem
 
 
-def generate_and_write_rsa_keypair(path, key_size, password) -> bytes:
+def generate_and_write_rsa_keypair(path, key_size) -> bytes:
     """
     Generate a private-public key pair and write and save it to files.
     Returns the private key in PEM format.
     """
-    if not password:
-        password = None
-    private_pem, public_pem = generate_rsa_keypair(key_size, password)
+    private_pem, public_pem = generate_rsa_keypair(key_size)
 
     with open(path, "wb") as f:
         f.write(private_pem)
@@ -157,27 +149,24 @@ def load_public_key_from_file(path: Union[str, Path]) -> SSlibKey:
     return _from_crypto(pub)
 
 
-def load_signer_from_file(path: Path, password: Optional[str] = None) -> CryptoSigner:
+def load_signer_from_file(path: Path) -> CryptoSigner:
     """Load CryptoSigner from a private key file.
 
     * Expected key file format is PKCS8/PEM
     * Signing scheme is detected from the key material (RSA or ECDSA P-256)
     * Keyid is computed from legacy canonical representation of public key
-    * If password is None, the key is expected to be unencrypted
+    * The key is expected to be unencrypted
 
     """
     with open(path, "rb") as f:
         pem = f.read()
 
-    password_encoded = password.encode() if password is not None else None
-    priv = load_pem_private_key(pem, password_encoded)
+    priv = load_pem_private_key(pem, None)
     pub = priv.public_key()
     return CryptoSigner(priv, _from_crypto(pub))
 
 
-def load_signer_from_pem(
-    pem: bytes, password: Optional[bytes] = None, scheme: Optional[str] = None
-) -> CryptoSigner:
+def load_signer_from_pem(pem: bytes, scheme: Optional[str] = None) -> CryptoSigner:
     """Load CryptoSigner from a private key in PEM format.
 
     * Expected key file format is PKCS8/PEM
@@ -186,10 +175,10 @@ def load_signer_from_pem(
       the sub-scheme (e.g. rsassa-pss-sha256) can't be inferred from the
       key bytes alone
     * Keyid is computed from legacy canonical representation of public key
-    * If password is None, the key is expected to be unencrypted
+    * The key is expected to be unencrypted
 
     """
-    priv = load_pem_private_key(pem, password)
+    priv = load_pem_private_key(pem, None)
     pub = priv.public_key()
     return CryptoSigner(priv, _from_crypto(pub, scheme))
 

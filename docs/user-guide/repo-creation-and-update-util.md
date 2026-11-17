@@ -177,7 +177,7 @@ about the commands. E.g. `taf repo create --help`.
 ### `keystore generate`
 
 Generates and write rsa keypairs. Number of keys to generate per a metadata role, as well as their
-lengths and passwords of the keystore files are specified using the `keys-description` parameter.
+lengths are specified using the `keys-description` parameter.
 
 ```bash
 taf keystore generate E:\\OLL\\keystore_path  E:\\OLL\\data\\keys_description.json

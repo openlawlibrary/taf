@@ -90,12 +90,12 @@ def get_cert_names_from_keyids(certs_dir, keyids):
     return cert_names
 
 
-def get_key_size(key_pem_path, decrypt_pwd=None):
+def get_key_size(key_pem_path):
     try:
         key = load_pem_public_key(Path(key_pem_path).read_bytes(), default_backend())
     except ValueError:
         key = load_pem_private_key(
-            Path(key_pem_path).read_bytes(), decrypt_pwd, default_backend()
+            Path(key_pem_path).read_bytes(), None, default_backend()
         )
     except Exception:
         return 0

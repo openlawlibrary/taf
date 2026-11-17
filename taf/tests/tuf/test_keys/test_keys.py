@@ -30,7 +30,7 @@ def test_keys(tuf_repo, keystore_delegations):
         assert public_key.scheme == "rsa-pkcs1v15-sha256"
         assert public_key.keyid in root.signed.keys
 
-        signer = load_signer_from_file(keystore_delegations / name, None)
+        signer = load_signer_from_file(keystore_delegations / name)
 
         # assert public key loaded from disk matches public key derived
         # from private key loaded from disk

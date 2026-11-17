@@ -29,8 +29,7 @@ def generate_keys_command():
             "keystore": "keystore_path"
         }
 
-        Default number of keys and threshold are 1 and length is 3072. Passwords of the keystore
-        files are entered when the keys are generated.
+        Default number of keys and threshold are 1 and length is 3072.
         If keystore location is specified through the keystore input parameter and not listed
         in keys-description dictionary, keys will be saved to ./keystore"""
     )

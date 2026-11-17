@@ -441,7 +441,6 @@ def setup_roles_keys(
                 key_name,
                 role.scheme or default_params["scheme"],
                 role.length or default_params["length"],
-                None,
                 skip_prompt=skip_prompt,
             )
             keystore_signers.append(signer)
@@ -556,7 +555,6 @@ def _setup_keystore_key(
     key_name: str,
     scheme: str,
     length: int,
-    password: Optional[str],
     skip_prompt: Optional[bool],
 ) -> Tuple[CryptoSigner, str]:
     generate_new_keys = keystore is None
@@ -573,11 +571,7 @@ def _setup_keystore_key(
         keystore_path = str(Path(keystore).expanduser().resolve())
         while signer is None:
             try:
-                signer = load_signer_from_private_keystore(
-                    keystore_path,
-                    key_name,
-                    password=password,
-                )
+                signer = load_signer_from_private_keystore(keystore_path, key_name)
             except KeystoreError:
                 _invalid_key_message(key_name, keystore)
 
@@ -604,12 +598,8 @@ def _setup_keystore_key(
         if keystore is not None and (
             skip_prompt or click.confirm("Write keys to keystore files?")
         ):
-            if password is None and not skip_prompt:
-                password = input(
-                    "Enter keystore password and press ENTER (can be left empty)"
-                )
             private_pem = generate_and_write_rsa_keypair(
-                path=Path(keystore, key_name), key_size=length, password=password
+                path=Path(keystore, key_name), key_size=length
             )
             signer = load_signer_from_pem(private_pem, scheme=scheme)
         else:
