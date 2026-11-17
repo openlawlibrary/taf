@@ -372,13 +372,11 @@ def _pin_from_keys_mapping(public_key: SSlibKey, mapping: dict) -> Optional[str]
 
 
 @raise_yubikey_err("Cannot get public key in TUF format.")
-def get_piv_public_key_tuf(
-    scheme=DEFAULT_RSA_SIGNATURE_SCHEME, serial=None
-) -> SSlibKey:
+def get_piv_public_key_tuf(scheme=None, serial=None) -> SSlibKey:
     """Return public key from a Yubikey in TUF's RSAKEY_SCHEMA format.
 
     Args:
-        - scheme(str): Rsa signature scheme (default is rsa-pkcs1v15-sha256)
+        - scheme(str): Signature scheme, detected from the key if not given
         - pub_key_pem(str): Match Yubikey's public key (PEM) if multiple keys
                             are inserted
 
@@ -396,7 +394,7 @@ def get_piv_public_key_tuf(
 
 
 @raise_yubikey_err("Cannot get public keys in TUF format.")
-def get_piv_public_keys_tuf(scheme=DEFAULT_RSA_SIGNATURE_SCHEME, serial=None) -> dict:
+def get_piv_public_keys_tuf(scheme=None, serial=None) -> dict:
     """Return the public key of every occupied PIV slot on a YubiKey, in
     TUF's key format.
 

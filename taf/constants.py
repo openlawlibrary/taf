@@ -1,5 +1,6 @@
 import attrs
 import datetime
+from typing import Optional
 
 TARGETS_DIRECTORY_NAME = "targets"
 METADATA_DIRECTORY_NAME = "metadata"
@@ -19,7 +20,7 @@ class RoleSetupParams:
     number: int = attrs.field(default=1)
     threshold: int = attrs.field(default=1)
     yubikey: bool = attrs.field(default=False)
-    scheme: str = attrs.field(default=DEFAULT_RSA_SIGNATURE_SCHEME)
+    scheme: Optional[str] = attrs.field(default=None)
     length: int = attrs.field(default=3072)
     terminating: bool = attrs.field(default=True)
 

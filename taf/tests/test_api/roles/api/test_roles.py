@@ -64,6 +64,7 @@ def test_add_role_when_delegated_role_is_parent(
         threshold=1,
         yubikey=False,
         keystore=roles_keystore,
+        scheme="rsa-pkcs1v15-sha256",
         push=False,
         skip_prompt=True,
     )
@@ -138,7 +139,11 @@ def test_add_multiple_roles_when_parent_is_not_specified(
         path=str(auth_repo.path),
         pin_manager=pin_manager,
         keystore=roles_keystore,
-        roles_key_infos={"roles": {"new_role": {"paths": ["new-path"]}}},
+        roles_key_infos={
+            "roles": {
+                "new_role": {"paths": ["new-path"], "scheme": "rsa-pkcs1v15-sha256"}
+            }
+        },
         push=False,
     )
     assert "new_role" in auth_repo.get_all_targets_roles()
@@ -162,8 +167,13 @@ def test_add_multiple_roles_when_parent_is_a_new_role(
                 "new_inner_role": {
                     "parent_role": "new_role",
                     "paths": ["new-path/inner"],
+                    "scheme": "rsa-pkcs1v15-sha256",
                 },
-                "new_role": {"parent_role": "targets", "paths": ["new-path"]},
+                "new_role": {
+                    "parent_role": "targets",
+                    "paths": ["new-path"],
+                    "scheme": "rsa-pkcs1v15-sha256",
+                },
             }
         },
         push=False,

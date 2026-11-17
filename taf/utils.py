@@ -23,6 +23,7 @@ from functools import wraps
 from pathlib import Path
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey, RSAPublicKey
 from cryptography.hazmat.primitives.serialization import (
     load_pem_public_key,
     load_pem_private_key,
@@ -91,6 +92,7 @@ def get_cert_names_from_keyids(certs_dir, keyids):
 
 
 def get_key_size(key_pem_path):
+    """Return the size of an RSA key file in bits, or 0 for other key types"""
     try:
         key = load_pem_public_key(Path(key_pem_path).read_bytes(), default_backend())
     except ValueError:
@@ -100,6 +102,8 @@ def get_key_size(key_pem_path):
     except Exception:
         return 0
 
+    if not isinstance(key, (RSAPublicKey, RSAPrivateKey)):
+        return 0
     return key.key_size
 
 

@@ -17,24 +17,23 @@ def _check_yubikeys(roles_keys_data: RolesKeysData):
         assert public.startswith("-----BEGIN PUBLIC KEY-----")
 
 
-def _check_main_roles(roles_keys_data: RolesKeysData):
+def _check_main_roles(roles_keys_data: RolesKeysData, json_input: Dict):
+    for role in ("root", "targets", "snapshot", "timestamp"):
+        expected_scheme = json_input["roles"][role].get("scheme")
+        assert getattr(roles_keys_data.roles, role).scheme == expected_scheme
 
     assert roles_keys_data.roles.root.number == 3
     assert roles_keys_data.roles.root.threshold == 2
-    assert roles_keys_data.roles.root.scheme == "rsa-pkcs1v15-sha256"
 
     assert roles_keys_data.roles.targets.number == 2
     assert roles_keys_data.roles.targets.threshold == 1
-    assert roles_keys_data.roles.targets.scheme == "rsa-pkcs1v15-sha256"
 
     assert roles_keys_data.roles.snapshot.number == 1
     assert roles_keys_data.roles.snapshot.threshold == 1
-    assert roles_keys_data.roles.snapshot.scheme == "rsa-pkcs1v15-sha256"
     assert roles_keys_data.roles.snapshot.is_yubikey is False
 
     assert roles_keys_data.roles.timestamp.number == 1
     assert roles_keys_data.roles.timestamp.threshold == 1
-    assert roles_keys_data.roles.timestamp.scheme == "rsa-pkcs1v15-sha256"
     assert roles_keys_data.roles.timestamp.is_yubikey is False
 
 
@@ -43,7 +42,7 @@ def test_no_delegations(no_delegations_json_input: Dict):
     assert roles_keys_data
     assert isinstance(roles_keys_data, RolesKeysData)
     _check_yubikeys(roles_keys_data)
-    _check_main_roles(roles_keys_data)
+    _check_main_roles(roles_keys_data, no_delegations_json_input)
     assert roles_keys_data.roles.root.yubikeys == ["user1", "user2", "userYK"]
     assert roles_keys_data.roles.root.is_yubikey is True
     assert roles_keys_data.roles.targets.yubikeys == ["user1", "user2"]
@@ -56,7 +55,7 @@ def test_no_yubikeys(no_yubikeys_json_input: Dict):
     assert roles_keys_data
     assert isinstance(roles_keys_data, RolesKeysData)
     assert roles_keys_data.yubikeys is None
-    _check_main_roles(roles_keys_data)
+    _check_main_roles(roles_keys_data, no_yubikeys_json_input)
     assert roles_keys_data.roles.root.is_yubikey is False
     assert roles_keys_data.roles.targets.is_yubikey is False
     assert roles_keys_data.roles.targets.delegations == {}
@@ -67,7 +66,7 @@ def test_old_yubikey(with_old_yubikey_input: Dict):
     assert roles_keys_data
     assert isinstance(roles_keys_data, RolesKeysData)
     assert roles_keys_data.yubikeys is None
-    _check_main_roles(roles_keys_data)
+    _check_main_roles(roles_keys_data, with_old_yubikey_input)
     assert roles_keys_data.roles.root.is_yubikey is True
     assert roles_keys_data.roles.targets.is_yubikey is True
     assert roles_keys_data.roles.targets.delegations == {}
@@ -78,7 +77,7 @@ def test_with_delegations_delegations(with_delegations_json_input: Dict):
     assert roles_keys_data
     assert isinstance(roles_keys_data, RolesKeysData)
     _check_yubikeys(roles_keys_data)
-    _check_main_roles(roles_keys_data)
+    _check_main_roles(roles_keys_data, with_delegations_json_input)
     assert roles_keys_data.roles.root.yubikeys == ["user1", "user2", "userYK"]
     assert roles_keys_data.roles.root.is_yubikey is True
     assert roles_keys_data.roles.targets.yubikeys == ["user1", "user2"]

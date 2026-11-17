@@ -9,9 +9,12 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Read and generate ECDSA (P-256, P-384, P-521) and Ed25519 keys, not only RSA
+
 ### Changed
 
 - Upgrade to python-tuf 7 and securesystemslib 1.6 ([838])
+- Generating a key needs a signing scheme; the scheme of an existing key is detected from the key
 
 ### Removed
 
@@ -21,6 +24,7 @@ and this project adheres to [Semantic Versioning][semver].
 ### Fixed
 
 - Fix generating a key that is not written to the keystore
+- Show errors of `taf keystore generate`
 
 [838]: https://github.com/openlawlibrary/taf/pull/838
 

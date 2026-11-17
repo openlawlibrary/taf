@@ -310,9 +310,9 @@ def test_get_key_length_and_scheme_from_metadata(tuf_repo_with_delegations):
     actual = tuf_repo_with_delegations.get_key_length_and_scheme_from_metadata(
         "root", keyid
     )
-    pem, key, scheme = actual
-    assert pem is not None
-    assert key is not None
+    length, public_key, scheme = actual
+    assert length == 3072
+    assert public_key is not None
     assert scheme == "rsa-pkcs1v15-sha256"
 
 

@@ -6,6 +6,10 @@ from urllib import parse
 
 from pathlib import Path
 from securesystemslib.signer import (
+    KEY_FOR_TYPE_AND_SCHEME,
+    KEY_TYPE_ECDSA,
+    KEY_TYPE_ED25519,
+    KEY_TYPE_RSA,
     SIGNER_FOR_URI_SCHEME,
     SSlibKey,
     CryptoSigner,
@@ -18,50 +22,54 @@ from cryptography.hazmat.primitives.serialization import (
     load_pem_private_key,
     load_pem_public_key,
 )
-from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
-from cryptography.hazmat.primitives.asymmetric.ec import (
-    EllipticCurvePublicKey,
-    SECP256R1,
-)
+from cryptography.hazmat.primitives.asymmetric.types import PublicKeyTypes
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import rsa
 
-from taf.constants import DEFAULT_ECDSA_SIGNATURE_SCHEME, DEFAULT_RSA_SIGNATURE_SCHEME
+from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 
 
-def generate_rsa_keypair(key_size=3072) -> Tuple[bytes, bytes]:
+def generate_keypair(scheme: str, rsa_key_size: int = 3072) -> Tuple[bytes, bytes]:
     """
-    Generate a private-public key pair. Returns the generated keys as bytes in PEM format..
+    Generate a private and public key for the signing scheme, both in PEM
+    format. securesystemslib generates the key and the scheme decides its
+    type. rsa_key_size is only used for RSA keys.
     """
-    private_key = rsa.generate_private_key(
-        public_exponent=65537, key_size=key_size, backend=default_backend()
-    )
+    if not scheme:
+        raise ValueError("A signing scheme is needed to generate a key")
+    keytypes = {
+        keytype
+        for (keytype, key_scheme), key_class in KEY_FOR_TYPE_AND_SCHEME.items()
+        if key_scheme == scheme and key_class is SSlibKey
+    }
+    signer: CryptoSigner
+    if KEY_TYPE_RSA in keytypes:
+        signer = CryptoSigner.generate_rsa(scheme=scheme, size=rsa_key_size)
+    elif KEY_TYPE_ECDSA in keytypes:
+        signer = CryptoSigner.generate_ecdsa(scheme=scheme)
+    elif KEY_TYPE_ED25519 in keytypes:
+        signer = CryptoSigner.generate_ed25519()
+    else:
+        raise ValueError(f"cannot generate a key for scheme '{scheme}'")
 
-    # Serialize private key
-    private_pem = private_key.private_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PrivateFormat.TraditionalOpenSSL,
-        encryption_algorithm=serialization.NoEncryption(),
+    private_pem = signer.private_bytes
+    public_pem = (
+        load_pem_private_key(private_pem, None)
+        .public_key()
+        .public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo,
+        )
     )
-
-    # Get the public key from the private key
-    public_key = private_key.public_key()
-    # Serialize public key
-    public_pem = public_key.public_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PublicFormat.SubjectPublicKeyInfo,
-    )
-
     return private_pem, public_pem
 
 
-def generate_and_write_rsa_keypair(path, key_size) -> bytes:
+def generate_and_write_keypair(path, scheme: str, rsa_key_size: int = 3072) -> bytes:
     """
-    Generate a private-public key pair and write and save it to files.
-    Returns the private key in PEM format.
+    Generate a private and public key for the signing scheme and write them to
+    path and path.pub. Returns the private key in PEM format.
     """
-    private_pem, public_pem = generate_rsa_keypair(key_size)
+    private_pem, public_pem = generate_keypair(scheme, rsa_key_size)
 
     with open(path, "wb") as f:
         f.write(private_pem)
@@ -70,6 +78,13 @@ def generate_and_write_rsa_keypair(path, key_size) -> bytes:
         f.write(public_pem)
 
     return private_pem
+
+
+def get_rsa_key_size(key: SSlibKey) -> Optional[int]:
+    """Return the size of an RSA key in bits, or None for other key types"""
+    if key.keytype != KEY_TYPE_RSA:
+        return None
+    return load_pem_public_key(key.keyval["public"].encode()).key_size  # type: ignore
 
 
 def get_sslib_key_from_value(key: str, scheme: Optional[str] = None) -> SSlibKey:
@@ -95,39 +110,27 @@ def _get_legacy_keyid(key: SSlibKey) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def _from_crypto(
-    pub: Union[RSAPublicKey, EllipticCurvePublicKey],
-    scheme: Optional[str] = None,
-) -> SSlibKey:
-    """Converts pyca/cryptography public key to SSlibKey with default signing
-    scheme and legacy keyid.
+def _from_crypto(pub: PublicKeyTypes, scheme: Optional[str] = None) -> SSlibKey:
+    """Converts pyca/cryptography public key to SSlibKey with legacy keyid.
 
-    Detects the key's actual type (RSA or ECDSA P-256) from the key material
-    itself, so callers that pass scheme=None because they don't know ahead
-    of time what type of key they're about to load (e.g. reading a
-    YubiKey's public key) still get back a correctly scheme-tagged key
-    when it turns out to be an EC key. RSA callers that need a specific
-    sub-scheme (e.g. rsassa-pss-sha256) can still request one explicitly,
-    since that can't be inferred from the key bytes alone.
+    securesystemslib detects the key type and its default scheme. RSA keys can
+    use several schemes and default to rsa-pkcs1v15-sha256, so that keyids of
+    existing RSA keys stay the same. Other key types have only one scheme.
     """
-    # securesystemslib does not (yet) check if keytype and scheme are compatible
-    # https://github.com/secure-systems-lab/securesystemslib/issues/766
-    if isinstance(pub, RSAPublicKey):
+    key = SSlibKey.from_crypto(pub)
+    # securesystemslib does not check if keytype and scheme are compatible
+    if key.keytype == KEY_TYPE_RSA:
         scheme = scheme or DEFAULT_RSA_SIGNATURE_SCHEME
-    elif isinstance(pub, EllipticCurvePublicKey):
-        # only P-256 is accepted here because securesystemslib.CryptoSigner
-        # (used for signing) only implements ecdsa-sha2-nistp256; sslib's
-        # SSlibKey already supports *verifying* nistp384/nistp521
-        # signatures, so this is a signing-side limitation, not a
-        # fundamental one
-        if not isinstance(pub.curve, SECP256R1):
-            raise ValueError(f"unsupported EC curve '{pub.curve.name}'")
-        if scheme not in (None, DEFAULT_ECDSA_SIGNATURE_SCHEME):
-            raise ValueError(f"scheme '{scheme}' not valid for an ecdsa key")
-        scheme = DEFAULT_ECDSA_SIGNATURE_SCHEME
-    else:
-        raise ValueError(f"keytype '{type(pub)}' not supported")
-    key = SSlibKey.from_crypto(pub, scheme=scheme)
+        rsa_schemes = {
+            rsa_scheme
+            for (keytype, rsa_scheme), key_class in KEY_FOR_TYPE_AND_SCHEME.items()
+            if keytype == KEY_TYPE_RSA and key_class is SSlibKey
+        }
+        if scheme not in rsa_schemes:
+            raise ValueError(f"scheme '{scheme}' not valid for rsa key")
+        key = SSlibKey.from_crypto(pub, scheme=scheme)
+    elif scheme not in (None, key.scheme):
+        raise ValueError(f"scheme '{scheme}' not valid for {key.keytype} key")
     # FIXME: include the 'keyid_hash_algorithms' entry in the key portion
     # for legacy taf support purposes once ready to transition current authentication
     # repositories metadata over to new taf, we can safely remove the field

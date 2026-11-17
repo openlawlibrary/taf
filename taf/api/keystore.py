@@ -11,18 +11,19 @@ from taf.log import taf_logger
 from taf.models.types import RolesIterator
 from taf.models.converter import from_dict
 from taf.exceptions import KeystoreError
-from taf.tuf.keys import generate_and_write_rsa_keypair, generate_rsa_keypair
+from taf.tuf.keys import generate_and_write_keypair, generate_keypair
 
 
 @log_on_start(INFO, "Generating '{key_path:s}'", logger=taf_logger)
 @log_on_end(INFO, "Generated '{key_path:s}", logger=taf_logger)
-def _generate_rsa_key(key_path: str, bits: Optional[int] = None) -> None:
+def _generate_key(key_path: str, scheme: str, bits: int) -> None:
     """
     Generate public and private key
 
     Arguments:
-        key_path (optional): The path to write the private key to.
-        bits (optional): The number of bits of the generated RSA key.
+        key_path: The path to write the private key to.
+        scheme: Signing scheme, which decides the key type.
+        bits: The number of bits of the generated key, if it is an RSA key.
 
     Raises:
         UnsupportedLibraryError: pyca/cryptography is not available.
@@ -37,11 +38,11 @@ def _generate_rsa_key(key_path: str, bits: Optional[int] = None) -> None:
         None
     """
     try:
-        generate_and_write_rsa_keypair(path=key_path, key_size=bits)
+        generate_and_write_keypair(key_path, scheme, bits)
         taf_logger.log("NOTICE", f"Generated key {key_path}")
     except Exception:
-        taf_logger.error(f"An error occurred while generating rsa key {key_path}")
-        raise KeystoreError(f"An error occurred while generating rsa key {key_path}")
+        taf_logger.error(f"An error occurred while generating key {key_path}")
+        raise KeystoreError(f"An error occurred while generating key {key_path}")
 
 
 def generate_keys(
@@ -70,7 +71,6 @@ def generate_keys(
     Raises:
         KeystoreError if an error occurs while initializing the keystore directory or generating a key
     """
-    # TODO handle scheme
     if keystore is None:
         taf_directory = find_taf_directory(Path())
         if taf_directory:
@@ -86,11 +86,15 @@ def generate_keys(
     roles_keys_data = from_dict(roles_key_infos_dict, RolesKeysData)
     for role in RolesIterator(roles_keys_data.roles, include_delegations=True):
         if not role.is_yubikey:
+            if not role.scheme:
+                raise KeystoreError(
+                    f"Cannot generate keys of {role.name}: set its signing scheme"
+                )
             for key_num in range(role.number):
                 key_name = get_key_name(role.name, key_num, role.number)
                 if keystore is not None:
                     key_path = str(Path(keystore, key_name))
-                    _generate_rsa_key(key_path, role.length)
+                    _generate_key(key_path, role.scheme, role.length)
                 else:
-                    rsa_key, _ = generate_rsa_keypair(role.length)
-                    print(f"{role.name} key:\n\n{rsa_key.decode()}\n\n")
+                    private_pem, _ = generate_keypair(role.scheme, role.length)
+                    print(f"{role.name} key:\n\n{private_pem.decode()}\n\n")

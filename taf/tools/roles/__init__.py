@@ -10,7 +10,6 @@ from taf.api.roles import (
     remove_paths,
     rotate_signing_key,
 )
-from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import TAFError
 from taf.auth_repo import AuthenticationRepository
 from taf.log import taf_logger
@@ -204,8 +203,8 @@ def remove_role_command():
     )
     @click.option(
         "--scheme",
-        default=DEFAULT_RSA_SIGNATURE_SCHEME,
-        help="A signature scheme used for signing",
+        default=None,
+        help="Signature scheme of the role's keys. Needed to generate new keys, detected from existing keys",
     )
     @click.option(
         "--remove-targets/--no-remove-targets",

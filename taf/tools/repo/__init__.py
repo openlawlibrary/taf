@@ -153,7 +153,7 @@ def create_repo_command():
             - total number of keys per role
             - threshold of signatures per role
             - should keys of a role be on Yubikeys or should keystore files be used
-            - scheme (the default scheme is rsa-pkcs1v15-sha256)
+            - scheme (needed to generate keys, detected from existing keys)
             - keystore path, if not specified via keystore option
 
         \b

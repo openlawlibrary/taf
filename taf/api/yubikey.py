@@ -6,10 +6,8 @@ from cryptography import x509
 from logdecorator import log_on_end, log_on_error, log_on_start
 from taf.api.utils._conf import find_taf_directory
 from taf.auth_repo import AuthenticationRepository
-from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import KeystoreError, TAFError, YubikeyError
 
-# from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.log import taf_logger
 from taf.tuf.keys import get_sslib_key_from_value
 from taf.tuf.repository import MAIN_ROLES
@@ -167,8 +165,7 @@ def export_yk_certificate(
             return
         for serial in serials:
             pub_key_pem = yk.export_piv_pub_key(serial=serial).decode("utf-8")
-            scheme = DEFAULT_RSA_SIGNATURE_SCHEME
-            key = get_sslib_key_from_value(pub_key_pem, scheme)
+            key = get_sslib_key_from_value(pub_key_pem)
             yk.export_yk_certificate(path, key, serial)
     except Exception as e:
         print(e)

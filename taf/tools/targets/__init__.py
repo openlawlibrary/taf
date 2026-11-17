@@ -11,7 +11,6 @@ from taf.api.targets import (
     update_and_sign_targets,
     update_target_repos_from_repositories_json,
 )
-from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import TAFError
 from taf.tools.cli import catch_cli_exception, common_repo_edit_options, find_repository
 from taf.models.types import Commitish
@@ -48,7 +47,7 @@ def add_repo_command():
         keys_number = config_data.get("keys_number", 1)
         threshold = config_data.get("threshold", 1)
         yubikey = config_data.get("yubikey", False)
-        scheme = config_data.get("scheme", DEFAULT_RSA_SIGNATURE_SCHEME)
+        scheme = config_data.get("scheme")
 
         if directly inside the authentication repository.
 
@@ -86,8 +85,8 @@ def add_repo_command():
     )
     @click.option(
         "--scheme",
-        default=DEFAULT_RSA_SIGNATURE_SCHEME,
-        help="A signature scheme used for signing",
+        default=None,
+        help="Signature scheme of the role's keys. Needed to generate new keys, detected from existing keys",
     )
     @pin_managed
     def add_repo(

@@ -7,7 +7,6 @@ from securesystemslib.exceptions import UnverifiedSignatureError
 from securesystemslib.signer import SSlibKey, Signature
 from tuf.ngclient.updater import Updater
 
-from taf.tuf.key_cache import _load_pem_public_key_cached
 from taf.updater.handlers import GitUpdater
 from taf.updater.in_memory_updater import InMemoryUpdater
 
@@ -78,7 +77,5 @@ def test_cached_key_verifies_and_rejects_signatures(rsa_key_pair):
     with pytest.raises(UnverifiedSignatureError):
         sslib_key.verify_signature(signature, b"tampered payload")
 
-    # the cache returns the same parsed key object for the same PEM
-    assert _load_pem_public_key_cached(public_pem) is _load_pem_public_key_cached(
-        public_pem
-    )
+    # the cache returns the same parsed key object for the same public key
+    assert sslib_key._crypto_key() is sslib_key._crypto_key()

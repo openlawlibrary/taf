@@ -1,7 +1,12 @@
+import json
 from pathlib import Path
+
+import pytest
 
 from taf.constants import METADATA_DIRECTORY_NAME, TARGETS_DIRECTORY_NAME
 from typing import Dict
+from taf.api.keystore import generate_keys
+from taf.api.metadata import add_key_names, update_metadata_expiration_date
 from taf.api.repository import create_repository
 from taf.auth_repo import AuthenticationRepository
 from taf.messages import git_commit_message
@@ -128,4 +133,60 @@ def test_create_repository_when_add_repositories_json(
     for role in ("targets", "delegated_role", "inner_role"):
         assert role in targets_roles
     check_if_targets_signed(auth_repo, "targets", "repositories.json", "mirrors.json")
+    validate_repository(repo_path)
+
+
+@pytest.mark.parametrize(
+    "scheme",
+    [
+        "rsassa-pss-sha256",
+        "ecdsa-sha2-nistp256",
+        "ecdsa-sha2-nistp384",
+        "ecdsa-sha2-nistp521",
+        "ed25519",
+    ],
+)
+def test_create_repository_and_sign_when_keystore_keys_are_of_type(
+    scheme, auth_repo_path: Path, tmp_path: Path, pin_manager: PinManager
+):
+    keystore = tmp_path / "keystore"
+    keystore.mkdir()
+    roles = {
+        "root": {"number": 2, "threshold": 2, "scheme": scheme},
+        "targets": {"scheme": scheme},
+        "snapshot": {"scheme": scheme},
+        "timestamp": {"scheme": scheme},
+    }
+    keys_description = tmp_path / "keys-description.json"
+    keys_description.write_text(json.dumps({"roles": roles}))
+    generate_keys(str(keystore), str(keys_description))
+    # without schemes, they are detected from the keystore files
+    for role in roles.values():
+        role.pop("scheme")
+    keys_description.write_text(json.dumps({"roles": roles}))
+    expected_scheme = "rsa-pkcs1v15-sha256" if scheme.startswith("rsa") else scheme
+    repo_path = str(auth_repo_path)
+
+    create_repository(
+        repo_path,
+        pin_manager,
+        roles_key_infos=str(keys_description),
+        keystore=str(keystore),
+        commit=True,
+    )
+    update_metadata_expiration_date(
+        repo_path, pin_manager, ["root"], keystore=str(keystore), push=False
+    )
+    key_names = tmp_path / "key-names.json"
+    root1_public = (keystore / "root1.pub").read_text()
+    key_names.write_text(json.dumps({"yubikeys": {"alice": {"public": root1_public}}}))
+    add_key_names(repo_path, key_names, pin_manager, keystore=str(keystore), push=False)
+
+    auth_repo = AuthenticationRepository(path=repo_path)
+    root = auth_repo.signed_obj("root")
+    assert {key.scheme for key in root.keys.values()} == {expected_scheme}
+    assert "alice" in auth_repo.keys_name_mappings.values()
+    description = auth_repo.generate_roles_description()["roles"]["root"]
+    assert description["scheme"] == expected_scheme
+    assert ("length" in description) == scheme.startswith("rsa")
     validate_repository(repo_path)

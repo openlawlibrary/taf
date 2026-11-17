@@ -33,7 +33,7 @@ def generate_keys_command():
         If keystore location is specified through the keystore input parameter and not listed
         in keys-description dictionary, keys will be saved to ./keystore"""
     )
-    @catch_cli_exception(handle=KeystoreError)
+    @catch_cli_exception(handle=KeystoreError, print_error=True)
     @click.option(
         "--keystore",
         default=None,

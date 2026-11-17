@@ -92,9 +92,9 @@ class UserKeyData:
 
     >>> from taf.models.converter import from_dict
     >>> from_dict({}, UserKeyData)
-    UserKeyData(public=None, scheme='rsa-pkcs1v15-sha256', present=True)
+    UserKeyData(public=None, scheme=None, present=True)
     >>> from_dict({"public": "-----BEGIN PUBLIC KEY-----...", "present": False}, UserKeyData)
-    UserKeyData(public='-----BEGIN PUBLIC KEY-----...', scheme='rsa-pkcs1v15-sha256', present=False)
+    UserKeyData(public='-----BEGIN PUBLIC KEY-----...', scheme=None, present=False)
 
     The public key has to be in the PEM format:
 
@@ -119,7 +119,7 @@ class Role:
     the subclasses, which also set the role's name.
 
     >>> Role(name="my_role")
-    Role(name='my_role', threshold=1, scheme='rsa-pkcs1v15-sha256', length=3072,
+    Role(name='my_role', threshold=1, scheme=None, length=3072,
          yubikeys=None, number=1, yubikey=None)
 
     If `yubikeys` are listed, `number` is set to the number of listed YubiKeys:
@@ -186,10 +186,10 @@ class RootRole(Role):
     """
     >>> from taf.models.converter import from_dict
     >>> from_dict({}, RootRole)
-    RootRole(threshold=1, scheme='rsa-pkcs1v15-sha256', length=3072,
+    RootRole(threshold=1, scheme=None, length=3072,
              yubikeys=None, number=1, yubikey=None, name='root')
     >>> from_dict({"number": 3, "threshold": 2, "length": 2048, "yubikey": True}, RootRole)
-    RootRole(threshold=2, scheme='rsa-pkcs1v15-sha256', length=2048,
+    RootRole(threshold=2, scheme=None, length=2048,
              yubikeys=None, number=3, yubikey=True, name='root')
     """
 
@@ -203,7 +203,7 @@ class TargetsRole(Role):
 
     >>> from taf.models.converter import from_dict
     >>> from_dict({}, TargetsRole)
-    TargetsRole(threshold=1, scheme='rsa-pkcs1v15-sha256', length=3072,
+    TargetsRole(threshold=1, scheme=None, length=3072,
                 yubikeys=None, number=1, yubikey=None, name='targets',
                 parent=None, paths=None, terminating=True, delegations={})
 

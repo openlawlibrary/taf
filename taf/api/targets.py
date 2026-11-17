@@ -16,7 +16,7 @@ from taf.api.utils._conf import read_keys_name_mapping
 from taf.api.utils._git import check_if_clean_and_synced
 from rich.console import Console
 from rich.text import Text
-from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME, TARGETS_DIRECTORY_NAME
+from taf.constants import TARGETS_DIRECTORY_NAME
 from taf.display import (
     STYLE_ATTENTION,
     STYLE_OK,
@@ -60,7 +60,7 @@ def add_target_repo(
     keys_number: Optional[int] = None,
     threshold: Optional[int] = None,
     yubikey: Optional[bool] = None,
-    scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
+    scheme: Optional[str] = None,
     custom: Optional[Dict] = None,
     commit: Optional[bool] = True,
     push: Optional[bool] = True,
@@ -80,7 +80,7 @@ def add_target_repo(
         library_dir (optional): Path to the library's root directory. Determined based on the authentication repository's path if not provided.
         threshold: Signature's threshold.
         keystore: Location of the keystore files.
-        scheme (optional): Signing scheme. Set to rsa-pkcs1v15-sha256 by default.
+        scheme (optional): Signing scheme of the role's keys. Needed to generate new keys, detected from existing keys.
         custom (optional): Additional data that will be added to repositories.json if specified.
         commit (optional): Indicates if the changes should be committed and pushed automatically.
         push (optional): Flag specifying whether to push to remote

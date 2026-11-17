@@ -7,7 +7,7 @@ from cryptography.hazmat.primitives.asymmetric.ec import (
 
 from taf.constants import DEFAULT_ECDSA_SIGNATURE_SCHEME, DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.tuf.keys import (
-    generate_rsa_keypair,
+    generate_keypair,
     get_sslib_key_from_value,
     load_signer_from_pem,
 )
@@ -50,11 +50,13 @@ def test_get_sslib_key_from_value_accepts_explicit_ecdsa_scheme():
     assert key.scheme == DEFAULT_ECDSA_SIGNATURE_SCHEME
 
 
-def test_get_sslib_key_from_value_rejects_unsupported_curve():
+def test_get_sslib_key_from_value_detects_ecdsa_curve():
     _, public_pem = _ec_keypair_pem(SECP384R1())
 
-    with pytest.raises(ValueError):
-        get_sslib_key_from_value(public_pem)
+    key = get_sslib_key_from_value(public_pem)
+
+    assert key.keytype == "ecdsa"
+    assert key.scheme == "ecdsa-sha2-nistp384"
 
 
 def test_get_sslib_key_from_value_rejects_mismatched_scheme_for_ecdsa_key():
@@ -84,7 +86,7 @@ def test_ecdsa_signer_round_trip():
 
 
 def test_rsa_scheme_default_still_used_for_rsa_keys():
-    _, public_pem = generate_rsa_keypair(key_size=2048)
+    _, public_pem = generate_keypair("rsa-pkcs1v15-sha256", 2048)
 
     key = get_sslib_key_from_value(public_pem.decode())
 

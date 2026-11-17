@@ -14,8 +14,8 @@ from taf.api.utils._conf import find_keystore
 from taf.utils import secret_yes_no_prompt
 from taf.tuf.keys import (
     _get_legacy_keyid,
-    generate_and_write_rsa_keypair,
-    generate_rsa_keypair,
+    generate_and_write_keypair,
+    generate_keypair,
     get_sslib_key_from_value,
     load_signer_from_pem,
 )
@@ -415,7 +415,7 @@ def setup_roles_keys(
                 keystore,
                 role.name,
                 key_name,
-                role.scheme or default_params["scheme"],
+                role.scheme,
                 role.length or default_params["length"],
                 skip_prompt=skip_prompt,
             )
@@ -529,7 +529,7 @@ def _setup_keystore_key(
     keystore: Optional[Union[Path, str]],
     role_name: str,
     key_name: str,
-    scheme: str,
+    scheme: Optional[str],
     length: int,
     skip_prompt: Optional[bool],
 ) -> Tuple[Signer, str]:
@@ -573,15 +573,17 @@ def _setup_keystore_key(
                 else:
                     break
     if generate_new_keys:
+        if not scheme:
+            raise KeystoreError(
+                f"Cannot generate {key_name}: set the signing scheme of {role_name}"
+            )
         if keystore is not None and (
             skip_prompt or click.confirm("Write keys to keystore files?")
         ):
-            generate_and_write_rsa_keypair(
-                path=Path(keystore, key_name), key_size=length
-            )
+            generate_and_write_keypair(Path(keystore, key_name), scheme, length)
             signer = load_signer_from_private_keystore(keystore, key_name, scheme)
         else:
-            private_pem, _ = generate_rsa_keypair(key_size=length)
+            private_pem, _ = generate_keypair(scheme, length)
             print(f"{role_name} key:\n\n{private_pem.decode()}\n\n")
             signer = load_signer_from_pem(private_pem, scheme=scheme)
 

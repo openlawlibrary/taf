@@ -54,7 +54,7 @@ def add_role(
     threshold: int,
     yubikey: bool,
     keystore: str,
-    scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
+    scheme: Optional[str] = None,
     auth_repo: Optional[AuthenticationRepository] = None,
     commit: Optional[bool] = True,
     push: Optional[bool] = True,
@@ -74,7 +74,7 @@ def add_role(
         threshold: Signature's threshold.
         yubikey: Specifies if the metadata file should be signed using a YubiKey.
         keystore: Location of the keystore files.
-        scheme (optional): Signing scheme. Set to rsa-pkcs1v15-sha256 by default.
+        scheme (optional): Signing scheme of the role's keys. Needed to generate new keys, detected from existing keys.
         auth_repo (optional): Instance of the authentication repository. Will be created if not passed into the function.
         commit (optional): Indicates if the changes should be committed and pushed automatically.
         push (optional): Flag specifying whether to push to remote.
@@ -819,7 +819,7 @@ def initialize_roles_and_keystore(
             - their parent roles
             - threshold of signatures per role
             - should keys of a role be on Yubikeys or should a keystore files be used
-            - scheme (the default scheme is rsa-pkcs1v15-sha256)
+            - scheme (needed to generate keys, detected from existing keys)
             - keystore path, if not specified via keystore option
         keystore: Location of the keystore files.
         enter_info (optional): Indicates if the user should be asked to enter information about the
@@ -992,7 +992,7 @@ def remove_role(
     pin_manager: PinManager,
     role: str,
     keystore: str,
-    scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
+    scheme: Optional[str] = None,
     commit: Optional[bool] = True,
     remove_targets: Optional[bool] = False,
     auth_repo: Optional[AuthenticationRepository] = None,
@@ -1008,7 +1008,7 @@ def remove_role(
         path: Path to the authentication repository.
         role: Name of the role which is to be removed.
         keystore: Location of the keystore files.
-        scheme (optional): Signing scheme. Set to rsa-pkcs1v15-sha256 by default.
+        scheme (optional): Signing scheme of the role's keys. Needed to generate new keys, detected from existing keys.
         commit (optional): Indicates if the changes should be committed and pushed automatically.
         remove_targets (optional): Indicates if target files should be removed to, or signed by the parent role.
             Set to False by default.
