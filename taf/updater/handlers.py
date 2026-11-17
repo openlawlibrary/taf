@@ -1,5 +1,6 @@
 import os
 import shutil
+import uuid
 from pathlib import Path
 from typing import Dict
 from urllib import parse
@@ -75,9 +76,9 @@ class GitUpdater(FetcherInterface):
 
     @property
     def metadata_dir(self) -> str:
-        # the updater keeps metadata in memory (see metadata_store); this only
-        # satisfies the TUF Updater constructor, which stores but never uses it
-        return ""
+        # metadata is kept in memory (see metadata_store), but TUF still looks
+        # for newer roots here, so this is a random path that is never created
+        return self._metadata_dir
 
     @property
     def targets_dir(self) -> str:
@@ -95,6 +96,9 @@ class GitUpdater(FetcherInterface):
         validation_path = settings.validation_repo_path.get(repository_name)
 
         self.set_validation_repo(validation_path, auth_urls)
+        self._metadata_dir = str(
+            self.validation_auth_repo.path.parent / uuid.uuid4().hex
+        )
 
         self._init_commits()
 

@@ -11,9 +11,13 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- Upgrade to python-tuf 7 and securesystemslib 1.6 ([838])
+
 ### Removed
 
 ### Fixed
+
+[838]: https://github.com/openlawlibrary/taf/pull/838
 
 
 ## [0.42.2]

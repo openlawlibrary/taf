@@ -15,7 +15,7 @@ packages = find_packages()
 
 ci_require = [
     "bandit>=1.6.0",
-    "black==26.3.1",
+    "black==26.10.1",
     "coverage==4.5.3",
     "pre-commit>=1.18.3",
     "pytest-cov==2.7.1",
@@ -24,7 +24,7 @@ ci_require = [
 
 executable_require = ["lxml"]
 
-dev_require = ["bandit>=1.6.0", "black==26.3.1", "pre-commit>=1.18.3"]
+dev_require = ["bandit>=1.6.0", "black==26.10.1", "pre-commit>=1.18.3"]
 
 tests_require = [
     "pytest==8.*",
@@ -55,13 +55,15 @@ kwargs = {
     "include_package_data": True,
     "data_files": [("lib/site-packages/taf", ["./LICENSE.md", "./README.md"])],
     "zip_safe": False,
+    "python_requires": ">=3.10",
     "install_requires": [
         "cattrs>=23.1.2",
         "click==8.*",
         "colorama>=0.3.9",
-        "tuf==5.*",
+        "tuf==7.*",
+        "requests==2.*",
         "cryptography==43.0.*",
-        "securesystemslib==1.4.*",
+        "securesystemslib==1.6.*",
         "loguru==0.7.*",
         'pygit2==1.9.*; python_version < "3.11"',
         'pygit2==1.16.*; python_version >= "3.11"',
@@ -93,8 +95,6 @@ kwargs = {
         "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
         "Operating System :: OS Independent",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",

@@ -1,6 +1,7 @@
 """TUF metadata repository"""
 
 from functools import reduce
+import hashlib
 import json
 import operator
 from pathlib import Path
@@ -13,7 +14,6 @@ from securesystemslib.exceptions import StorageError
 from cryptography.hazmat.primitives import serialization
 
 from securesystemslib.signer import Signer
-from securesystemslib import hash as sslib_hash
 
 from taf import YubikeyMissingLibrary
 
@@ -423,10 +423,7 @@ class MetadataRepository(Repository):
         hashes = {}
         data = md.to_bytes(serializer=self.serializer)
         for algo in algorithms:
-            digest_object = sslib_hash.digest(algo)
-            digest_object.update(data)
-
-            hashes[algo] = digest_object.hexdigest()
+            hashes[algo] = hashlib.new(algo, data).hexdigest()
         return hashes
 
     def calculate_length(self, md: Metadata) -> int:

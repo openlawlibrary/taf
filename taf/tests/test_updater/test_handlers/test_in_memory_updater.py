@@ -19,6 +19,10 @@ def test_tuf_private_api_is_unchanged():
     assert load_params == ["self", "rolename"]
     persist_params = list(inspect.signature(Updater._persist_metadata).parameters)
     assert persist_params == ["self", "rolename", "data"]
+    persist_root_params = list(inspect.signature(Updater._persist_root).parameters)
+    assert persist_root_params == ["self", "version", "data"]
+    symlink_params = list(inspect.signature(Updater._update_root_symlink).parameters)
+    assert symlink_params == ["self"]
 
 
 def test_in_memory_updater_load_and_persist():

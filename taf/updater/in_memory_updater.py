@@ -2,12 +2,18 @@ import datetime
 from typing import Dict, Set
 from urllib import parse
 
-from tuf.api.metadata import Targets
+from tuf.api.metadata import Root, Targets
 from tuf.ngclient.updater import Updater
 
 from taf.exceptions import UpdateFailedError
 
-for _method in ("_load_local_metadata", "_persist_metadata", "_load_targets"):
+for _method in (
+    "_load_local_metadata",
+    "_persist_metadata",
+    "_persist_root",
+    "_update_root_symlink",
+    "_load_targets",
+):
     if not hasattr(Updater, _method):
         raise UpdateFailedError(
             f"python-tuf internals changed: Updater.{_method} no longer exists. "
@@ -36,8 +42,14 @@ class InMemoryUpdater(Updater):
     the fact that metadata changes between commits is precisely what gets
     checked.
 
-    Only the two private load/persist methods are overridden; all verification
-    runs through unmodified python-tuf. ``test_in_memory_updater`` covers the
+    Only the private methods that read or write the local metadata directory
+    are overridden; all verification runs through unmodified python-tuf.
+    python-tuf 6+ keeps every trusted root in ``<metadata_dir>/root_history``
+    and checks it before downloading newer roots. taf does not need this, as
+    roots are kept in memory and read from git, so ``_persist_root`` and
+    ``_update_root_symlink`` are overridden and ``GitUpdater.metadata_dir``
+    never exists: a root found there would be used instead of the commit's.
+    ``test_in_memory_updater`` covers the
     store mechanics and the private-API guard, and the full ``test_updater``
     suite exercises real clone/update validation through this path. In
     ``--strict`` mode the store is additionally cross-checked against the
@@ -53,7 +65,9 @@ class InMemoryUpdater(Updater):
     ):
         # must be set before super().__init__, which loads the trusted root
         self._metadata_store = metadata_store
-        super().__init__(*args, **kwargs)
+        # the trusted root is the one in the store, carried forward from the
+        # previous commit
+        super().__init__(*args, bootstrap=None, **kwargs)
         if not check_expiration:
             # older commits' metadata may have expired since
             self._trusted_set.reference_time = datetime.datetime.min.replace(
@@ -70,6 +84,17 @@ class InMemoryUpdater(Updater):
 
     def _persist_metadata(self, rolename: str, data: bytes) -> None:
         self._metadata_store[parse.quote(rolename, "")] = data
+
+    def _persist_root(self, version: int, data: bytes) -> None:
+        # tuf saves root to root_history/<version>.root.json instead of through
+        # _persist_metadata; store it under the root key, where the next commit
+        # loads it from
+        self._persist_metadata(Root.type, data)
+
+    def _update_root_symlink(self) -> None:
+        # tuf links root.json to the newest file in root_history; nothing is
+        # saved on disk, so there is nothing to link
+        pass
 
     def load_all_targets_roles(self) -> None:
         """Load and verify every delegated targets role, following the delegations

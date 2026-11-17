@@ -1,5 +1,6 @@
 """TUF metadata key functions."""
 
+import hashlib
 from typing import Optional, Tuple, Union
 
 from pathlib import Path
@@ -11,7 +12,6 @@ from securesystemslib.signer import (
     Signature,
 )
 from securesystemslib.formats import encode_canonical
-from securesystemslib.hash import digest
 from cryptography.hazmat.primitives.serialization import (
     load_pem_private_key,
     load_pem_public_key,
@@ -98,9 +98,7 @@ def _get_legacy_keyid(key: SSlibKey) -> str:
             "keyid_hash_algorithms": ["sha256", "sha512"],
         }
     ).encode("utf-8")
-    hasher = digest("sha256")
-    hasher.update(data)
-    return hasher.hexdigest()
+    return hashlib.sha256(data).hexdigest()
 
 
 def _from_crypto(
