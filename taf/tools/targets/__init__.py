@@ -97,7 +97,6 @@ def add_repo_command():
         role,
         config_file,
         keystore,
-        prompt_for_keys,
         scheme,
         no_commit,
         pin_manager,
@@ -136,7 +135,6 @@ def add_repo_command():
                 keystore=keystore,
                 custom=config_data,
                 scheme=scheme,
-                prompt_for_keys=prompt_for_keys,
                 commit=not no_commit,
                 should_create_new_role=True,
                 keys_description=keys_description,
@@ -153,7 +151,6 @@ def add_repo_command():
                 keystore=keystore,
                 custom=config_data,
                 scheme=scheme,
-                prompt_for_keys=prompt_for_keys,
                 commit=not no_commit,
                 should_create_new_role=False,
                 keys_description=keys_description,
@@ -246,7 +243,6 @@ def remove_repo_command():
         path,
         target_name,
         keystore,
-        prompt_for_keys,
         pin_manager,
         keys_description,
         no_remote_check,
@@ -256,7 +252,6 @@ def remove_repo_command():
             pin_manager=pin_manager,
             target_name=target_name,
             keystore=keystore,
-            prompt_for_keys=prompt_for_keys,
             keys_description=keys_description,
             skip_remote_check=no_remote_check,
         )
@@ -275,12 +270,6 @@ def sign_targets_command():
     )
     @find_repository
     @catch_cli_exception(handle=TAFError)
-    @click.option(
-        "--prompt-for-keys",
-        is_flag=True,
-        default=False,
-        help="Whether to ask the user to enter their key if not located inside the keystore directory",
-    )
     @click.option(
         "--keys-description",
         help="A dictionary containing information about the keys or a path to a json file which stores this information",
@@ -302,7 +291,6 @@ def sign_targets_command():
         path,
         keystore,
         keys_description,
-        prompt_for_keys,
         no_commit,
         pin_manager,
     ):
@@ -313,7 +301,6 @@ def sign_targets_command():
                 keystore=keystore,
                 roles_key_infos=keys_description,
                 update_snapshot_and_timestamp=True,
-                prompt_for_keys=prompt_for_keys,
                 commit=not no_commit,
             )
         except TAFError as e:
@@ -369,12 +356,6 @@ def update_and_sign_command():
         help="A dictionary containing information about the keys or a path to a json file which stores the needed information",
     )
     @click.option(
-        "--prompt-for-keys",
-        is_flag=True,
-        default=False,
-        help="Whether to ask the user to enter their key if not located inside the keystore directory",
-    )
-    @click.option(
         "--no-commit",
         is_flag=True,
         default=False,
@@ -387,7 +368,6 @@ def update_and_sign_command():
         target_type,
         keystore,
         keys_description,
-        prompt_for_keys,
         no_commit,
         pin_manager,
     ):
@@ -400,7 +380,6 @@ def update_and_sign_command():
                     target_type,
                     keystore=keystore,
                     roles_key_infos=keys_description,
-                    prompt_for_keys=prompt_for_keys,
                     commit=not no_commit,
                 )
             else:
@@ -409,7 +388,6 @@ def update_and_sign_command():
                     library_dir,
                     add_branch=True,
                     keystore=keystore,
-                    prompt_for_keys=prompt_for_keys,
                     commit=not no_commit,
                     keys_description=keys_description,
                 )

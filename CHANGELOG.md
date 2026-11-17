@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning][semver].
 ### Removed
 
 - Password-protected keystore files
+- `--prompt-for-keys` and entering keys by pasting them
 
 ### Fixed
 

@@ -28,7 +28,6 @@ from taf.exceptions import (
 from taf.tuf.signer_uris import load_signer, yubikey_uri
 from taf.keystore import (
     get_keystore_keys_of_role,
-    key_cmd_prompt,
     load_signer_from_keystore_uri,
     load_signer_from_private_keystore,
 )
@@ -257,7 +256,6 @@ def load_signers(
     taf_repo: TUFRepository,
     role: str,
     keystore: Optional[str] = None,
-    prompt_for_keys: Optional[bool] = False,
     key_id_pins: Optional[Dict] = None,
     use_yubikeys_to_sign: bool = False,
 ) -> Tuple[List[Dict], List[Dict]]:
@@ -355,14 +353,7 @@ def load_signers(
                 prompt_for_yubikey = False
                 continue
 
-        if prompt_for_keys and click.confirm(f"Manually enter {role} key?"):
-            keys = [signer.public_key for signer in signers_keystore]
-            key = key_cmd_prompt(key_name, role, taf_repo, keys)
-            signer = load_signer_from_pem(key)
-            signers_keystore.append(key)
-            num_of_signatures += 1
-        else:
-            raise SigningError(f"Cannot load keys of role {role}")
+        raise SigningError(f"Cannot load keys of role {role}")
 
     return signers_keystore, signers_yubikeys
 

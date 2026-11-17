@@ -1,23 +1,16 @@
 import glob
 import re
-from getpass import getpass
 from os import getcwd
 from pathlib import Path
 from typing import List, Optional, Union
 import click
 import securesystemslib
-from taf.tuf.keys import (
-    load_public_key_from_file,
-    load_signer_from_pem,
-)
+from taf.tuf.keys import load_public_key_from_file
 
 from taf.exceptions import KeystoreError
 from taf.tuf.signer_uris import import_keystore_key, keystore_uri, load_signer
 
-from taf.tuf.repository import MetadataRepository as TUFRepository
-
 from securesystemslib.signer import Signer
-from securesystemslib.signer._crypto_signer import CryptoSigner
 
 from securesystemslib.signer._key import SSlibKey
 
@@ -39,59 +32,6 @@ def get_keystore_keys_of_role(keystore: str, role: str) -> List[str]:
         for keystore_path in keystores
         if re.match(pattern, Path(keystore_path).name)
     ]
-
-
-def _form_private_pem(pem: str) -> str:
-    return f"-----BEGIN RSA PRIVATE KEY-----\n{pem}\n-----END RSA PRIVATE KEY-----"
-
-
-def _from_public_pem(pem: str) -> str:
-    return f"-----BEGIN PUBLIC KEY-----\n{pem}\n-----END PUBLIC KEY-----"
-
-
-def key_cmd_prompt(
-    key_name: str,
-    role: str,
-    taf_repo: TUFRepository,
-    loaded_keys: Optional[List] = None,
-) -> CryptoSigner:
-    def _enter_and_check_key(key_name, role, loaded_keys):
-        pem = getpass(f"Enter {key_name} private key without its header and footer\n")
-        pem = _form_private_pem(pem)
-        try:
-            signer = load_signer_from_pem(pem)
-        except Exception:
-            print("Invalid key")
-            return None
-        public_key = signer.public_key
-        if not taf_repo.is_valid_metadata_yubikey(role, public_key):
-            print(f"The entered key is not a valid {role} key")
-            return None
-        if loaded_keys is not None and public_key in loaded_keys:
-            print("Key already entered")
-            return None
-        return signer
-
-    while True:
-        pem = _enter_and_check_key(key_name, role, loaded_keys)
-        if pem is not None:
-            return pem
-
-
-def new_public_key_cmd_prompt() -> SSlibKey:
-    def _enter_and_check_key():
-        pem = getpass("Enter public key without its header and footer\n")
-        pem = _from_public_pem(pem)
-        try:
-            return load_public_key_from_file(pem)
-        except Exception:
-            print("Invalid key")
-            return None
-
-    while True:
-        key = _enter_and_check_key()
-        if key is not None:
-            return key
 
 
 def load_signer_from_keystore_uri(
