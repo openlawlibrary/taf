@@ -13,7 +13,6 @@ from taf.tuf.repository import MetadataRepository as TUFRepository, is_auth_repo
 from taf.api.utils._conf import find_keystore
 from taf.utils import secret_yes_no_prompt
 from taf.tuf.keys import (
-    YkSigner,
     _get_legacy_keyid,
     generate_and_write_rsa_keypair,
     generate_rsa_keypair,
@@ -26,14 +25,15 @@ from taf.exceptions import (
     KeystoreError,
     SigningError,
 )
+from taf.tuf.signer_uris import load_signer, yubikey_uri
 from taf.keystore import (
     get_keystore_keys_of_role,
     key_cmd_prompt,
+    load_signer_from_keystore_uri,
     load_signer_from_private_keystore,
 )
 from taf import YubikeyMissingLibrary
-from securesystemslib.signer import SSlibKey
-from securesystemslib.signer._crypto_signer import CryptoSigner
+from securesystemslib.signer import Signer, SSlibKey
 
 try:
     import taf.yubikey.yubikey as yk
@@ -45,16 +45,14 @@ except ImportError:
 
 
 def _create_signer(auth_repo, public_key, serial_num, key_name, slot=None):
-    return YkSigner(
-        public_key,
-        serial_num,
+    return load_signer(
+        yubikey_uri(serial_num, slot, key_name),
+        [public_key],
         partial(
             yk.yk_secrets_handler,
             pin_manager=auth_repo.pin_manager,
             serial_num=serial_num,
         ),
-        key_name=key_name,
-        slot=slot,
     )
 
 
@@ -187,17 +185,14 @@ def load_sorted_keys_of_new_roles(
 
 def _load_signer_from_keystore(
     taf_repo, keystore_path, key_name, num_of_signatures, role
-) -> CryptoSigner:
+) -> Optional[Signer]:
     if keystore_path is None:
         return None
     if (keystore_path / key_name).is_file():
         try:
-            signer = load_signer_from_private_keystore(
-                keystore=keystore_path, key_name=key_name
+            return load_signer_from_keystore_uri(
+                keystore_path, key_name, taf_repo.get_public_keys_of_role(role)
             )
-            # load only valid keys
-            if taf_repo.is_valid_metadata_key(role, signer.public_key):
-                return signer
         except KeystoreError:
             pass
 
@@ -248,17 +243,7 @@ def _load_yubikeys(
             taf_logger.debug(
                 f"Found YubiKey: Serial={serial_num}, key_name='{key_name}', keyid={public_key.keyid}, slot={slot}"
             )
-            signer = YkSigner(
-                public_key,
-                serial_num,
-                partial(
-                    yk.yk_secrets_handler,
-                    pin_manager=taf_repo.pin_manager,
-                    serial_num=serial_num,
-                ),
-                key_name=key_name,
-                slot=slot,
-            )
+            signer = _create_signer(taf_repo, public_key, serial_num, key_name, slot)
             signers_yubikeys.append(signer)
             loaded_keyids.append(public_key.keyid)
             loaded_key_names.append(key_name)
@@ -556,7 +541,7 @@ def _setup_keystore_key(
     scheme: str,
     length: int,
     skip_prompt: Optional[bool],
-) -> Tuple[CryptoSigner, str]:
+) -> Tuple[Signer, str]:
     generate_new_keys = keystore is None
     signer = None
 
@@ -571,7 +556,9 @@ def _setup_keystore_key(
         keystore_path = str(Path(keystore).expanduser().resolve())
         while signer is None:
             try:
-                signer = load_signer_from_private_keystore(keystore_path, key_name)
+                signer = load_signer_from_private_keystore(
+                    keystore_path, key_name, scheme
+                )
             except KeystoreError:
                 _invalid_key_message(key_name, keystore)
 
@@ -598,10 +585,10 @@ def _setup_keystore_key(
         if keystore is not None and (
             skip_prompt or click.confirm("Write keys to keystore files?")
         ):
-            private_pem = generate_and_write_rsa_keypair(
+            generate_and_write_rsa_keypair(
                 path=Path(keystore, key_name), key_size=length
             )
-            signer = load_signer_from_pem(private_pem, scheme=scheme)
+            signer = load_signer_from_private_keystore(keystore, key_name, scheme)
         else:
             private_pem, _ = generate_rsa_keypair(key_size=length)
             print(f"{role_name} key:\n\n{private_pem.decode()}\n\n")

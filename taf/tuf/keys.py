@@ -2,9 +2,11 @@
 
 import hashlib
 from typing import Optional, Tuple, Union
+from urllib import parse
 
 from pathlib import Path
 from securesystemslib.signer import (
+    SIGNER_FOR_URI_SCHEME,
     SSlibKey,
     CryptoSigner,
     Signer,
@@ -196,12 +198,13 @@ class YkSigner(Signer):
                 return the Yubikey pin.
     """
 
+    SCHEME = "yk"
     _SECRET_PROMPT = "pin"  # nosec B105
 
     def __init__(
         self,
         public_key: SSlibKey,
-        serial_num: str,
+        serial_num: int,
         pin_handler: SecretsHandler,
         key_name: str,
         slot=None,
@@ -221,7 +224,7 @@ class YkSigner(Signer):
         return self._public_key
 
     @property
-    def serial_num(self) -> str:
+    def serial_num(self) -> int:
         return self._serial_num
 
     @property
@@ -275,10 +278,30 @@ class YkSigner(Signer):
         public_key: SSlibKey,
         secrets_handler: Optional[SecretsHandler] = None,
     ) -> "Signer":
-        # TODO: Implement this to better separate public key management
-        # (e.g. tuf delegation) and signer configuration from signing. See
-        # https://python-securesystemslib.readthedocs.io/en/latest/signer.html
-        raise NotImplementedError
+        """URI format: ``yk:<serial>?slot=<hex PIV slot>&name=<key name>``.
+        Slot and name are optional."""
+        uri = parse.urlparse(priv_key_uri)
+        if uri.scheme != cls.SCHEME:
+            raise ValueError(f"YkSigner does not support {priv_key_uri}")
+        if secrets_handler is None:
+            raise ValueError("YkSigner requires a secrets handler for the PIN")
+        params = dict(parse.parse_qsl(uri.query))
+        slot = None
+        if "slot" in params:
+            from yubikit.piv import SLOT
+
+            slot = SLOT(int(params["slot"], 16))
+        serial_num = int(uri.path)
+        return cls(
+            public_key,
+            serial_num,
+            secrets_handler,
+            key_name=params.get("name", str(serial_num)),
+            slot=slot,
+        )
+
+
+SIGNER_FOR_URI_SCHEME[YkSigner.SCHEME] = YkSigner
 
 
 def root_signature_provider(signature_dict, key_id, _key, _data):

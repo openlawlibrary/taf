@@ -931,6 +931,20 @@ class MetadataRepository(Repository):
         role_obj = self._role_obj(role_name)
         return role_obj.keyids
 
+    def get_public_keys_of_role(self, role_name: str) -> List[SSlibKey]:
+        """
+        Return the public keys of the specified role, as listed by the role
+        that delegates to it
+        """
+        if role_name in MAIN_ROLES:
+            keys = self.signed_obj("root").keys
+        else:
+            parent = self.find_delegated_roles_parent(role_name)
+            if parent is None:
+                return []
+            keys = self.signed_obj(parent).delegations.keys
+        return [keys[key_id] for key_id in self.get_keyids_of_role(role_name)]
+
     def get_paths_of_role(self, role_name: str) -> List:
         """
         Return all delegated paths of the specified target role
