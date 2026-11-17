@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Fix generating a key that is not written to the keystore
+
 [838]: https://github.com/openlawlibrary/taf/pull/838
 
 
