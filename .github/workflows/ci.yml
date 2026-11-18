@@ -49,8 +49,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install libhdf5-serial-dev zlib1g-dev libatlas-base-dev lcov swig3.0 libpcsclite-dev
-          mkdir -p ~/bin/ && ln -s /usr/bin/swig3.0 ~/bin/swig && export PATH=~/bin/:$PATH
+          sudo apt-get install -y zlib1g-dev lcov swig libpcsclite-dev
           pip install wheel  # Ensure wheel is installed
           pip install -e .[ci,test,yubikey]
 
@@ -181,8 +180,7 @@ jobs:
       - name: Install swig
         run: |
           sudo apt-get update
-          sudo apt-get install libhdf5-serial-dev zlib1g-dev libatlas-base-dev lcov swig3.0 libpcsclite-dev
-          mkdir -p ~/bin/ && ln -s /usr/bin/swig3.0 ~/bin/swig && export PATH=~/bin/:$PATH
+          sudo apt-get install -y zlib1g-dev lcov swig libpcsclite-dev
 
       - name: Install and build TAF
         run: |
@@ -237,8 +235,7 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get update
-          sudo apt-get install libhdf5-serial-dev zlib1g-dev libatlas-base-dev lcov swig3.0 libpcsclite-dev
-          mkdir -p ~/bin/ && ln -s /usr/bin/swig3.0 ~/bin/swig && export PATH=~/bin/:$PATH
+          sudo apt-get install -y zlib1g-dev lcov swig libpcsclite-dev
 
       - name: Install Windows dependencies
         if: matrix.os == 'windows-latest'
