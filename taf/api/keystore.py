@@ -10,9 +10,10 @@ from taf.keys import get_key_name
 from taf.log import taf_logger
 from taf.models.types import RolesIterator
 from taf.models.converter import from_dict
-from taf.exceptions import KeystoreError
+from taf.exceptions import KeystoreError, TAFError
 import click
 from taf.tuf.keys import generate_and_write_keypair
+from taf.tuf.signer_uris import keystore_uri
 
 
 @log_on_start(INFO, "Generating '{key_path:s}'", logger=taf_logger)
@@ -96,6 +97,10 @@ def generate_keys(
             for key_num in range(role.number):
                 key_name = get_key_name(role.name, key_num, role.number)
                 key_path = Path(keystore, key_name)
+                try:
+                    keystore_uri(keystore, key_name)
+                except TAFError as e:
+                    raise KeystoreError(str(e))
                 if key_path.exists() and not click.confirm(
                     f"{key_path} already exists. Overwrite it?"
                 ):

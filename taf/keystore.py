@@ -57,6 +57,7 @@ def load_signer_from_private_keystore(
     key_path = Path(keystore, key_name).expanduser().resolve()
     if not key_path.is_file():
         raise KeystoreError(f"{str(key_path)} does not exist")
+    keystore_uri(keystore, key_name)
 
     while True:
         try:
