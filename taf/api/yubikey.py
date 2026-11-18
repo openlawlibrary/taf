@@ -278,6 +278,7 @@ def setup_signing_yubikey(
     certs_dir: Optional[str] = None,
     key_size: int = 2048,
     slot: str = "SIGNATURE",
+    scheme: Optional[str] = None,
 ) -> None:
     """
     Generate a new key and copy it to the given PIV slot of the inserted YubiKey.
@@ -287,6 +288,7 @@ def setup_signing_yubikey(
         certs_dir (optional): Path to a directory where the exported certificate should be stored.
         slot (optional): Name of the PIV slot to set the key up in ("SIGNATURE",
             "AUTHENTICATION", "KEY_MANAGEMENT", or "CARD_AUTH"). Defaults to "SIGNATURE".
+        scheme: Signing scheme of the generated key, which sets its type.
 
     Side Effects:
        None
@@ -294,6 +296,8 @@ def setup_signing_yubikey(
     Returns:
         None
     """
+    if not scheme:
+        raise YubikeyError("A signing scheme is needed to generate a key")
     piv_slot = _resolve_slot(slot)
 
     serial_num, _ = _prepare_setup(
@@ -305,6 +309,7 @@ def setup_signing_yubikey(
     key = yk.setup_new_yubikey(
         pin_manager,
         serial_num,
+        scheme=scheme,
         key_size=key_size,
         slot=piv_slot,
     )
@@ -348,7 +353,7 @@ def setup_test_yubikey(
     piv_slot = _resolve_slot(slot)
     serial, pin = _prepare_setup(pin_manager, piv_slot, serial=serial)
 
-    print(f"Importing RSA private key from {key_path} to Yubikey...")
+    print(f"Importing private key from {key_path} to Yubikey...")
     pub_key = yk.setup(
         pin,
         serial,

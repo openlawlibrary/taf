@@ -269,12 +269,12 @@ class YkSigner(Signer):
 
     def sign(self, payload: bytes) -> Signature:
         pin = self._pin_handler(self._SECRET_PROMPT)
-        from taf.yubikey.yubikey import sign_piv_rsa_pkcs1v15, verify_yk_inserted
+        from taf.yubikey.yubikey import sign_piv, verify_yk_inserted
         from yubikit.piv import SLOT
 
         verify_yk_inserted(self.serial_num, self.key_name)
         slot = self._slot if self._slot is not None else SLOT.SIGNATURE
-        sig = sign_piv_rsa_pkcs1v15(payload, pin, serial=self.serial_num, slot=slot)
+        sig = sign_piv(payload, pin, self.public_key, serial=self.serial_num, slot=slot)
         return Signature(self.public_key.keyid, sig.hex())
 
     @classmethod

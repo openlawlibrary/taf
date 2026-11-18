@@ -18,10 +18,11 @@ from taf.tuf.keys import (
     get_sslib_key_from_value,
 )
 
-from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME, RoleSetupParams
+from taf.constants import RoleSetupParams
 from taf.exceptions import (
     KeystoreError,
     SigningError,
+    YubikeyError,
 )
 from taf.tuf.signer_uris import load_signer, yubikey_uri
 from taf.keystore import (
@@ -591,7 +592,7 @@ def _setup_yubikey(
     auth_repo: AuthenticationRepository,
     role_name: str,
     key_name: str,
-    scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
+    scheme: Optional[str] = None,
     certs_dir: Optional[Union[Path, str]] = None,
     key_size: int = 2048,
     yubikeys_to_skip: Optional[List] = None,
@@ -605,6 +606,10 @@ def _setup_yubikey(
         taf_logger.debug(
             f"User chose to {'reuse' if use_existing else 'generate a new'} YubiKey for '{key_name}'."
         )
+        if not use_existing and not scheme:
+            raise YubikeyError(
+                f"Cannot set up a new key for {key_name}: set the signing scheme of {role_name}"
+            )
 
         yubikeys = yk.yubikey_prompt(
             [key_name],

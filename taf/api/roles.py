@@ -22,7 +22,6 @@ from taf.keys import (
 from taf.auth_repo import AuthenticationRepository
 from taf.constants import (
     DEFAULT_ROLE_SETUP_PARAMS,
-    DEFAULT_RSA_SIGNATURE_SCHEME,
 )
 from taf.tuf.repository import MAIN_ROLES, METADATA_DIRECTORY_NAME
 from taf.utils import get_key_size, read_input_dict, resolve_keystore_path
@@ -619,25 +618,24 @@ def _enter_role_info(
         role_info["number"] = keys_num
 
     role_info["yubikey"] = click.confirm(f"Store {role} keys on Yubikeys?")
-    if role_info["yubikey"]:
-        # in case of yubikeys, length and scheme have to have specific values
-        role_info["length"] = 2048
-        role_info["scheme"] = DEFAULT_RSA_SIGNATURE_SCHEME
-    else:
-        # if keystore is specified and contains keys corresponding to this role
-        # get key size based on the public key
-        keystore_length = 0
-        if keystore is not None:
-            keystore_length = _get_roles_key_size(role, keystore, keys_num)
-        if keystore_length == 0:
-            key_length = _read_val(int, f"{role} key length", "length")
-            if key_length is not None:
-                role_info["length"] = key_length
+    scheme = _read_val(str, f"{role} signature scheme", "scheme")
+    if scheme is not None:
+        role_info["scheme"] = scheme
+    if scheme is not None and scheme.startswith("rsa"):
+        if role_info["yubikey"]:
+            role_info["length"] = 2048
         else:
-            role_info["length"] = keystore_length
-        scheme = _read_val(str, f"{role} signature scheme", "scheme")
-        if scheme is not None:
-            role_info["scheme"] = scheme
+            # if keystore is specified and contains keys corresponding to this role
+            # get key size based on the public key
+            keystore_length = 0
+            if keystore is not None:
+                keystore_length = _get_roles_key_size(role, keystore, keys_num)
+            if keystore_length == 0:
+                key_length = _read_val(int, f"{role} key length", "length")
+                if key_length is not None:
+                    role_info["length"] = key_length
+            else:
+                role_info["length"] = keystore_length
 
     threshold = _read_val(int, f"{role} signature threshold", "threshold")
     if threshold is not None:

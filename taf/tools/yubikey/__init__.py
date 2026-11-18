@@ -142,10 +142,17 @@ def setup_signing_key_command():
         default="SIGNATURE",
         help="PIV slot to set the key up in. Defaults to SIGNATURE.",
     )
+    @click.option(
+        "--scheme",
+        required=True,
+        help="Signing scheme of the generated key, which sets its type, e.g. rsa-pkcs1v15-sha256 or ecdsa-sha2-nistp256",
+    )
     @catch_cli_exception(handle=YubikeyError)
     @pin_managed
-    def setup_signing_key(certs_dir, slot, pin_manager):
-        setup_signing_yubikey(pin_manager, certs_dir, key_size=2048, slot=slot)
+    def setup_signing_key(certs_dir, slot, scheme, pin_manager):
+        setup_signing_yubikey(
+            pin_manager, certs_dir, key_size=2048, slot=slot, scheme=scheme
+        )
 
     return setup_signing_key
 

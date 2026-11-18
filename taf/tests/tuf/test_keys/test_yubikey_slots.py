@@ -294,7 +294,7 @@ def test_setup_test_yubikey_refuses_occupied_slot_without_prompting(
     )
 
 
-def test_sign_piv_rsa_pkcs1v15_uses_given_slot(fake_yubikey, keystore):
+def test_sign_piv_uses_given_slot(fake_yubikey, keystore):
     new_key_pem = (keystore / "root2").read_bytes()
     yk.setup(
         pin="123456",
@@ -304,8 +304,12 @@ def test_sign_piv_rsa_pkcs1v15_uses_given_slot(fake_yubikey, keystore):
         slot=SLOT.AUTHENTICATION,
     )
 
-    sig = yk.sign_piv_rsa_pkcs1v15(
-        b"data", "123456", serial=fake_yubikey.serial, slot=SLOT.AUTHENTICATION
+    sig = yk.sign_piv(
+        b"data",
+        "123456",
+        load_signer_from_file(keystore / "root2").public_key,
+        serial=fake_yubikey.serial,
+        slot=SLOT.AUTHENTICATION,
     )
 
     auth_priv_key = serialization.load_pem_private_key(
@@ -614,7 +618,7 @@ def test_setup_yubikey_creates_new_key_in_a_free_non_signature_slot(
         "click.prompt", return_value=1
     ):
         key, serial_num, slot = taf_keys._setup_yubikey(
-            auth_repo, "root", "root1", key_size=2048
+            auth_repo, "root", "root1", scheme="rsa-pkcs1v15-sha256", key_size=2048
         )
 
     assert slot == SLOT.AUTHENTICATION
@@ -643,7 +647,12 @@ def test_setup_yubikey_updates_store_with_generated_key_for_cert_export(
         "click.prompt", return_value=1
     ):
         key, serial_num, slot = taf_keys._setup_yubikey(
-            auth_repo, "root", "root1", key_size=2048, certs_dir=str(tmp_path)
+            auth_repo,
+            "root",
+            "root1",
+            scheme="ecdsa-sha2-nistp256",
+            key_size=2048,
+            certs_dir=str(tmp_path),
         )
 
     assert auth_repo.yubikey_store.get_key_data("root1") == (key, serial_num, slot)
