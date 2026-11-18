@@ -1,6 +1,7 @@
 """TUF metadata key functions."""
 
 import hashlib
+import os
 from typing import Optional, Tuple, Union
 from urllib import parse
 
@@ -71,8 +72,10 @@ def generate_and_write_keypair(path, scheme: str, rsa_key_size: int = 3072) -> b
     """
     private_pem, public_pem = generate_keypair(scheme, rsa_key_size)
 
-    with open(path, "wb") as f:
+    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, "O_BINARY", 0)
+    with os.fdopen(os.open(path, flags, 0o600), "wb") as f:
         f.write(private_pem)
+    os.chmod(path, 0o600)
 
     with open(f"{path}.pub", "wb") as f:
         f.write(public_pem)

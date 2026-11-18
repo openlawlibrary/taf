@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 - Fix generating a key that is not written to the keystore
 - Show errors of `taf keystore generate`
+- Make generated private keys readable only by their owner
 
 [838]: https://github.com/openlawlibrary/taf/pull/838
 
