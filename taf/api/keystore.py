@@ -11,7 +11,8 @@ from taf.log import taf_logger
 from taf.models.types import RolesIterator
 from taf.models.converter import from_dict
 from taf.exceptions import KeystoreError
-from taf.tuf.keys import generate_and_write_keypair, generate_keypair
+import click
+from taf.tuf.keys import generate_and_write_keypair
 
 
 @log_on_start(INFO, "Generating '{key_path:s}'", logger=taf_logger)
@@ -82,6 +83,8 @@ def generate_keys(
     roles_key_infos_dict, keystore, _ = initialize_roles_and_keystore(
         roles_key_infos, str(keystore)
     )
+    if keystore is None:
+        raise KeystoreError("No keystore to write the keys to")
 
     roles_keys_data = from_dict(roles_key_infos_dict, RolesKeysData)
     for role in RolesIterator(roles_keys_data.roles, include_delegations=True):
@@ -92,9 +95,9 @@ def generate_keys(
                 )
             for key_num in range(role.number):
                 key_name = get_key_name(role.name, key_num, role.number)
-                if keystore is not None:
-                    key_path = str(Path(keystore, key_name))
-                    _generate_key(key_path, role.scheme, role.length)
-                else:
-                    private_pem, _ = generate_keypair(role.scheme, role.length)
-                    print(f"{role.name} key:\n\n{private_pem.decode()}\n\n")
+                key_path = Path(keystore, key_name)
+                if key_path.exists() and not click.confirm(
+                    f"{key_path} already exists. Overwrite it?"
+                ):
+                    continue
+                _generate_key(str(key_path), role.scheme, role.length)

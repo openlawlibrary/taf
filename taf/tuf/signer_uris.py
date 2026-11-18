@@ -25,6 +25,9 @@ from taf.tuf.keys import YkSigner, _from_crypto
 
 def keystore_uri(keystore: Union[str, Path], key_name: str) -> str:
     path = Path(keystore, key_name).expanduser().resolve()
+    # the URI would end at these characters and point to another path
+    if "#" in str(path) or "?" in str(path):
+        raise ValueError(f"Keystore path {path} can't contain '#' or '?'")
     return f"{CryptoSigner.SCHEME}:{path.as_posix()}"
 
 

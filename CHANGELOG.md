@@ -15,11 +15,13 @@ and this project adheres to [Semantic Versioning][semver].
 
 - Upgrade to python-tuf 7 and securesystemslib 1.6 ([838])
 - Generating a key needs a signing scheme; the scheme of an existing key is detected from the key
+- `taf keystore generate` asks before overwriting existing key files
 
 ### Removed
 
 - Password-protected keystore files
 - `--prompt-for-keys` and entering keys by pasting them
+- Generating keys that are only printed and not written to a keystore
 
 ### Fixed
 

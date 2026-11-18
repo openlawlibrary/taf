@@ -15,9 +15,7 @@ from taf.utils import secret_yes_no_prompt
 from taf.tuf.keys import (
     _get_legacy_keyid,
     generate_and_write_keypair,
-    generate_keypair,
     get_sslib_key_from_value,
-    load_signer_from_pem,
 )
 
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME, RoleSetupParams
@@ -577,15 +575,12 @@ def _setup_keystore_key(
             raise KeystoreError(
                 f"Cannot generate {key_name}: set the signing scheme of {role_name}"
             )
-        if keystore is not None and (
-            skip_prompt or click.confirm("Write keys to keystore files?")
-        ):
-            generate_and_write_keypair(Path(keystore, key_name), scheme, length)
-            signer = load_signer_from_private_keystore(keystore, key_name, scheme)
-        else:
-            private_pem, _ = generate_keypair(scheme, length)
-            print(f"{role_name} key:\n\n{private_pem.decode()}\n\n")
-            signer = load_signer_from_pem(private_pem, scheme=scheme)
+        if keystore is None:
+            raise KeystoreError(
+                f"Cannot generate {key_name}: no keystore to write it to"
+            )
+        generate_and_write_keypair(Path(keystore, key_name), scheme, length)
+        signer = load_signer_from_private_keystore(keystore, key_name, scheme)
 
     if signer is not None:
         return signer, _get_legacy_keyid(signer.public_key)
