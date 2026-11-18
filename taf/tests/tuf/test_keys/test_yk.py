@@ -42,9 +42,7 @@ def test_fake_yk(monkeypatch):
     monkeypatch.setattr(
         "taf.yubikey.yubikey.export_piv_pub_key", lambda *args, **kwargs: _PUB
     )
-    monkeypatch.setattr(
-        "taf.yubikey.yubikey.sign_piv", lambda *args, **kwargs: _SIG
-    )
+    monkeypatch.setattr("taf.yubikey.yubikey.sign_piv", lambda *args, **kwargs: _SIG)
     monkeypatch.setattr(
         "taf.yubikey.yubikey.verify_yk_inserted", lambda *args, **kwargs: True
     )
