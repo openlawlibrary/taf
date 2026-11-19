@@ -15,6 +15,7 @@ from taf.exceptions import TAFError
 from taf.tools.cli import catch_cli_exception, common_repo_edit_options, find_repository
 from taf.models.types import Commitish
 from taf.tools.repo import pin_managed
+from taf.tuf.keys import SUPPORTED_SCHEMES
 
 
 def add_repo_command():
@@ -85,6 +86,7 @@ def add_repo_command():
     )
     @click.option(
         "--scheme",
+        type=click.Choice(SUPPORTED_SCHEMES),
         default=None,
         help="Signature scheme of the role's keys. Needed to generate new keys, detected from existing keys",
     )

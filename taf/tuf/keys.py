@@ -30,6 +30,15 @@ from cryptography.hazmat.primitives import serialization
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import TAFError
 
+SUPPORTED_SCHEMES = sorted(
+    scheme
+    for (keytype, scheme), key_class in KEY_FOR_TYPE_AND_SCHEME.items()
+    if key_class is SSlibKey
+    and keytype in (KEY_TYPE_RSA, KEY_TYPE_ECDSA, KEY_TYPE_ED25519)
+)
+# YubiKeys can't hold P-521 keys
+YUBIKEY_SCHEMES = [s for s in SUPPORTED_SCHEMES if s != "ecdsa-sha2-nistp521"]
+
 
 def generate_keypair(
     scheme: Optional[str], rsa_key_size: Optional[int] = None

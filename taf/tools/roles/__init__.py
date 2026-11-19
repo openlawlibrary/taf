@@ -17,6 +17,7 @@ from taf.tools.cli import catch_cli_exception, common_repo_edit_options, find_re
 
 from taf.api.roles import add_role_paths
 from taf.tools.repo import pin_managed
+from taf.tuf.keys import SUPPORTED_SCHEMES
 
 
 def add_roles_command():
@@ -203,6 +204,7 @@ def remove_role_command():
     )
     @click.option(
         "--scheme",
+        type=click.Choice(SUPPORTED_SCHEMES),
         default=None,
         help="Signature scheme of the role's keys. Needed to generate new keys, detected from existing keys",
     )

@@ -12,6 +12,7 @@ from taf.exceptions import KeystoreError, YubikeyError
 from taf.repository_utils import find_valid_repository
 from taf.tools.cli import catch_cli_exception
 from taf.tools.repo import pin_managed
+from taf.tuf.keys import YUBIKEY_SCHEMES
 from taf.yubikey.yubikey import list_connected_yubikeys, list_all_devices
 
 SETUP_SLOT_NAMES = [s.name for s in SETUP_SLOTS]
@@ -144,8 +145,9 @@ def setup_signing_key_command():
     )
     @click.option(
         "--scheme",
+        type=click.Choice(YUBIKEY_SCHEMES),
         required=True,
-        help="Signing scheme of the generated key, which sets its type, e.g. rsa-pkcs1v15-sha256 or ecdsa-sha2-nistp256",
+        help="Signing scheme of the generated key, which sets its type. ed25519 needs YubiKey firmware 5.7 or newer",
     )
     @catch_cli_exception(handle=YubikeyError)
     @pin_managed

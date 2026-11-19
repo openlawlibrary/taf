@@ -154,6 +154,7 @@ Many commands have the `scheme` optional parameter. It represents the signature 
 to generate keys, and detected from existing keys. Supported schemes are `rsa-pkcs1v15-sha256`,
 `rsa-pkcs1v15-sha384`, `rsa-pkcs1v15-sha512`, `rsassa-pss-sha256`, `rsassa-pss-sha384`,
 `rsassa-pss-sha512`, `ecdsa-sha2-nistp256`, `ecdsa-sha2-nistp384`, `ecdsa-sha2-nistp521` and `ed25519`.
+YubiKeys support all of them except `ecdsa-sha2-nistp521`, and `ed25519` needs YubiKey firmware 5.7 or newer.
 
 ## Commands
 
