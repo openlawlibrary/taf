@@ -10,27 +10,27 @@ from taf.keys import get_key_name
 from taf.log import taf_logger
 from taf.models.types import RolesIterator
 from taf.models.converter import from_dict
-from taf.exceptions import KeystoreError, TAFError
+from taf.exceptions import KeystoreError
 import click
 from taf.tuf.keys import generate_and_write_keypair
-from taf.tuf.signer_uris import keystore_uri
+from taf.tuf.signer_uris import check_keystore_path
 
 
 @log_on_start(INFO, "Generating '{key_path:s}'", logger=taf_logger)
 @log_on_end(INFO, "Generated '{key_path:s}", logger=taf_logger)
-def _generate_key(key_path: str, scheme: str, bits: int) -> None:
+def _generate_key(
+    key_path: str, scheme: Optional[str], rsa_key_size: Optional[int] = None
+) -> None:
     """
     Generate public and private key
 
     Arguments:
         key_path: The path to write the private key to.
         scheme: Signing scheme, which decides the key type.
-        bits: The number of bits of the generated key, if it is an RSA key.
+        rsa_key_size (optional): The number of bits of an RSA key. Not used for other key types.
 
     Raises:
-        UnsupportedLibraryError: pyca/cryptography is not available.
-        FormatError: Arguments are malformed.
-        StorageError: Key files cannot be written.
+        KeystoreError: The key could not be generated or written.
 
     Side Effects:
         Writes key files to disk.
@@ -40,11 +40,10 @@ def _generate_key(key_path: str, scheme: str, bits: int) -> None:
         None
     """
     try:
-        generate_and_write_keypair(key_path, scheme, bits)
+        generate_and_write_keypair(key_path, scheme, rsa_key_size)
         taf_logger.log("NOTICE", f"Generated key {key_path}")
-    except Exception:
-        taf_logger.error(f"An error occurred while generating key {key_path}")
-        raise KeystoreError(f"An error occurred while generating key {key_path}")
+    except Exception as e:
+        raise KeystoreError(f"Could not generate key {key_path}: {e}") from e
 
 
 def generate_keys(
@@ -90,17 +89,10 @@ def generate_keys(
     roles_keys_data = from_dict(roles_key_infos_dict, RolesKeysData)
     for role in RolesIterator(roles_keys_data.roles, include_delegations=True):
         if not role.is_yubikey:
-            if not role.scheme:
-                raise KeystoreError(
-                    f"Cannot generate keys of {role.name}: set its signing scheme"
-                )
             for key_num in range(role.number):
                 key_name = get_key_name(role.name, key_num, role.number)
                 key_path = Path(keystore, key_name)
-                try:
-                    keystore_uri(keystore, key_name)
-                except TAFError as e:
-                    raise KeystoreError(str(e))
+                check_keystore_path(key_path)
                 if key_path.exists() and not click.confirm(
                     f"{key_path} already exists. Overwrite it?"
                 ):

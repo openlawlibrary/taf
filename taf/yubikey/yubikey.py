@@ -934,8 +934,6 @@ def setup(
             raise
 
         if private_key_pem is None:
-            if not scheme:
-                raise YubikeyError("A signing scheme is needed to generate a key")
             taf_logger.debug(f"Generating {scheme} private key on the fly...")
             generated_pem, _ = generate_keypair(scheme, key_size)
             private_key = load_pem_private_key(generated_pem, None, default_backend())
@@ -996,8 +994,6 @@ def setup_new_yubikey(
         f"Starting new YubiKey setup for serial={serial}, scheme={scheme}, "
         f"key_size={key_size}, slot={slot}"
     )
-    if not scheme:
-        raise YubikeyError("A signing scheme is needed to generate a key")
     pin = pin_manager.get_pin(serial)
     cert_cn = input("Enter key holder's name: ")
     print("Generating key, please wait...")

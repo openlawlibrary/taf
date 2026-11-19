@@ -28,16 +28,20 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
+from taf.exceptions import TAFError
 
 
-def generate_keypair(scheme: str, rsa_key_size: int = 3072) -> Tuple[bytes, bytes]:
+def generate_keypair(
+    scheme: Optional[str], rsa_key_size: Optional[int] = None
+) -> Tuple[bytes, bytes]:
     """
     Generate a private and public key for the signing scheme, both in PEM
     format. securesystemslib generates the key and the scheme decides its
-    type. rsa_key_size is only used for RSA keys.
+    type. rsa_key_size is only used for RSA keys, and securesystemslib's
+    default is used if it is not set.
     """
     if not scheme:
-        raise ValueError("A signing scheme is needed to generate a key")
+        raise TAFError("A signing scheme is needed to generate a key")
     keytypes = {
         keytype
         for (keytype, key_scheme), key_class in KEY_FOR_TYPE_AND_SCHEME.items()
@@ -45,13 +49,16 @@ def generate_keypair(scheme: str, rsa_key_size: int = 3072) -> Tuple[bytes, byte
     }
     signer: CryptoSigner
     if KEY_TYPE_RSA in keytypes:
-        signer = CryptoSigner.generate_rsa(scheme=scheme, size=rsa_key_size)
+        if rsa_key_size is None:
+            signer = CryptoSigner.generate_rsa(scheme=scheme)
+        else:
+            signer = CryptoSigner.generate_rsa(scheme=scheme, size=rsa_key_size)
     elif KEY_TYPE_ECDSA in keytypes:
         signer = CryptoSigner.generate_ecdsa(scheme=scheme)
     elif KEY_TYPE_ED25519 in keytypes:
         signer = CryptoSigner.generate_ed25519()
     else:
-        raise ValueError(f"cannot generate a key for scheme '{scheme}'")
+        raise TAFError(f"Cannot generate a key for scheme '{scheme}'")
 
     private_pem = signer.private_bytes
     public_pem = (
@@ -65,7 +72,9 @@ def generate_keypair(scheme: str, rsa_key_size: int = 3072) -> Tuple[bytes, byte
     return private_pem, public_pem
 
 
-def generate_and_write_keypair(path, scheme: str, rsa_key_size: int = 3072) -> bytes:
+def generate_and_write_keypair(
+    path, scheme: Optional[str], rsa_key_size: Optional[int] = None
+) -> bytes:
     """
     Generate a private and public key for the signing scheme and write them to
     path and path.pub. Returns the private key in PEM format.

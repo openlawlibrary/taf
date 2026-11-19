@@ -19,17 +19,23 @@ from securesystemslib.signer import (
     SSlibKey,
 )
 
-from taf.exceptions import TAFError
+from taf.exceptions import KeystoreError
 
 # importing YkSigner registers its "yk" prefix
 from taf.tuf.keys import YkSigner, _from_crypto
 
 
-def keystore_uri(keystore: Union[str, Path], key_name: str) -> str:
-    path = Path(keystore, key_name).expanduser().resolve()
-    # the URI would end at these characters and point to another path
+def check_keystore_path(path: Union[str, Path]) -> None:
+    """Raise KeystoreError if a keystore file's path can't be used in a URI.
+    A URI ends at '#' or '?', so it would point to another file."""
+    path = Path(path).expanduser().resolve()
     if "#" in str(path) or "?" in str(path):
-        raise TAFError(f"Keystore path {path} can't contain '#' or '?'")
+        raise KeystoreError(f"Keystore path {path} can't contain '#' or '?'")
+
+
+def get_keystore_uri(keystore: Union[str, Path], key_name: str) -> str:
+    path = Path(keystore, key_name).expanduser().resolve()
+    check_keystore_path(path)
     return f"{CryptoSigner.SCHEME}:{path.as_posix()}"
 
 
@@ -41,19 +47,19 @@ def import_keystore_key(
     key once to get its public part."""
     path = Path(keystore, key_name).expanduser().resolve()
     private_key = load_pem_private_key(path.read_bytes(), None)
-    return keystore_uri(keystore, key_name), _from_crypto(
+    return get_keystore_uri(keystore, key_name), _from_crypto(
         private_key.public_key(), scheme
     )
 
 
-def yubikey_uri(serial_num: int, slot: Optional[int], key_name: str) -> str:
+def get_yubikey_uri(serial_num: int, slot: Optional[int], key_name: str) -> str:
     params = {"name": key_name}
     if slot is not None:
         params["slot"] = f"{int(slot):x}"
     return f"{YkSigner.SCHEME}:{serial_num}?{parse.urlencode(params)}"
 
 
-def hsm_uri(key_id: int, token_label: Optional[str] = None) -> str:
+def get_hsm_uri(key_id: int, token_label: Optional[str] = None) -> str:
     uri = f"{HSMSigner.SCHEME}:{key_id}"
     if token_label:
         uri += "?" + parse.urlencode({"label": token_label})

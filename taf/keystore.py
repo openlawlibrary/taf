@@ -8,7 +8,7 @@ import securesystemslib
 from taf.tuf.keys import load_public_key_from_file
 
 from taf.exceptions import KeystoreError
-from taf.tuf.signer_uris import import_keystore_key, keystore_uri, load_signer
+from taf.tuf.signer_uris import get_keystore_uri, import_keystore_key, load_signer
 
 from securesystemslib.signer import Signer
 
@@ -40,7 +40,7 @@ def load_signer_from_keystore_uri(
     """Build a signer for a keystore file from its URI. The file does not say
     which of the role's keys it holds, so each one is tried. Return None if
     none match."""
-    uri = keystore_uri(keystore, key_name)
+    uri = get_keystore_uri(keystore, key_name)
     while True:
         try:
             return load_signer(uri, public_keys)
@@ -57,7 +57,6 @@ def load_signer_from_private_keystore(
     key_path = Path(keystore, key_name).expanduser().resolve()
     if not key_path.is_file():
         raise KeystoreError(f"{str(key_path)} does not exist")
-    keystore_uri(keystore, key_name)
 
     while True:
         try:

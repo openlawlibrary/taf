@@ -24,7 +24,7 @@ from taf.exceptions import (
     SigningError,
     YubikeyError,
 )
-from taf.tuf.signer_uris import load_signer, yubikey_uri
+from taf.tuf.signer_uris import check_keystore_path, get_yubikey_uri, load_signer
 from taf.keystore import (
     get_keystore_keys_of_role,
     load_signer_from_keystore_uri,
@@ -44,7 +44,7 @@ except ImportError:
 
 def _create_signer(auth_repo, public_key, serial_num, key_name, slot=None):
     return load_signer(
-        yubikey_uri(serial_num, slot, key_name),
+        get_yubikey_uri(serial_num, slot, key_name),
         [public_key],
         partial(
             yk.yk_secrets_handler,
@@ -177,8 +177,8 @@ def load_sorted_keys_of_new_roles(
             signers[role.name] = yubikey_signers
 
         return signers, verification_keys
-    except KeystoreError:
-        raise SigningError("Could not load keys of new roles")
+    except KeystoreError as e:
+        raise SigningError(f"Could not load keys of new roles: {e}") from e
 
 
 def _load_signer_from_keystore(
@@ -187,6 +187,7 @@ def _load_signer_from_keystore(
     if keystore_path is None:
         return None
     if (keystore_path / key_name).is_file():
+        check_keystore_path(keystore_path / key_name)
         try:
             return load_signer_from_keystore_uri(
                 keystore_path, key_name, taf_repo.get_public_keys_of_role(role)
@@ -529,7 +530,7 @@ def _setup_keystore_key(
     role_name: str,
     key_name: str,
     scheme: Optional[str],
-    length: int,
+    length: Optional[int],
     skip_prompt: Optional[bool],
 ) -> Tuple[Signer, str]:
     generate_new_keys = keystore is None
@@ -543,6 +544,7 @@ def _setup_keystore_key(
             print(f"{key_path} is not a file!")
 
     if keystore is not None:
+        check_keystore_path(Path(keystore, key_name))
         keystore_path = str(Path(keystore).expanduser().resolve())
         while signer is None:
             try:
@@ -572,10 +574,6 @@ def _setup_keystore_key(
                 else:
                     break
     if generate_new_keys:
-        if not scheme:
-            raise KeystoreError(
-                f"Cannot generate {key_name}: set the signing scheme of {role_name}"
-            )
         if keystore is None:
             raise KeystoreError(
                 f"Cannot generate {key_name}: no keystore to write it to"
