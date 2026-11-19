@@ -2,10 +2,9 @@
 
 import hashlib
 import os
-from typing import Optional, Tuple, Union
+from typing import Optional, Tuple
 from urllib import parse
 
-from pathlib import Path
 from securesystemslib.signer import (
     KEY_FOR_TYPE_AND_SCHEME,
     KEY_TYPE_ECDSA,
@@ -158,55 +157,6 @@ def _from_crypto(pub: PublicKeyTypes, scheme: Optional[str] = None) -> SSlibKey:
     key.unrecognized_fields["keyid_hash_algorithms"] = ["sha256", "sha512"]
     key.keyid = _get_legacy_keyid(key)
     return key
-
-
-def load_public_key_from_file(path: Union[str, Path]) -> SSlibKey:
-    """Load SSlibKey from a public key file.
-
-    * Expected key file format is SubjectPublicKeyInfo/PEM
-    * Signing scheme is detected from the key material (RSA or ECDSA P-256)
-    * Keyid is computed from legacy canonical representation of public key
-
-    """
-    with open(path, "rb") as f:
-        pem = f.read()
-
-    pub = load_pem_public_key(pem)
-    return _from_crypto(pub)
-
-
-def load_signer_from_file(path: Path) -> CryptoSigner:
-    """Load CryptoSigner from a private key file.
-
-    * Expected key file format is PKCS8/PEM
-    * Signing scheme is detected from the key material (RSA or ECDSA P-256)
-    * Keyid is computed from legacy canonical representation of public key
-    * The key is expected to be unencrypted
-
-    """
-    with open(path, "rb") as f:
-        pem = f.read()
-
-    priv = load_pem_private_key(pem, None)
-    pub = priv.public_key()
-    return CryptoSigner(priv, _from_crypto(pub))
-
-
-def load_signer_from_pem(pem: bytes, scheme: Optional[str] = None) -> CryptoSigner:
-    """Load CryptoSigner from a private key in PEM format.
-
-    * Expected key file format is PKCS8/PEM
-    * Signing scheme is detected from the key material (RSA or ECDSA P-256)
-      unless explicitly overridden, which only makes sense for RSA, where
-      the sub-scheme (e.g. rsassa-pss-sha256) can't be inferred from the
-      key bytes alone
-    * Keyid is computed from legacy canonical representation of public key
-    * The key is expected to be unencrypted
-
-    """
-    priv = load_pem_private_key(pem, None)
-    pub = priv.public_key()
-    return CryptoSigner(priv, _from_crypto(pub, scheme))
 
 
 class YkSigner(Signer):

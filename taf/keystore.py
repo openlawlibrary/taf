@@ -4,11 +4,9 @@ from os import getcwd
 from pathlib import Path
 from typing import List, Optional, Union
 import click
-import securesystemslib
-from taf.tuf.keys import load_public_key_from_file
 
 from taf.exceptions import KeystoreError
-from taf.tuf.signer_uris import get_keystore_uri, import_keystore_key, load_signer
+from taf.tuf.signer_uris import get_keystore_uri, import_keystore_signer, load_signer
 
 from securesystemslib.signer import Signer
 
@@ -60,25 +58,8 @@ def load_signer_from_private_keystore(
 
     while True:
         try:
-            uri, public_key = import_keystore_key(keystore, key_name, scheme)
-            signer = load_signer(uri, [public_key])
-            if signer is not None:
-                return signer
-            raise KeystoreError(f"{uri} does not match its public key")
+            return import_keystore_signer(keystore, key_name, scheme)
         except Exception as e:
             print(f"Could not open keystore file {key_path}: {e}")
         if not click.confirm("Try again?"):
             raise KeystoreError(f"Could not open keystore file {key_path}")
-
-
-def read_public_key_from_keystore(keystore: str, key_name: str) -> SSlibKey:
-    pub_key_path = Path(keystore, f"{key_name}.pub").expanduser().resolve()
-    if not pub_key_path.is_file():
-        raise KeystoreError(f"{str(pub_key_path)} does not exist")
-    try:
-        return load_public_key_from_file(str(pub_key_path))
-    except (
-        securesystemslib.exceptions.FormatError,
-        securesystemslib.exceptions.Error,
-    ) as e:
-        raise KeystoreError(e)

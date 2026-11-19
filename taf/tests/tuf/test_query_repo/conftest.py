@@ -4,7 +4,7 @@ from taf.utils import on_rm_error
 import pytest
 from taf.models.types import RolesKeysData
 from taf.models.converter import from_dict
-from taf.tuf.keys import load_signer_from_file
+from taf.tuf.signer_uris import import_keystore_signer
 
 
 @pytest.fixture(scope="module")
@@ -37,10 +37,10 @@ def tuf_repo_delegation_paths(
     signers = {
         **signers_with_delegations,
         "delegated_role1": [
-            load_signer_from_file(keystore_delegations / "delegated_role1")
+            import_keystore_signer(keystore_delegations, "delegated_role1")
         ],
         "delegated_role2": [
-            load_signer_from_file(keystore_delegations / "delegated_role2")
+            import_keystore_signer(keystore_delegations, "delegated_role2")
         ],
     }
     tuf_repo.create(roles_keys_data, signers)

@@ -6,10 +6,10 @@ from cryptography.hazmat.primitives.asymmetric.ec import (
 )
 
 from taf.constants import DEFAULT_ECDSA_SIGNATURE_SCHEME, DEFAULT_RSA_SIGNATURE_SCHEME
+from taf.tuf.signer_uris import import_keystore_signer
 from taf.tuf.keys import (
     generate_keypair,
     get_sslib_key_from_value,
-    load_signer_from_pem,
 )
 
 
@@ -66,14 +66,14 @@ def test_get_sslib_key_from_value_rejects_mismatched_scheme_for_ecdsa_key():
         get_sslib_key_from_value(public_pem, "rsassa-pss-sha256")
 
 
-def test_ecdsa_signer_round_trip():
-    """An EC private key loaded through the same RSA-default-scheme path
-    used everywhere else must produce a signer that verifies against the
-    corresponding public key loaded the same way.
+def test_ecdsa_signer_round_trip(tmp_path):
+    """An EC keystore file loaded through its URI must produce a signer that
+    verifies against the corresponding public key.
     """
     private_pem, public_pem = _ec_keypair_pem()
+    (tmp_path / "key").write_bytes(private_pem)
 
-    signer = load_signer_from_pem(private_pem)
+    signer = import_keystore_signer(tmp_path, "key")
     public_key = get_sslib_key_from_value(public_pem)
 
     assert signer.public_key.keyid == public_key.keyid

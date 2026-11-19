@@ -52,6 +52,14 @@ def import_keystore_key(
     )
 
 
+def import_keystore_signer(
+    keystore: Union[str, Path], key_name: str, scheme: Optional[str] = None
+) -> Signer:
+    """Return the signer of a keystore file whose key is not in metadata yet"""
+    uri, public_key = import_keystore_key(keystore, key_name, scheme)
+    return Signer.from_priv_key_uri(uri, public_key)
+
+
 def get_yubikey_uri(serial_num: int, slot: Optional[int], key_name: str) -> str:
     params = {"name": key_name}
     if slot is not None:

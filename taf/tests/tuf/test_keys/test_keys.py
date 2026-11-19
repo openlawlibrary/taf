@@ -1,6 +1,7 @@
 import pytest
 from tuf.api.metadata import Metadata, Root
-from taf.tuf.keys import load_public_key_from_file, load_signer_from_file
+from taf.tuf.keys import get_sslib_key_from_value
+from taf.tuf.signer_uris import import_keystore_signer
 
 from securesystemslib.exceptions import UnverifiedSignatureError
 
@@ -24,13 +25,15 @@ def test_keys(tuf_repo, keystore_delegations):
         "targets2",
         "timestamp",
     ]:
-        public_key = load_public_key_from_file(keystore_delegations / f"{name}.pub")
+        public_key = get_sslib_key_from_value(
+            (keystore_delegations / f"{name}.pub").read_text()
+        )
 
         # assert hard-coded scheme and correct legacy keyid
         assert public_key.scheme == "rsa-pkcs1v15-sha256"
         assert public_key.keyid in root.signed.keys
 
-        signer = load_signer_from_file(keystore_delegations / name)
+        signer = import_keystore_signer(keystore_delegations, name)
 
         # assert public key loaded from disk matches public key derived
         # from private key loaded from disk

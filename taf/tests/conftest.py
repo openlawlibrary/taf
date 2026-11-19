@@ -8,7 +8,7 @@ from typing import Optional
 
 from taf.api.repository import create_repository
 from taf.auth_repo import AuthenticationRepository
-from taf.tuf.keys import load_signer_from_file
+from taf.tuf.signer_uris import import_keystore_signer
 
 # from taf.tests import TEST_WITH_REAL_YK
 from taf.utils import on_rm_error
@@ -64,7 +64,7 @@ def real_public_key(keystore_delegations):
     """Factory returning the real public key of a named key file in keystore_delegations."""
 
     def _real_public_key(key_name):
-        return load_signer_from_file(keystore_delegations / key_name).public_key
+        return import_keystore_signer(keystore_delegations, key_name).public_key
 
     return _real_public_key
 
@@ -137,7 +137,9 @@ def _load_signers_from_keystore(keystore):
 
             if normalized_base_name not in signers:
                 signers[normalized_base_name] = []
-            signers[normalized_base_name].append(load_signer_from_file(file))
+            signers[normalized_base_name].append(
+                import_keystore_signer(file.parent, file.name)
+            )
     return signers
 
 

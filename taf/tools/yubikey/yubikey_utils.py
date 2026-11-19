@@ -6,7 +6,7 @@ from cryptography import x509
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, ed25519
-from taf.tuf.keys import load_signer_from_file
+from taf.tuf.signer_uris import import_keystore_signer
 from ykman.piv import OBJECT_ID_PIVMAN_PROTECTED_DATA
 from yubikit.core.smartcard import ApduError, SW
 from yubikit.piv import DEFAULT_MANAGEMENT_KEY, SLOT, InvalidPinError
@@ -34,7 +34,7 @@ class FakeYubiKey:
             self.pub_key_pem, default_backend()
         )
 
-        self.tuf_key = load_signer_from_file(priv_key_path)
+        self.tuf_key = import_keystore_signer(priv_key_path.parent, priv_key_path.name)
 
         # PIV slot state (key/cert per slot), persisted here rather than on
         # FakePivController, since a new FakePivController is constructed on

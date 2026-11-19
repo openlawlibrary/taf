@@ -11,7 +11,7 @@ from taf.tests.tuf.test_keys.conftest import (
     write_signing_keystore,
 )
 from taf.tools.yubikey.yubikey_utils import VALID_PIN
-from taf.tuf.keys import load_signer_from_file
+from taf.tuf.signer_uris import import_keystore_signer
 
 ROLES = ("targets", "snapshot", "timestamp")
 
@@ -111,5 +111,5 @@ def test_key_management_context_with_key_pin_loads_role_key_from_non_signature_s
         assert auth_repo.check_if_keys_loaded("targets")
         loaded_keyids = set(auth_repo.signer_cache["targets"])
 
-    expected_keyid = load_signer_from_file(keystore / "targets").public_key.keyid
+    expected_keyid = import_keystore_signer(keystore, "targets").public_key.keyid
     assert loaded_keyids == {expected_keyid}
