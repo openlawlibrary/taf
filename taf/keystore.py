@@ -39,12 +39,20 @@ def load_signer_from_keystore_uri(
     which of the role's keys it holds, so each one is tried. Return None if
     none match."""
     uri = get_keystore_uri(keystore, key_name)
-    while True:
+
+    def _read_key(uri, public_keys):
         try:
-            return load_signer(uri, public_keys)
+            return load_signer(uri, public_keys), None
         except Exception as e:
-            print(f"Could not open keystore file {uri}: {e}")
-        if not click.confirm("Try again?"):
+            return None, e
+
+    while True:
+        signer, error = _read_key(uri, public_keys)
+        if error is None:
+            return signer
+        if not click.confirm(
+            f"Could not open keystore file {uri}: {error}. Try again?"
+        ):
             raise KeystoreError(f"Could not open keystore file {uri}")
 
 
@@ -56,10 +64,17 @@ def load_signer_from_private_keystore(
     if not key_path.is_file():
         raise KeystoreError(f"{str(key_path)} does not exist")
 
-    while True:
+    def _read_key(keystore, key_name, scheme):
         try:
-            return import_keystore_signer(keystore, key_name, scheme)
+            return import_keystore_signer(keystore, key_name, scheme), None
         except Exception as e:
-            print(f"Could not open keystore file {key_path}: {e}")
-        if not click.confirm("Try again?"):
+            return None, e
+
+    while True:
+        signer, error = _read_key(keystore, key_name, scheme)
+        if signer is not None:
+            return signer
+        if not click.confirm(
+            f"Could not open keystore file {key_path}: {error}. Try again?"
+        ):
             raise KeystoreError(f"Could not open keystore file {key_path}")

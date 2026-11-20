@@ -4,37 +4,36 @@
 verification. A TAF update verifies the same handful of keys thousands of
 times (once per metadata file per validated commit), so the parsing is
 memoized here. securesystemslib's own method does the parsing, so every key
-type it supports keeps working. The cache key is the key type and public key
-value, and the returned ``cryptography`` public key objects are immutable, so
-sharing them between SSlibKey instances cannot change any verification outcome.
+type it supports keeps working. The cache key is the SSlibKey itself and the
+returned ``cryptography`` public key objects are immutable, so sharing them
+between SSlibKey instances cannot change any verification outcome.
 """
 
-from typing import Any, Callable, Dict, Optional, Tuple
+from functools import lru_cache
 
 from securesystemslib.signer import SSlibKey
 
 from taf.log import taf_logger
 
-_original_crypto_key: Optional[Callable] = None
-_crypto_keys: Dict[Tuple[str, str], Any] = {}
+_sslib_crypto_key = getattr(SSlibKey, "_crypto_key", None)
+
+
+@lru_cache(maxsize=256)
+def _load_crypto_key_cached(key: SSlibKey):
+    return _sslib_crypto_key(key)  # type: ignore
 
 
 def _cached_crypto_key(self):
     """Drop-in replacement for SSlibKey._crypto_key."""
-    cache_key = (self.keytype, self.keyval["public"])
-    if cache_key not in _crypto_keys:
-        _crypto_keys[cache_key] = _original_crypto_key(self)  # type: ignore
-    return _crypto_keys[cache_key]
+    return _load_crypto_key_cached(self)
 
 
 def enable_public_key_cache() -> None:
-    global _original_crypto_key
     # Called once, at import time, so the warning below cannot be repeated.
-    if not hasattr(SSlibKey, "_crypto_key"):
+    if hasattr(SSlibKey, "_crypto_key"):
+        SSlibKey._crypto_key = _cached_crypto_key  # type: ignore
+    else:
         taf_logger.warning(
             "securesystemslib internals changed: SSlibKey._crypto_key not found, "
             "skipping public key cache"
         )
-    elif _original_crypto_key is None:
-        _original_crypto_key = SSlibKey._crypto_key
-        SSlibKey._crypto_key = _cached_crypto_key  # type: ignore

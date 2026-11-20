@@ -43,7 +43,9 @@ def _generate_key(
         generate_and_write_keypair(key_path, scheme, rsa_key_size)
         taf_logger.log("NOTICE", f"Generated key {key_path}")
     except Exception as e:
-        raise KeystoreError(f"Could not generate key {key_path}: {e}") from e
+        raise KeystoreError(
+            f"An error occurred while generating key {key_path}: {e}"
+        ) from e
 
 
 def generate_keys(

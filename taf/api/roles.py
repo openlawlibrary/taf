@@ -621,21 +621,23 @@ def _enter_role_info(
     scheme = _read_val(str, f"{role} signature scheme", "scheme")
     if scheme is not None:
         role_info["scheme"] = scheme
-    if scheme is not None and scheme.startswith("rsa"):
-        if role_info["yubikey"]:
+    is_rsa = scheme is not None and scheme.startswith("rsa")
+    if role_info["yubikey"]:
+        # in case of yubikeys, the length of RSA keys has to have a specific value
+        if is_rsa:
             role_info["length"] = 2048
+    elif is_rsa:
+        # if keystore is specified and contains keys corresponding to this role
+        # get key size based on the public key
+        keystore_length = 0
+        if keystore is not None:
+            keystore_length = _get_roles_key_size(role, keystore, keys_num)
+        if keystore_length == 0:
+            key_length = _read_val(int, f"{role} key length", "length")
+            if key_length is not None:
+                role_info["length"] = key_length
         else:
-            # if keystore is specified and contains keys corresponding to this role
-            # get key size based on the public key
-            keystore_length = 0
-            if keystore is not None:
-                keystore_length = _get_roles_key_size(role, keystore, keys_num)
-            if keystore_length == 0:
-                key_length = _read_val(int, f"{role} key length", "length")
-                if key_length is not None:
-                    role_info["length"] = key_length
-            else:
-                role_info["length"] = keystore_length
+            role_info["length"] = keystore_length
 
     threshold = _read_val(int, f"{role} signature threshold", "threshold")
     if threshold is not None:

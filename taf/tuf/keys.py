@@ -22,6 +22,7 @@ from cryptography.hazmat.primitives.serialization import (
     load_pem_private_key,
     load_pem_public_key,
 )
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
 from cryptography.hazmat.primitives.asymmetric.types import PublicKeyTypes
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
@@ -69,14 +70,15 @@ def generate_keypair(
         raise TAFError(f"Cannot generate a key for scheme '{scheme}'")
 
     private_pem = signer.private_bytes
-    public_pem = (
-        load_pem_private_key(private_pem, None)
-        .public_key()
-        .public_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PublicFormat.SubjectPublicKeyInfo,
-        )
+
+    # Get the public key from the private key
+    public_key = load_pem_private_key(private_pem, None).public_key()
+    # Serialize public key
+    public_pem = public_key.public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo,
     )
+
     return private_pem, public_pem
 
 
@@ -98,13 +100,6 @@ def generate_and_write_keypair(
         f.write(public_pem)
 
     return private_pem
-
-
-def get_rsa_key_size(key: SSlibKey) -> Optional[int]:
-    """Return the size of an RSA key in bits, or None for other key types"""
-    if key.keytype != KEY_TYPE_RSA:
-        return None
-    return load_pem_public_key(key.keyval["public"].encode()).key_size  # type: ignore
 
 
 def get_sslib_key_from_value(key: str, scheme: Optional[str] = None) -> SSlibKey:
@@ -138,8 +133,9 @@ def _from_crypto(pub: PublicKeyTypes, scheme: Optional[str] = None) -> SSlibKey:
     existing RSA keys stay the same. Other key types have only one scheme.
     """
     key = SSlibKey.from_crypto(pub)
-    # securesystemslib does not check if keytype and scheme are compatible
-    if key.keytype == KEY_TYPE_RSA:
+    # securesystemslib does not (yet) check if keytype and scheme are compatible
+    # https://github.com/secure-systems-lab/securesystemslib/issues/766
+    if isinstance(pub, RSAPublicKey):
         scheme = scheme or DEFAULT_RSA_SIGNATURE_SCHEME
         rsa_schemes = {
             rsa_scheme
