@@ -9,6 +9,7 @@ from taf.api.keystore import generate_keys
 from taf.api.metadata import add_key_names, update_metadata_expiration_date
 from taf.api.repository import create_repository
 from taf.auth_repo import AuthenticationRepository
+from taf.tuf.keys import get_sslib_key_from_value
 from taf.messages import git_commit_message
 from taf.tests.test_api.util import (
     check_if_targets_signed,
@@ -185,6 +186,9 @@ def test_create_repository_and_sign_when_keystore_keys_are_of_type(
     auth_repo = AuthenticationRepository(path=repo_path)
     root = auth_repo.signed_obj("root")
     assert {key.scheme for key in root.keys.values()} == {expected_scheme}
+    for keyid in root.keys:
+        public_pem, key_scheme = auth_repo.get_public_key_of_keyid(keyid)
+        assert get_sslib_key_from_value(public_pem, key_scheme).keyid == keyid
     assert "alice" in auth_repo.keys_name_mappings.values()
     description = auth_repo.generate_roles_description()["roles"]["root"]
     assert description["scheme"] == expected_scheme

@@ -50,9 +50,10 @@ def test_fake_yk(monkeypatch):
         "taf.yubikey.yubikey.get_serial_nums", lambda *args, **kwargs: ["1234"]
     )
 
+    import taf.yubikey.yubikey as yk
     from taf.tuf.keys import YkSigner
 
-    key = YkSigner.import_()
+    key = yk.get_piv_public_key_tuf()
 
     def _secrets_handler(key_name):
         return "123456"
@@ -86,7 +87,7 @@ def test_real_yk():
         pin_manager=pin_manager,
         serial_num=serial,
     )
-    key = YkSigner.import_()
+    key = yk.get_piv_public_key_tuf(serial=serial)
     signer = YkSigner(key, serial, secrets_handler, "test")
 
     sig = signer.sign(_DATA)

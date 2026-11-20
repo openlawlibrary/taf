@@ -193,13 +193,11 @@ This command can be used to generate the initial authentication repository. The 
 of all metadata files are created, but no targets are added.
 
 ```bash
-taf repo create --path E:\\OLL\\auth_repo_path --keystore E:\\OLL\\keystore --keys-description E:\\OLL\\data\\keys.json --test
+taf repo create E:\\OLL\\auth_repo_path --keystore E:\\OLL\\keystore --keys-description E:\\OLL\\data\\keys.json --test
 ```
 
-will generate a new authentication repository at `E:\OLL\auth_repo_path`, if `path` is provide, or inside
-the current working directory, in case this parameter is omitted. There are several options
-for signing metadata files - from keystore, by directly entering the key when prompted and by using
-Yubikeys. If one or more keys are stored in the keystore, keystore path should be specified
+will generate a new authentication repository at `E:\OLL\auth_repo_path`. Metadata files can be
+signed with keys from the keystore or with Yubikeys. If one or more keys are stored in the keystore, keystore path should be specified
 when calling this command. If `keystore` is specified in `keys-description`, it is not necessary
 to also use the `--keystore` option. All keys that do not already exist will be generated during
 execution of this command. Keys can generated on the Yubikeys, but that will delete everything
@@ -372,8 +370,7 @@ If `path` option is omitted, the repository will be expected to be located insid
 ### `metadata update-expiration-dates`
 
 This command updates expiration date of the given role's metadata file. The metadata file
-can be signed by directly entering the key when prompted to do so, by loading the key
-from disk or from a Yubikey. If key should be loaded from disk, it is necessary to specify
+can be signed by loading the key from disk or from a Yubikey. If key should be loaded from disk, it is necessary to specify
 the keystore path using the `--keystore` option or by providing a `--keys-description` json which
 contains the `keystore` property. The new expiration date is calculated by
 adding interval to the start date, both of which can be specified when calling this command.

@@ -131,10 +131,10 @@ a key. New repositories can be created using already set up YubiKeys.
 Use the `repo create` command to create a new authentication repository:
 
 ```bash
-taf repo create --path auth_path --keystore keystore_path --keys-description keys-description.json --test
+taf repo create auth_path --keystore keystore_path --keys-description keys-description.json --test
 ```
 
-- `path` is an optional parameter which represents a path to a folder where the new authentication repository's content should be stored to e.g. `test/law`. If not specified, the repository will be created inside the current working directory.
+- `path` is the folder where the new authentication repository's content should be stored, e.g. `test/law`.
 - `keys-description` is the previously described dictionary containing information about roles, keys and optionally keystore location. If one or more keys should be loaded from the disk their location can be determined based on `keystore` property of this json.
 - `keystore` is the location of the keystore files. Use this options if the keystore files were previously generated and not all metadata files should be signed using Yubikeys. This location can also be defined using the `keystore` property of the `keys-description` json.
 - `test`  flag determines if a special target file called `test-auth-repo` will be created. That

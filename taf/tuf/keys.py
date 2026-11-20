@@ -111,6 +111,21 @@ def get_sslib_key_from_value(key: str, scheme: Optional[str] = None) -> SSlibKey
     return _from_crypto(crypto_key, scheme=scheme)
 
 
+def get_public_key_pem(key: SSlibKey) -> str:
+    """
+    Return the public key in PEM format. securesystemslib stores some key
+    types, like ed25519, in another format.
+    """
+    if key.keyval["public"].startswith("-----BEGIN"):
+        return key.keyval["public"]
+    public_key = key._crypto_key()
+    public_pem = public_key.public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo,
+    )
+    return public_pem.decode()
+
+
 def _get_legacy_keyid(key: SSlibKey) -> str:
     """Computes legacy keyid as hash over an opinionated canonical
     representation of the public key."""
@@ -205,32 +220,6 @@ class YkSigner(Signer):
     def slot(self):
         return self._slot
 
-    @classmethod
-    def import_(cls) -> SSlibKey:
-        """Import rsa public key from Yubikey.
-
-        * Assigns default signing scheme: "rsa-pkcs1v15-sha256"
-        * Raises ValueError, if key on Yubikey is not an rsa key.
-
-        TODO: Consider returning priv key uri along with public key.
-        See e.g. `self.from_priv_key_uri` and other `import_` methods on
-        securesystemslib signers, e.g. `HSMSigner.import_`.
-
-        TODO: only checks SLOT.SIGNATURE, same as export_piv_pub_key -
-        test-only helper per the comment below, so not extended to other
-        slots for now.
-        """
-        # if multiple keys are inserted, we need to know from which key should be imported
-        # TODO
-        # only used for testing purposes now
-        from taf.yubikey.yubikey import export_piv_pub_key, get_serial_nums
-
-        serials = get_serial_nums()
-        serial = serials[0]
-        pem = export_piv_pub_key(serial=serial)
-        pub = load_pem_public_key(pem)
-        return _from_crypto(pub)
-
     def sign(self, payload: bytes) -> Signature:
         pin = self._pin_handler(self._SECRET_PROMPT)
         from taf.yubikey.yubikey import sign_piv, verify_yk_inserted
@@ -272,23 +261,3 @@ class YkSigner(Signer):
 
 
 SIGNER_FOR_URI_SCHEME[YkSigner.SCHEME] = YkSigner
-
-
-def root_signature_provider(signature_dict, key_id, _key, _data):
-    """Root signature provider used to return signatures created remotely.
-
-    Args:
-        - signature_dict(dict): Dict where key is key_id and value is signature
-        - key_id(str): Key id from targets metadata file
-        - _key(securesystemslib.formats.RSAKEY_SCHEMA): Key info
-        - _data(dict): Data to sign (already signed remotely)
-
-    Returns:
-        Dictionary that comforms to `securesystemslib.formats.SIGNATURE_SCHEMA`
-
-    Raises:
-        - KeyError: If signature for key_id is not present in signature_dict
-    """
-    from binascii import hexlify
-
-    return {"keyid": key_id, "sig": hexlify(signature_dict.get(key_id)).decode()}

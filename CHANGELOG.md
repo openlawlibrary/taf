@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Generating a key needs a signing scheme; the scheme of an existing key is detected from the key
 - `taf keystore generate` asks before overwriting existing key files
 - `taf yubikey setup-signing-key` needs `--scheme`
+- Keystore paths can't contain '#' or '?'
 
 ### Removed
 
@@ -30,6 +31,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Fix generating a key that is not written to the keystore
 - Show errors of `taf keystore generate`
 - Make generated private keys readable only by their owner
+- Fix finding the public key of a nested delegated role by its key id
 
 [838]: https://github.com/openlawlibrary/taf/pull/838
 

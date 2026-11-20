@@ -130,10 +130,10 @@ a key. New repositories can be created using already set up YubiKeys.
 Use the `repo create` command to create a new authentication repository:
 
 ```bash
-taf repo create --path auth-path --keystore keystore_path --keys-description keys-description.json --commit --test
+taf repo create auth-path --keystore keystore_path --keys-description keys-description.json --commit --test
 ```
 
-- `path` is an optional parameter which represents a path to a folder where the new authentication repository's content should be stored to e.g. `test/law`. If not specified, the repository will be created inside the current working directory.
+- `path` is the folder where the new authentication repository's content should be stored, e.g. `test/law`.
 - `keys-description` was described at the top of this document
 - `keystore` is the location of the keystore files. Use this options if the keystore files were previously generated and not all metadata files should be signed using Yubikeys. This location can also be defined using the `keystore` property of the `keys-description` json.
 - `commit` flag determines if the changes should be automatically committed
@@ -161,10 +161,10 @@ repositories listed in `repositories.json` to appropriate target files and autom
 targets metadata files, as well as snapshot and timestamp.
 
 ```bash
-taf targets update-and-sign-targets --path auth-path --keystore E:\\keystore
+taf targets update-and-sign --path auth-path --keystore E:\\keystore
 ```
 
-- `path` is an optional parameter which represents a path to a folder where the new authentication repository's content should be stored to e.g. `test/law`. If not specified, the repository will be created inside the current working directory.
+- `path` is the authentication repository's location. If not specified, the current directory is used.
 `keystore` defines location of the keystore files. If a key is not in the provided keystore, or if keystore
 location is not specified when calling the command, it will be necessary to either use previously set up
 Yubikey for signing, or directly paste key values.

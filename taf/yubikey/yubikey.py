@@ -16,7 +16,12 @@ from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from taf.api.utils._conf import find_taf_directory
-from taf.tuf.keys import _get_legacy_keyid, generate_keypair, get_sslib_key_from_value
+from taf.tuf.keys import (
+    _get_legacy_keyid,
+    generate_keypair,
+    get_public_key_pem,
+    get_sslib_key_from_value,
+)
 from taf.yubikey.yubikey_manager import PinManager
 from taf.models.types import KeysMapping
 from ykman.device import list_all_devices
@@ -365,7 +370,7 @@ def _pin_from_keys_mapping(public_key: SSlibKey, mapping: dict) -> Optional[str]
     return None.
     """
     key_name = KeysMapping.from_dict(mapping).find_name_by_public(
-        public_key.keyval["public"]
+        get_public_key_pem(public_key)
     )
     if key_name:
         return os.getenv(f"PIN_{to_env_var_upper(key_name)}")
@@ -374,7 +379,7 @@ def _pin_from_keys_mapping(public_key: SSlibKey, mapping: dict) -> Optional[str]
 
 @raise_yubikey_err("Cannot get public key in TUF format.")
 def get_piv_public_key_tuf(scheme=None, serial=None) -> SSlibKey:
-    """Return public key from a Yubikey in TUF's RSAKEY_SCHEMA format.
+    """Return public key from a Yubikey as an SSlibKey.
 
     Args:
         - scheme(str): Signature scheme, detected from the key if not given
@@ -382,9 +387,7 @@ def get_piv_public_key_tuf(scheme=None, serial=None) -> SSlibKey:
                             are inserted
 
     Returns:
-        A dictionary containing the RSA keys and other identifying information
-        from inserted smart card.
-        Conforms to 'securesystemslib.formats.RSAKEY_SCHEMA'.
+        The public key of the inserted YubiKey, with its legacy key id.
 
     Raises:
         - YubikeyError

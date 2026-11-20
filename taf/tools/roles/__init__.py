@@ -30,7 +30,7 @@ def add_roles_command():
     - 'number' (integer): Number of signing keys. Default is 1.
     - 'threshold' (integer): Number of keys required to sign. Default is 1.
     - 'yubikey' (boolean): Whether to use a YubiKey for signing. Default is false.
-    - 'scheme' (string): Signature scheme, e.g., 'rsa-pkcs1v15-sha256'. Default is 'rsa-pkcs1v15-sha256'.
+    - 'scheme' (string): Signature scheme, e.g., 'rsa-pkcs1v15-sha256'. Needed to generate new keys, detected from existing keys.
     - 'yubikeys' (array of strings): Names of the YubiKeys used for signing, defined in the 'yubikeys' section.
 
     The structure of the configuration file is very similar to the structure of the one used when creating the repository,

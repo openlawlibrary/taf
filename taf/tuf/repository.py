@@ -48,10 +48,13 @@ from tuf.api.metadata import (
 from tuf.api.serialization.json import JSONSerializer
 from taf.exceptions import InvalidKeyError, SignersNotLoaded, TAFError, TargetsError
 from taf.models.types import RolesIterator, RolesKeysData, TargetsRole
-from taf.tuf.keys import SSlibKey, _get_legacy_keyid, get_sslib_key_from_value
+from taf.tuf.keys import (
+    SSlibKey,
+    _get_legacy_keyid,
+    get_public_key_pem,
+    get_sslib_key_from_value,
+)
 from tuf.repository import Repository
-
-from securesystemslib.signer import CryptoSigner
 
 logger = logging.getLogger(__name__)
 
@@ -686,7 +689,7 @@ class MetadataRepository(Repository):
     def create_delegated_roles(
         self,
         roles_data: List[TargetsRole],
-        signers: Dict[str, List[CryptoSigner]],
+        signers: Dict[str, List[Signer]],
         additional_verification_keys: Optional[dict] = None,
     ) -> Tuple[List, List]:
         """
@@ -1346,7 +1349,7 @@ class MetadataRepository(Repository):
         key = self.get_public_key(keyid)
         if key is None:
             return None
-        return key.keyval["public"], key.scheme
+        return get_public_key_pem(key), key.scheme
 
     def generate_roles_description(self) -> Dict:
         """
@@ -1425,7 +1428,7 @@ class MetadataRepository(Repository):
 
         Args:
         - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
-        - key(securesystemslib.formats.RSAKEY_SCHEMA): Role's key.
+        - key(SSlibKey or str): Role's key, or its public key in PEM format.
 
         Returns:
         Boolean. True if key id is in metadata role key ids, False otherwise.
@@ -1452,7 +1455,7 @@ class MetadataRepository(Repository):
 
         Args:
         - role(str): TUF role (root, targets, timestamp, snapshot or delegated one
-        - public_key(securesystemslib.formats.RSAKEY_SCHEMA): RSA public key dict
+        - public_key(SSlibKey): Public key read from the YubiKey
 
         Returns:
         Boolean. True if smart card key id belongs to metadata role key ids
@@ -1812,7 +1815,7 @@ class MetadataRepository(Repository):
         - start_date(datetime): Date to which the specified interval is added when calculating
                                 expiration date. If a value is not provided, it is set to the
                                 current time.
-        - signers(List[CryptoSigner]): a list of signers
+        - signers(List[Signer]): a list of signers
         - interval(int): A number of days added to the start date.
                         If not provided, the default value is set based on the role:
 

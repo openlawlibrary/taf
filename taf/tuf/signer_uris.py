@@ -13,7 +13,6 @@ from cryptography.hazmat.primitives.serialization import load_pem_private_key
 from securesystemslib.exceptions import KeyMismatchError
 from securesystemslib.signer import (
     CryptoSigner,
-    HSMSigner,
     SecretsHandler,
     Signer,
     SSlibKey,
@@ -65,13 +64,6 @@ def get_yubikey_uri(serial_num: int, slot: Optional[int], key_name: str) -> str:
     if slot is not None:
         params["slot"] = f"{int(slot):x}"
     return f"{YkSigner.SCHEME}:{serial_num}?{parse.urlencode(params)}"
-
-
-def get_hsm_uri(key_id: int, token_label: Optional[str] = None) -> str:
-    uri = f"{HSMSigner.SCHEME}:{key_id}"
-    if token_label:
-        uri += "?" + parse.urlencode({"label": token_label})
-    return uri
 
 
 def load_signer(
