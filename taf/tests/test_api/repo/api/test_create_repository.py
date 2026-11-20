@@ -9,6 +9,7 @@ from taf.api.keystore import generate_keys
 from taf.api.metadata import add_key_names, update_metadata_expiration_date
 from taf.api.repository import create_repository
 from taf.auth_repo import AuthenticationRepository
+from taf.exceptions import SchemeNotSpecifiedError
 from taf.tuf.keys import get_sslib_key_from_value
 from taf.messages import git_commit_message
 from taf.tests.test_api.util import (
@@ -161,11 +162,13 @@ def test_create_repository_and_sign_when_keystore_keys_are_of_type(
     keys_description = tmp_path / "keys-description.json"
     keys_description.write_text(json.dumps({"roles": roles}))
     generate_keys(str(keystore), str(keys_description))
-    # without schemes, they are detected from the keystore files
-    for role in roles.values():
-        role.pop("scheme")
-    keys_description.write_text(json.dumps({"roles": roles}))
-    expected_scheme = "rsa-pkcs1v15-sha256" if scheme.startswith("rsa") else scheme
+    # without schemes, they are detected from the keystore files, except for
+    # RSA keys, which can be used with several schemes
+    if not scheme.startswith("rsa"):
+        for role in roles.values():
+            role.pop("scheme")
+        keys_description.write_text(json.dumps({"roles": roles}))
+    expected_scheme = scheme
     repo_path = str(auth_repo_path)
 
     create_repository(
@@ -180,7 +183,9 @@ def test_create_repository_and_sign_when_keystore_keys_are_of_type(
     )
     key_names = tmp_path / "key-names.json"
     root1_public = (keystore / "root1.pub").read_text()
-    key_names.write_text(json.dumps({"yubikeys": {"alice": {"public": root1_public}}}))
+    key_names.write_text(
+        json.dumps({"yubikeys": {"alice": {"public": root1_public, "scheme": scheme}}})
+    )
     add_key_names(repo_path, key_names, pin_manager, keystore=str(keystore), push=False)
 
     auth_repo = AuthenticationRepository(path=repo_path)
@@ -194,3 +199,34 @@ def test_create_repository_and_sign_when_keystore_keys_are_of_type(
     assert description["scheme"] == expected_scheme
     assert ("length" in description) == scheme.startswith("rsa")
     validate_repository(repo_path)
+
+
+def test_create_repository_fails_when_scheme_of_rsa_keystore_keys_is_not_set(
+    auth_repo_path: Path, tmp_path: Path, pin_manager: PinManager
+):
+    keystore = tmp_path / "keystore"
+    keystore.mkdir()
+    roles = {
+        "root": {"scheme": "rsa-pkcs1v15-sha256"},
+        "targets": {"scheme": "rsa-pkcs1v15-sha256"},
+        "snapshot": {"scheme": "rsa-pkcs1v15-sha256"},
+        "timestamp": {"scheme": "rsa-pkcs1v15-sha256"},
+    }
+    keys_description = tmp_path / "keys-description.json"
+    keys_description.write_text(json.dumps({"roles": roles}))
+    generate_keys(str(keystore), str(keys_description))
+    roles["root"].pop("scheme")
+    keys_description.write_text(json.dumps({"roles": roles}))
+
+    with pytest.raises(
+        SchemeNotSpecifiedError,
+        match="its scheme has to be specified",
+    ):
+        create_repository(
+            str(auth_repo_path),
+            pin_manager,
+            roles_key_infos=str(keys_description),
+            keystore=str(keystore),
+            commit=True,
+        )
+    assert not (auth_repo_path / "metadata").exists()

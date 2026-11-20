@@ -6,6 +6,7 @@ from cryptography.hazmat.primitives.asymmetric.ec import (
 )
 
 from taf.constants import DEFAULT_ECDSA_SIGNATURE_SCHEME, DEFAULT_RSA_SIGNATURE_SCHEME
+from taf.exceptions import SchemeNotSpecifiedError
 from taf.tuf.signer_uris import import_keystore_signer
 from taf.tuf.keys import (
     generate_keypair,
@@ -27,11 +28,10 @@ def _ec_keypair_pem(curve=SECP256R1()):
     return private_pem, public_pem.decode()
 
 
-def test_get_sslib_key_from_value_detects_ecdsa_with_default_rsa_scheme():
+def test_get_sslib_key_from_value_detects_ecdsa_scheme():
     """Callers that don't know the key type ahead of time (e.g. reading a
-    YubiKey's public key) pass no explicit scheme and rely on the RSA
-    default. An EC P-256 key must still be tagged correctly rather than
-    silently mislabeled as RSA or rejected.
+    YubiKey's public key) pass no explicit scheme. An EC P-256 key has only
+    one scheme, so it must be detected rather than rejected.
     """
     _, public_pem = _ec_keypair_pem()
 
@@ -85,10 +85,11 @@ def test_ecdsa_signer_round_trip(tmp_path):
         public_key.verify_signature(signature, b"NOT DATA")
 
 
-def test_rsa_scheme_default_still_used_for_rsa_keys():
+def test_rsa_key_without_scheme_is_rejected():
     _, public_pem = generate_keypair("rsa-pkcs1v15-sha256", 2048)
 
-    key = get_sslib_key_from_value(public_pem.decode())
+    with pytest.raises(SchemeNotSpecifiedError):
+        get_sslib_key_from_value(public_pem.decode())
 
-    assert key.keytype == "rsa"
+    key = get_sslib_key_from_value(public_pem.decode(), DEFAULT_RSA_SIGNATURE_SCHEME)
     assert key.scheme == DEFAULT_RSA_SIGNATURE_SCHEME

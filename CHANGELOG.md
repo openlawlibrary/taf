@@ -15,7 +15,8 @@ and this project adheres to [Semantic Versioning][semver].
 ### Changed
 
 - Upgrade to python-tuf 7 and securesystemslib 1.6 ([838])
-- Generating a key needs a signing scheme; the scheme of an existing key is detected from the key
+- Generating a key needs a signing scheme, and so does adding an RSA key; the scheme of other keys is detected from the key
+- `taf roles add-signing-key`, `taf roles rotate-key`, `taf yubikey export-pub-key` and `taf yubikey export-certificate` take `--scheme`
 - `taf keystore generate` asks before overwriting existing key files
 - `taf yubikey setup-signing-key` needs `--scheme`
 - Keystore paths can't contain '#' or '?'
@@ -32,6 +33,8 @@ and this project adheres to [Semantic Versioning][semver].
 - Show errors of `taf keystore generate`
 - Make generated private keys readable only by their owner
 - Fix finding the public key of a nested delegated role by its key id
+- Sign with RSA-PSS keys on YubiKeys
+- Load signers from the remaining keystore files when one of them can't be used
 
 [838]: https://github.com/openlawlibrary/taf/pull/838
 

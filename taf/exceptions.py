@@ -225,6 +225,10 @@ class SigningError(TAFError):
     pass
 
 
+class SchemeNotSpecifiedError(TAFError):
+    """An RSA key's signing scheme was needed but not given"""
+
+
 class TargetsError(TAFError):
     def __init__(self, message: str):
         self.message = message

@@ -27,8 +27,7 @@ from cryptography.hazmat.primitives.asymmetric.types import PublicKeyTypes
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 
-from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
-from taf.exceptions import TAFError
+from taf.exceptions import SchemeNotSpecifiedError, TAFError
 
 SUPPORTED_SCHEMES = sorted(
     scheme
@@ -126,6 +125,21 @@ def get_public_key_pem(key: SSlibKey) -> str:
     return public_pem.decode()
 
 
+def is_same_public_key(key: SSlibKey, public_key_pem: str) -> bool:
+    """Check if key's public key is the one in public_key_pem, whatever their
+    signing schemes"""
+    public_key = load_pem_public_key(public_key_pem.encode())
+    der_format = (
+        serialization.Encoding.DER,
+        serialization.PublicFormat.SubjectPublicKeyInfo,
+    )
+    try:
+        key_der = key._crypto_key().public_bytes(*der_format)
+    except Exception:
+        return False
+    return key_der == public_key.public_bytes(*der_format)
+
+
 def _get_legacy_keyid(key: SSlibKey) -> str:
     """Computes legacy keyid as hash over an opinionated canonical
     representation of the public key."""
@@ -143,20 +157,26 @@ def _get_legacy_keyid(key: SSlibKey) -> str:
 def _from_crypto(pub: PublicKeyTypes, scheme: Optional[str] = None) -> SSlibKey:
     """Converts pyca/cryptography public key to SSlibKey with legacy keyid.
 
-    securesystemslib detects the key type and its default scheme. RSA keys can
-    use several schemes and default to rsa-pkcs1v15-sha256, so that keyids of
-    existing RSA keys stay the same. Other key types have only one scheme.
+    securesystemslib detects the key type and its scheme. RSA keys can use
+    several schemes, which the key does not record, so their scheme has to be
+    given. Other key types have only one scheme.
     """
     key = SSlibKey.from_crypto(pub)
     # securesystemslib does not (yet) check if keytype and scheme are compatible
     # https://github.com/secure-systems-lab/securesystemslib/issues/766
     if isinstance(pub, RSAPublicKey):
-        scheme = scheme or DEFAULT_RSA_SIGNATURE_SCHEME
-        rsa_schemes = {
+        rsa_schemes = sorted(
             rsa_scheme
             for (keytype, rsa_scheme), key_class in KEY_FOR_TYPE_AND_SCHEME.items()
             if keytype == KEY_TYPE_RSA and key_class is SSlibKey
-        }
+        )
+        if not scheme:
+            raise SchemeNotSpecifiedError(
+                "An RSA key can be used with several signing schemes "
+                f"({', '.join(rsa_schemes)}), so its scheme has to be specified. "
+                'Set the key\'s "scheme" in the keys description, or pass --scheme '
+                "to commands that take a public key file."
+            )
         if scheme not in rsa_schemes:
             raise ValueError(f"scheme '{scheme}' not valid for rsa key")
         key = SSlibKey.from_crypto(pub, scheme=scheme)

@@ -24,7 +24,7 @@ def test_single_yubikey_valid_for_role_binds_pin(
     monkeypatch.setattr(
         yk,
         "get_piv_public_keys_tuf",
-        lambda serial: {serial: {SLOT.SIGNATURE: targets_key}},
+        lambda serial, **_kwargs: {serial: {SLOT.SIGNATURE: targets_key}},
     )
 
     result = api_workflow._resolve_key_id_pins(auth_repo, ["targets"], "111111")
@@ -49,7 +49,9 @@ def test_multiple_yubikeys_only_one_valid_binds_pin_no_error(
 
     monkeypatch.setattr(yk, "get_serial_nums", lambda: [1, 2, 3])
     monkeypatch.setattr(
-        yk, "get_piv_public_keys_tuf", lambda serial: {serial: serial_to_keys[serial]}
+        yk,
+        "get_piv_public_keys_tuf",
+        lambda serial, **_kwargs: {serial: serial_to_keys[serial]},
     )
 
     result = api_workflow._resolve_key_id_pins(auth_repo, ["targets"], "222222")
@@ -69,7 +71,9 @@ def test_multiple_yubikeys_multiple_valid_returns_empty_and_warns(
 
     monkeypatch.setattr(yk, "get_serial_nums", lambda: [1, 2])
     monkeypatch.setattr(
-        yk, "get_piv_public_keys_tuf", lambda serial: {serial: serial_to_keys[serial]}
+        yk,
+        "get_piv_public_keys_tuf",
+        lambda serial, **_kwargs: {serial: serial_to_keys[serial]},
     )
 
     result = api_workflow._resolve_key_id_pins(auth_repo, ["targets"], "333333")
@@ -86,7 +90,7 @@ def test_single_yubikey_not_valid_for_role_returns_empty_and_warns(
     monkeypatch.setattr(
         yk,
         "get_piv_public_keys_tuf",
-        lambda serial: {serial: {SLOT.SIGNATURE: unrelated_key}},
+        lambda serial, **_kwargs: {serial: {SLOT.SIGNATURE: unrelated_key}},
     )
 
     result = api_workflow._resolve_key_id_pins(auth_repo, ["targets"], "444444")
@@ -99,7 +103,7 @@ def test_unreadable_yubikey_is_skipped_others_still_resolved(
 ):
     targets_key = real_public_key("targets1")
 
-    def fake_get_piv_public_keys_tuf(serial):
+    def fake_get_piv_public_keys_tuf(serial, **_kwargs):
         if serial == 1:
             raise Exception("card error")
         return {serial: {SLOT.SIGNATURE: targets_key}}
@@ -125,7 +129,7 @@ def test_single_yubikey_two_valid_slots_binds_pin_to_both_not_ambiguous(
     monkeypatch.setattr(
         yk,
         "get_piv_public_keys_tuf",
-        lambda serial: {
+        lambda serial, **_kwargs: {
             serial: {SLOT.SIGNATURE: root1_key, SLOT.AUTHENTICATION: root2_key}
         },
     )
@@ -150,7 +154,7 @@ def test_key_on_non_signature_slot_still_resolved(
     monkeypatch.setattr(
         yk,
         "get_piv_public_keys_tuf",
-        lambda serial: {serial: {SLOT.AUTHENTICATION: targets_key}},
+        lambda serial, **_kwargs: {serial: {SLOT.AUTHENTICATION: targets_key}},
     )
 
     result = api_workflow._resolve_key_id_pins(auth_repo, ["targets"], "666666")

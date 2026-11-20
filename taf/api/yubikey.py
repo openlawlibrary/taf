@@ -90,7 +90,9 @@ def _resolve_slot(slot: str) -> SLOT:
     reraise=True,
 )
 def export_yk_public_pem(
-    path: Optional[str] = None, serial: Optional[str] = None
+    path: Optional[str] = None,
+    serial: Optional[str] = None,
+    scheme: Optional[str] = None,
 ) -> None:
     """
     Export public key from a YubiKey and save it to a file or print to console.
@@ -98,6 +100,7 @@ def export_yk_public_pem(
     Arguments:
         path (optional): Path to a file to which the public key should be written.
         The key is printed to console if file path is not provided.
+        scheme (optional): Signing scheme of the key, needed for RSA keys.
 
     Side Effects:
        Write public key to a file if path is specified
@@ -113,7 +116,7 @@ def export_yk_public_pem(
             return
 
         for serial in serials:
-            pub_key = yk.get_piv_public_key_tuf(serial=serial)
+            pub_key = yk.get_piv_public_key_tuf(scheme=scheme, serial=serial)
             keyid = yk._get_legacy_keyid(pub_key)
             pub_key_pem = get_public_key_pem(pub_key)
             if path is None:
@@ -127,7 +130,8 @@ def export_yk_public_pem(
                 parent = pem_path.parent
                 parent.mkdir(parents=True, exist_ok=True)
                 pem_path.write_text(pub_key_pem)
-    except Exception:
+    except Exception as e:
+        print(e)
         print("Could not export the public key. Check if a YubiKey is inserted")
         return
 
@@ -142,7 +146,9 @@ def export_yk_public_pem(
     reraise=True,
 )
 def export_yk_certificate(
-    path: Optional[str] = None, serial: Optional[str] = None
+    path: Optional[str] = None,
+    serial: Optional[str] = None,
+    scheme: Optional[str] = None,
 ) -> None:
     """
     Export certificate from the YubiKey.
@@ -150,6 +156,7 @@ def export_yk_certificate(
     Arguments:
         path (optional): Path to a file to which the certificate key should be written.
         Will be written to the user's home directory by default
+        scheme (optional): Signing scheme of the key, needed for RSA keys.
 
     Side Effects:
        Write certificate to a file
@@ -165,7 +172,7 @@ def export_yk_certificate(
             return
         for serial in serials:
             pub_key_pem = yk.export_piv_pub_key(serial=serial).decode("utf-8")
-            key = get_sslib_key_from_value(pub_key_pem)
+            key = get_sslib_key_from_value(pub_key_pem, scheme)
             yk.export_yk_certificate(path, key, serial)
     except Exception as e:
         print(e)
@@ -205,7 +212,7 @@ def get_yk_roles(path: str, serial: Optional[str] = None) -> Dict:
     auth = AuthenticationRepository(path=path)
     for serial in serials:
         roles_with_paths: Dict = {}
-        keys = yk.get_piv_public_keys_tuf(serial=serial).get(serial, {})
+        keys = yk.get_piv_public_keys_tuf(serial=serial, taf_repo=auth).get(serial, {})
         for pub_key in keys.values():
             for role in auth.find_associated_roles_of_key(pub_key):
                 if role in roles_with_paths:

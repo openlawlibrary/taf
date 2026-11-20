@@ -656,6 +656,7 @@ def add_new_role_and_target_repo(
                     "parent_role": "targets",
                     "paths": [full_name],
                     "threshold": 1,
+                    "scheme": "rsa-pkcs1v15-sha256",
                 }
             }
         },

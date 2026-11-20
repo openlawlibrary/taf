@@ -3,12 +3,18 @@
     "root": {
       "number": 3,
       "length": 3072,
-    "threshold": 1
+      "threshold": 1,
+      "scheme": "rsa-pkcs1v15-sha256"
     },
     "targets": {
-      "length": 3072
+      "length": 3072,
+      "scheme": "rsa-pkcs1v15-sha256"
     },
-    "snapshot": {},
-    "timestamp": {}
+    "snapshot": {
+      "scheme": "rsa-pkcs1v15-sha256"
+    },
+    "timestamp": {
+      "scheme": "rsa-pkcs1v15-sha256"
+    }
   }
 }

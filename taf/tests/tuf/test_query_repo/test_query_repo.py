@@ -372,7 +372,7 @@ def test_is_valid_metadata_key(tuf_repo_with_delegations, public_keys_with_deleg
         key = public_keys_with_delegations[role][0]
         assert tuf_repo_with_delegations.is_valid_metadata_key(role, key)
         assert tuf_repo_with_delegations.is_valid_metadata_key(
-            role, key.keyval["public"]
+            role, key.keyval["public"], key.scheme
         )
 
     assert not tuf_repo_with_delegations.is_valid_metadata_key(

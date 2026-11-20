@@ -5,6 +5,7 @@ import pytest
 from taf.models.types import RolesKeysData
 from taf.models.converter import from_dict
 from taf.tuf.signer_uris import import_keystore_signer
+from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 
 
 @pytest.fixture(scope="module")
@@ -37,10 +38,14 @@ def tuf_repo_delegation_paths(
     signers = {
         **signers_with_delegations,
         "delegated_role1": [
-            import_keystore_signer(keystore_delegations, "delegated_role1")
+            import_keystore_signer(
+                keystore_delegations, "delegated_role1", DEFAULT_RSA_SIGNATURE_SCHEME
+            )
         ],
         "delegated_role2": [
-            import_keystore_signer(keystore_delegations, "delegated_role2")
+            import_keystore_signer(
+                keystore_delegations, "delegated_role2", DEFAULT_RSA_SIGNATURE_SCHEME
+            )
         ],
     }
     tuf_repo.create(roles_keys_data, signers)

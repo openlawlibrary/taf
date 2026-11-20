@@ -34,7 +34,9 @@ class FakeYubiKey:
             self.pub_key_pem, default_backend()
         )
 
-        self.tuf_key = import_keystore_signer(priv_key_path.parent, priv_key_path.name)
+        self.tuf_key = import_keystore_signer(
+            priv_key_path.parent, priv_key_path.name, scheme
+        )
 
         # PIV slot state (key/cert per slot), persisted here rather than on
         # FakePivController, since a new FakePivController is constructed on

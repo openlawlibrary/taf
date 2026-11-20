@@ -14,11 +14,11 @@ from taf.exceptions import KeystoreError, TAFError
 from taf.models.converter import from_dict
 from taf.models.types import TargetsRole, compare_roles_data
 from taf.keys import (
-    find_keystore,
     get_key_name,
     get_metadata_key_info,
     load_sorted_keys_of_new_roles,
 )
+from taf.api.utils._conf import find_keystore
 from taf.auth_repo import AuthenticationRepository
 from taf.constants import (
     DEFAULT_ROLE_SETUP_PARAMS,
@@ -73,7 +73,7 @@ def add_role(
         threshold: Signature's threshold.
         yubikey: Specifies if the metadata file should be signed using a YubiKey.
         keystore: Location of the keystore files.
-        scheme (optional): Signing scheme of the role's keys. Needed to generate new keys, detected from existing keys.
+        scheme (optional): Signing scheme of the role's keys. Needed to generate new keys and for RSA keys, detected from existing ECDSA and Ed25519 keys.
         auth_repo (optional): Instance of the authentication repository. Will be created if not passed into the function.
         commit (optional): Indicates if the changes should be committed and pushed automatically.
         push (optional): Flag specifying whether to push to remote.
@@ -344,6 +344,7 @@ def add_signing_key(
     push: Optional[bool] = True,
     commit_msg: Optional[str] = None,
     keys_description: Optional[str] = None,
+    scheme: Optional[str] = None,
 ) -> None:
     """
     Add a new signing key to the listed roles. Update root metadata if one or more roles is one of the main TUF roles,
@@ -358,6 +359,7 @@ def add_signing_key(
         commit (optional): Indicates if the changes should be committed and pushed automatically.
         push (optional): Flag specifying whether to push to remote.
         commit_msg(optional): Commit message. Will be necessary to enter it if not provided.
+        scheme (optional): Signing scheme of the new key. Needed for RSA keys.
     Side Effects:
         Updates metadata files (parents of the affected roles, snapshot and timestamp).
         Writes changes to disk.
@@ -366,7 +368,7 @@ def add_signing_key(
         None
     """
 
-    pub_key = pub_key or _load_pub_key_from_file(pub_key_path)
+    pub_key = pub_key or _load_pub_key_from_file(pub_key_path, scheme)
 
     roles_keys = {role: [pub_key] for role in roles}
 
@@ -499,6 +501,7 @@ def rotate_signing_key(
     add_commit_msg: Optional[str] = None,
     keys_description: Optional[str] = None,
     commit: Optional[bool] = True,
+    scheme: Optional[str] = None,
 ) -> None:
     """
     Rotate signing key. Remove it from one or more roles and add a new signing key.
@@ -516,6 +519,7 @@ def rotate_signing_key(
         push (optional): Flag specifying whether to push to remote.
         revoke_commit_msg(optional): First commit message, when revokig the specified key. Will be necessary to enter it if not provided.
         add_commit_msg(optional): Second commit message, when addug a new signing key. Will be necessary to enter it if not provided.
+        scheme (optional): Signing scheme of the new key. Needed for RSA keys.
     Side Effects:
         Updates metadata files (parents of the affected roles, snapshot and timestamp).
         Writes changes to disk.
@@ -524,7 +528,7 @@ def rotate_signing_key(
         None
     """
 
-    pub_key = _load_pub_key_from_file(pub_key_path)
+    pub_key = _load_pub_key_from_file(pub_key_path, scheme)
     auth_repo = AuthenticationRepository(path=path, pin_manager=pin_manager)
     keys_name_mappings = read_keys_name_mapping(keys_description)
     auth_repo.add_key_names(keys_name_mappings)
@@ -670,7 +674,7 @@ def _enter_role_info(
     return role_info
 
 
-def _load_pub_key_from_file(pub_key_path) -> SSlibKey:
+def _load_pub_key_from_file(pub_key_path, scheme: Optional[str] = None) -> SSlibKey:
     pub_key_pem = None
     if pub_key_path is not None:
         pub_key_pem_path = Path(pub_key_path)
@@ -680,7 +684,7 @@ def _load_pub_key_from_file(pub_key_path) -> SSlibKey:
     if pub_key_pem is None:
         raise TAFError("Public key not provided or invalid")
 
-    return get_sslib_key_from_value(pub_key_pem)
+    return get_sslib_key_from_value(pub_key_pem, scheme)
 
 
 def _read_val(input_type, name, param=None, required=False):
@@ -819,7 +823,7 @@ def initialize_roles_and_keystore(
             - their parent roles
             - threshold of signatures per role
             - should keys of a role be on Yubikeys or should a keystore files be used
-            - scheme (needed to generate keys, detected from existing keys)
+            - scheme (needed to generate keys and for RSA keys, detected from existing ECDSA and Ed25519 keys)
             - keystore path, if not specified via keystore option
         keystore: Location of the keystore files.
         enter_info (optional): Indicates if the user should be asked to enter information about the
@@ -1008,7 +1012,7 @@ def remove_role(
         path: Path to the authentication repository.
         role: Name of the role which is to be removed.
         keystore: Location of the keystore files.
-        scheme (optional): Signing scheme of the role's keys. Needed to generate new keys, detected from existing keys.
+        scheme (optional): Signing scheme of the role's keys. Needed to generate new keys and for RSA keys, detected from existing ECDSA and Ed25519 keys.
         commit (optional): Indicates if the changes should be committed and pushed automatically.
         remove_targets (optional): Indicates if target files should be removed to, or signed by the parent role.
             Set to False by default.

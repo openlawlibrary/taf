@@ -66,8 +66,8 @@ This documents describes the most useful commands. See [this overview](repo-crea
 }
 ```
 
-NOTE: a scheme is needed to generate keys. For existing keys it is detected from the key, and RSA keys
-get `rsa-pkcs1v15-sha256` unless another RSA scheme is given. Delegated target roles are optional - if all target files
+NOTE: a scheme is needed to generate keys and for RSA keys, which can be used with several schemes. For
+existing ECDSA and Ed25519 keys it is detected from the key. Delegated target roles are optional - if all target files
 should be signed using the `targets` key, there is no point in defining delegated target roles.
 
 -`yubikeys` contains information about YubiKeys which can be references when specifying role's keys. Each key is
@@ -77,7 +77,7 @@ includes:
   - `public`- public key exported from the YubiKey. The specified key will be registered as the role's verification
   key and it will not be necessary to insert the YubiKye (unless the threshold of sining keys is not reached, like when
   public keys of all used YubiKeys are specified)
-  - `scheme` - signing scheme (can be omitted, it is detected from the public key)
+  - `scheme` - signing scheme (needed for RSA keys, detected from ECDSA and Ed25519 public keys)
 - `roles` contains information about roles and their keys, including delegations:
   -  `number` - total number of the role's keys
   - `length` - length of the role's RSA keys. Only needed when this json is used to generate RSA keys.

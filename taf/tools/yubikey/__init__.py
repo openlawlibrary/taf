@@ -59,9 +59,15 @@ def export_pub_key_command():
         "--output",
         help="File to which the exported public key will be written. The result will be written to the console if path is not specified",
     )
+    @click.option(
+        "--scheme",
+        type=click.Choice(YUBIKEY_SCHEMES),
+        default=None,
+        help="Signing scheme of the key, needed for RSA keys",
+    )
     @catch_cli_exception(handle=YubikeyError)
-    def export_pub_key(output):
-        export_yk_public_pem(output)
+    def export_pub_key(output, scheme):
+        export_yk_public_pem(output, scheme=scheme)
 
     return export_pub_key
 
@@ -94,9 +100,15 @@ def export_certificate_command():
         "--output",
         help="File to which the exported certificate key will be written. The result will be written to the user's home directory by default",
     )
+    @click.option(
+        "--scheme",
+        type=click.Choice(YUBIKEY_SCHEMES),
+        default=None,
+        help="Signing scheme of the key, needed for RSA keys",
+    )
     @catch_cli_exception(handle=YubikeyError)
-    def export_certificate(output):
-        export_yk_certificate(output)
+    def export_certificate(output, scheme):
+        export_yk_certificate(output, scheme=scheme)
 
     return export_certificate
 

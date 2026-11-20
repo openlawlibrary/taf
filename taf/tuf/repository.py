@@ -53,6 +53,7 @@ from taf.tuf.keys import (
     _get_legacy_keyid,
     get_public_key_pem,
     get_sslib_key_from_value,
+    is_same_public_key,
 )
 from tuf.repository import Repository
 
@@ -1351,6 +1352,17 @@ class MetadataRepository(Repository):
             return None
         return get_public_key_pem(key), key.scheme
 
+    def find_public_key(self, public_key_pem: str) -> Optional[SSlibKey]:
+        """
+        Return the key of any role with the same public key as public_key_pem,
+        with its signing scheme from metadata, or None
+        """
+        for role in self.get_all_roles():
+            for key in self.get_public_keys_of_role(role):
+                if is_same_public_key(key, public_key_pem):
+                    return key
+        return None
+
     def generate_roles_description(self) -> Dict:
         """
         Generate a roles description dictionary, containing information
@@ -1466,7 +1478,9 @@ class MetadataRepository(Repository):
 
         if public_key is None:
             for serial in yk.get_serial_nums():
-                device_keys = yk.get_piv_public_keys_tuf(serial=serial).get(serial, {})
+                device_keys = yk.get_piv_public_keys_tuf(
+                    serial=serial, taf_repo=self
+                ).get(serial, {})
                 for candidate_key in device_keys.values():
                     if self.is_valid_metadata_key(role, candidate_key):
                         return True

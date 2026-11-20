@@ -9,6 +9,7 @@ from taf.api.roles import (
     remove_paths,
     revoke_signing_key,
 )
+from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.messages import git_commit_message
 from taf.auth_repo import AuthenticationRepository
 from taf.tests.test_api.util import check_new_role, check_role_scheme
@@ -35,6 +36,7 @@ def test_add_role_when_target_is_parent(
         threshold=1,
         yubikey=False,
         keystore=roles_keystore,
+        scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
         push=False,
         skip_prompt=True,
     )
@@ -393,6 +395,7 @@ def test_add_signing_key(
         keystore=roles_keystore,
         push=False,
         commit_msg=COMMIT_MSG,
+        scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
     )
     commits = auth_repo.list_pygit_commits()
     assert len(commits) == initial_commits_num + 1

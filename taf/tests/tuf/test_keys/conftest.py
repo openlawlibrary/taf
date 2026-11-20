@@ -3,6 +3,8 @@ import shutil
 
 from yubikit.piv import SLOT
 
+from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
+
 import taf.yubikey.yubikey as yk
 from taf.api.targets import register_target_files
 from taf.tests.conftest import create_authentication_repository
@@ -27,7 +29,9 @@ def fake_yubikey(monkeypatch, keystore):
     behavior (setup, get_slot_status, get_piv_public_keys_tuf) can be tested
     without real hardware."""
     monkeypatch.setattr(yk, "_yk_piv_ctrl", _yk_piv_ctrl_mock)
-    key = FakeYubiKey(keystore / "root1", keystore / "root1.pub", scheme=None)
+    key = FakeYubiKey(
+        keystore / "root1", keystore / "root1.pub", scheme=DEFAULT_RSA_SIGNATURE_SCHEME
+    )
     key.insert()
     yield key
     key.remove()
@@ -52,12 +56,17 @@ def make_fake_yubikey(monkeypatch, keystore):
     monkeypatch.setattr(yk, "_yk_piv_ctrl", _yk_piv_ctrl_mock)
     created = []
 
-    def _make(key_name, extra_slots=None, keystore_path=None):
+    def _make(
+        key_name,
+        extra_slots=None,
+        keystore_path=None,
+        scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
+    ):
         source_keystore = keystore_path if keystore_path is not None else keystore
         device = FakeYubiKey(
             source_keystore / key_name,
             source_keystore / f"{key_name}.pub",
-            scheme=None,
+            scheme=scheme,
         )
         device.insert()
         for slot, other_key_name in (extra_slots or {}).items():

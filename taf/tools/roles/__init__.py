@@ -30,7 +30,7 @@ def add_roles_command():
     - 'number' (integer): Number of signing keys. Default is 1.
     - 'threshold' (integer): Number of keys required to sign. Default is 1.
     - 'yubikey' (boolean): Whether to use a YubiKey for signing. Default is false.
-    - 'scheme' (string): Signature scheme, e.g., 'rsa-pkcs1v15-sha256'. Needed to generate new keys, detected from existing keys.
+    - 'scheme' (string): Signature scheme, e.g., 'rsa-pkcs1v15-sha256'. Needed to generate new keys and for RSA keys, detected from existing ECDSA and Ed25519 keys.
     - 'yubikeys' (array of strings): Names of the YubiKeys used for signing, defined in the 'yubikeys' section.
 
     The structure of the configuration file is very similar to the structure of the one used when creating the repository,
@@ -206,7 +206,7 @@ def remove_role_command():
         "--scheme",
         type=click.Choice(SUPPORTED_SCHEMES),
         default=None,
-        help="Signature scheme of the role's keys. Needed to generate new keys, detected from existing keys",
+        help="Signature scheme of the role's keys. Needed to generate new keys and for RSA keys, detected from existing ECDSA and Ed25519 keys",
     )
     @click.option(
         "--remove-targets/--no-remove-targets",
@@ -311,12 +311,19 @@ def add_signing_key_command():
         default=None,
         help="Path to the public key corresponding to the private key which should be registered as the role's signing key",
     )
+    @click.option(
+        "--scheme",
+        type=click.Choice(SUPPORTED_SCHEMES),
+        default=None,
+        help="Signing scheme of the new key. Needed for RSA keys",
+    )
     @click.option("--commit-msg", default=None, help="Commit message")
     @pin_managed
     def adding_signing_key(
         path,
         role,
         pub_key_path,
+        scheme,
         keystore,
         no_commit,
         pin_manager,
@@ -338,6 +345,7 @@ def add_signing_key_command():
             keys_description=keys_description,
             skip_remote_check=no_remote_check,
             commit_msg=commit_msg,
+            scheme=scheme,
         )
 
     return adding_signing_key
@@ -412,6 +420,12 @@ def rotate_signing_key_command():
         default=None,
         help="Path to the public key corresponding to the private key which should be registered as the role's signing key",
     )
+    @click.option(
+        "--scheme",
+        type=click.Choice(SUPPORTED_SCHEMES),
+        default=None,
+        help="Signing scheme of the new key. Needed for RSA keys",
+    )
     @click.option("--revoke-commit-msg", default=None, help="Revoke key commit message")
     @click.option(
         "--add-commit-msg", default=None, help="Add new signing key commit message"
@@ -423,6 +437,7 @@ def rotate_signing_key_command():
         role,
         keyid,
         pub_key_path,
+        scheme,
         keystore,
         revoke_commit_msg,
         add_commit_msg,
@@ -443,6 +458,7 @@ def rotate_signing_key_command():
             keys_description=keys_description,
             skip_remote_check=no_remote_check,
             commit=not no_commit,
+            scheme=scheme,
         )
 
     return rotate_key

@@ -1,9 +1,13 @@
+import json
+
 import pytest
 from yubikit.piv import SLOT
 
 import taf.utils
 from taf.api.api_workflow import key_management_context
+from taf.api.keystore import generate_keys
 from taf.api.metadata import update_snapshot_and_timestamp
+from taf.tests.conftest import create_authentication_repository
 from taf.tests.tuf.test_keys.conftest import (
     pin_manager_for,
     sign_target_update,
@@ -12,6 +16,7 @@ from taf.tests.tuf.test_keys.conftest import (
 )
 from taf.tools.yubikey.yubikey_utils import VALID_PIN
 from taf.tuf.signer_uris import import_keystore_signer
+from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 
 ROLES = ("targets", "snapshot", "timestamp")
 
@@ -111,5 +116,42 @@ def test_key_management_context_with_key_pin_loads_role_key_from_non_signature_s
         assert auth_repo.check_if_keys_loaded("targets")
         loaded_keyids = set(auth_repo.signer_cache["targets"])
 
-    expected_keyid = import_keystore_signer(keystore, "targets").public_key.keyid
+    expected_keyid = import_keystore_signer(
+        keystore, "targets", DEFAULT_RSA_SIGNATURE_SCHEME
+    ).public_key.keyid
     assert loaded_keyids == {expected_keyid}
+
+
+def test_sign_target_update_with_rsa_pss_key_on_yubikey(
+    make_fake_yubikey, repo_path, tmp_path
+):
+    scheme = "rsassa-pss-sha256"
+    keystore = tmp_path / "keystore"
+    keystore.mkdir()
+    keys_description = tmp_path / "keys-description.json"
+    keys_description.write_text(
+        json.dumps(
+            {
+                "roles": {
+                    role: {"scheme": scheme}
+                    for role in ("root", "targets", "snapshot", "timestamp")
+                }
+            }
+        )
+    )
+    generate_keys(str(keystore), str(keys_description))
+    device = make_fake_yubikey("targets", keystore_path=keystore, scheme=scheme)
+    auth_repo = create_authentication_repository(
+        repo_path,
+        pin_manager_for(device),
+        "test/auth",
+        str(keys_description),
+        keystore=keystore,
+    )
+    versions_before = verify_and_get_versions(auth_repo, *ROLES)
+
+    sign_target_update(auth_repo, write_signing_keystore(tmp_path, keystore))
+
+    versions_after = verify_and_get_versions(auth_repo, *ROLES)
+    for role in ROLES:
+        assert versions_after[role] > versions_before[role]
