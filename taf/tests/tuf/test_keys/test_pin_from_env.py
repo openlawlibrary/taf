@@ -61,7 +61,7 @@ def test_resolve_and_cache_pin_when_pin_from_environment_is_wrong(fake_yubikey):
 
 
 def test_pin_not_found():
-    pem = "PEM"
+    pem = "-----BEGIN PUBLIC KEY-----\nXYZ\n-----END PUBLIC KEY-----"
     key = DummyKey(pem)
 
     assert _pin_from_keys_mapping(key, {}) is None

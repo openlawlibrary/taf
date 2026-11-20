@@ -34,7 +34,6 @@ def add_key_names_command():
         pin_manager,
         no_commit,
         no_remote_check,
-        prompt_for_keys,
         commit_msg,
     ):
         if not keys_description or Path(keys_description).is_file():
@@ -47,7 +46,6 @@ def add_key_names_command():
             pin_manager=pin_manager,
             commit=not no_commit,
             skip_remote_check=no_remote_check,
-            prompt_for_keys=prompt_for_keys,
             commit_msg=commit_msg,
         )
 
@@ -148,7 +146,6 @@ def update_expiration_dates_command():
         keystore,
         start_date,
         no_commit,
-        prompt_for_keys,
         pin_manager,
         keys_description,
         no_remote_check,
@@ -165,7 +162,6 @@ def update_expiration_dates_command():
             keystore=keystore,
             start_date=start_date,
             commit=not no_commit,
-            prompt_for_keys=prompt_for_keys,
             keys_description=keys_description,
             skip_remote_check=no_remote_check,
             commit_msg=commit_msg,

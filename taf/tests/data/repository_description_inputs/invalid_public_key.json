@@ -1,4 +1,3 @@
-
 {
   "yubikeys": {
     "user1": {
@@ -17,15 +16,20 @@
     "root": {
       "threshold": 2,
       "yubikeys": [
-        "user1", "user2", "userYK"
-      ]
+        "user1",
+        "user2",
+        "userYK"
+      ],
+      "scheme": "rsa-pkcs1v15-sha256"
     },
     "targets": {
       "number": 2,
       "threshold": 1,
       "yubikeys": [
-        "user1", "user2"
-      ]
+        "user1",
+        "user2"
+      ],
+      "scheme": "rsa-pkcs1v15-sha256"
     },
     "snapshot": {
       "number": 1,
@@ -33,7 +37,7 @@
       "scheme": "rsa-pkcs1v15-sha256"
     },
     "timestamp": {
+      "scheme": "rsa-pkcs1v15-sha256"
     }
   }
 }
-  

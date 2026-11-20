@@ -1,10 +1,16 @@
 """TUF metadata key functions."""
 
 import hashlib
-from typing import Optional, Tuple, Union
+import os
+from typing import Optional, Tuple
+from urllib import parse
 
-from pathlib import Path
 from securesystemslib.signer import (
+    KEY_FOR_TYPE_AND_SCHEME,
+    KEY_TYPE_ECDSA,
+    KEY_TYPE_ED25519,
+    KEY_TYPE_RSA,
+    SIGNER_FOR_URI_SCHEME,
     SSlibKey,
     CryptoSigner,
     Signer,
@@ -17,40 +23,55 @@ from cryptography.hazmat.primitives.serialization import (
     load_pem_public_key,
 )
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
-from cryptography.hazmat.primitives.asymmetric.ec import (
-    EllipticCurvePublicKey,
-    SECP256R1,
-)
+from cryptography.hazmat.primitives.asymmetric.types import PublicKeyTypes
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import rsa
 
-from taf.constants import DEFAULT_ECDSA_SIGNATURE_SCHEME, DEFAULT_RSA_SIGNATURE_SCHEME
+from taf.exceptions import SchemeNotSpecifiedError, TAFError
+
+SUPPORTED_SCHEMES = sorted(
+    scheme
+    for (keytype, scheme), key_class in KEY_FOR_TYPE_AND_SCHEME.items()
+    if key_class is SSlibKey
+    and keytype in (KEY_TYPE_RSA, KEY_TYPE_ECDSA, KEY_TYPE_ED25519)
+)
+# YubiKeys can't hold P-521 keys
+YUBIKEY_SCHEMES = [s for s in SUPPORTED_SCHEMES if s != "ecdsa-sha2-nistp521"]
 
 
-def generate_rsa_keypair(key_size=3072, password=None) -> Tuple[bytes, bytes]:
+def generate_keypair(
+    scheme: Optional[str], rsa_key_size: Optional[int] = None
+) -> Tuple[bytes, bytes]:
     """
-    Generate a private-public key pair. Returns the generated keys as bytes in PEM format..
+    Generate a private and public key for the signing scheme, both in PEM
+    format. securesystemslib generates the key and the scheme decides its
+    type. rsa_key_size is only used for RSA keys, and securesystemslib's
+    default is used if it is not set.
     """
-    private_key = rsa.generate_private_key(
-        public_exponent=65537, key_size=key_size, backend=default_backend()
-    )
-
-    # Encrypt the private key if a password is provided
-    if password:
-        encryption_algorithm = serialization.BestAvailableEncryption(password.encode())
+    if not scheme:
+        raise TAFError("A signing scheme is needed to generate a key")
+    keytypes = {
+        keytype
+        for (keytype, key_scheme), key_class in KEY_FOR_TYPE_AND_SCHEME.items()
+        if key_scheme == scheme and key_class is SSlibKey
+    }
+    signer: CryptoSigner
+    if KEY_TYPE_RSA in keytypes:
+        if rsa_key_size is None:
+            signer = CryptoSigner.generate_rsa(scheme=scheme)
+        else:
+            signer = CryptoSigner.generate_rsa(scheme=scheme, size=rsa_key_size)
+    elif KEY_TYPE_ECDSA in keytypes:
+        signer = CryptoSigner.generate_ecdsa(scheme=scheme)
+    elif KEY_TYPE_ED25519 in keytypes:
+        signer = CryptoSigner.generate_ed25519()
     else:
-        encryption_algorithm = serialization.NoEncryption()
+        raise TAFError(f"Cannot generate a key for scheme '{scheme}'")
 
-    # Serialize private key
-    private_pem = private_key.private_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PrivateFormat.TraditionalOpenSSL,
-        encryption_algorithm=encryption_algorithm,
-    )
+    private_pem = signer.private_bytes
 
     # Get the public key from the private key
-    public_key = private_key.public_key()
+    public_key = load_pem_private_key(private_pem, None).public_key()
     # Serialize public key
     public_pem = public_key.public_bytes(
         encoding=serialization.Encoding.PEM,
@@ -60,17 +81,19 @@ def generate_rsa_keypair(key_size=3072, password=None) -> Tuple[bytes, bytes]:
     return private_pem, public_pem
 
 
-def generate_and_write_rsa_keypair(path, key_size, password) -> bytes:
+def generate_and_write_keypair(
+    path, scheme: Optional[str], rsa_key_size: Optional[int] = None
+) -> bytes:
     """
-    Generate a private-public key pair and write and save it to files.
-    Returns the private key in PEM format.
+    Generate a private and public key for the signing scheme and write them to
+    path and path.pub. Returns the private key in PEM format.
     """
-    if not password:
-        password = None
-    private_pem, public_pem = generate_rsa_keypair(key_size, password)
+    private_pem, public_pem = generate_keypair(scheme, rsa_key_size)
 
-    with open(path, "wb") as f:
+    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, "O_BINARY", 0)
+    with os.fdopen(os.open(path, flags, 0o600), "wb") as f:
         f.write(private_pem)
+    os.chmod(path, 0o600)
 
     with open(f"{path}.pub", "wb") as f:
         f.write(public_pem)
@@ -87,6 +110,36 @@ def get_sslib_key_from_value(key: str, scheme: Optional[str] = None) -> SSlibKey
     return _from_crypto(crypto_key, scheme=scheme)
 
 
+def get_public_key_pem(key: SSlibKey) -> str:
+    """
+    Return the public key in PEM format. securesystemslib stores some key
+    types, like ed25519, in another format.
+    """
+    if key.keyval["public"].startswith("-----BEGIN"):
+        return key.keyval["public"]
+    public_key = key._crypto_key()
+    public_pem = public_key.public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo,
+    )
+    return public_pem.decode()
+
+
+def is_same_public_key(key: SSlibKey, public_key_pem: str) -> bool:
+    """Check if key's public key is the one in public_key_pem, whatever their
+    signing schemes"""
+    public_key = load_pem_public_key(public_key_pem.encode())
+    der_format = (
+        serialization.Encoding.DER,
+        serialization.PublicFormat.SubjectPublicKeyInfo,
+    )
+    try:
+        key_der = key._crypto_key().public_bytes(*der_format)
+    except Exception:
+        return False
+    return key_der == public_key.public_bytes(*der_format)
+
+
 def _get_legacy_keyid(key: SSlibKey) -> str:
     """Computes legacy keyid as hash over an opinionated canonical
     representation of the public key."""
@@ -101,97 +154,40 @@ def _get_legacy_keyid(key: SSlibKey) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def _from_crypto(
-    pub: Union[RSAPublicKey, EllipticCurvePublicKey],
-    scheme: Optional[str] = None,
-) -> SSlibKey:
-    """Converts pyca/cryptography public key to SSlibKey with default signing
-    scheme and legacy keyid.
+def _from_crypto(pub: PublicKeyTypes, scheme: Optional[str] = None) -> SSlibKey:
+    """Converts pyca/cryptography public key to SSlibKey with legacy keyid.
 
-    Detects the key's actual type (RSA or ECDSA P-256) from the key material
-    itself, so callers that pass scheme=None because they don't know ahead
-    of time what type of key they're about to load (e.g. reading a
-    YubiKey's public key) still get back a correctly scheme-tagged key
-    when it turns out to be an EC key. RSA callers that need a specific
-    sub-scheme (e.g. rsassa-pss-sha256) can still request one explicitly,
-    since that can't be inferred from the key bytes alone.
+    securesystemslib detects the key type and its scheme. RSA keys can use
+    several schemes, which the key does not record, so their scheme has to be
+    given. Other key types have only one scheme.
     """
+    key = SSlibKey.from_crypto(pub)
     # securesystemslib does not (yet) check if keytype and scheme are compatible
     # https://github.com/secure-systems-lab/securesystemslib/issues/766
     if isinstance(pub, RSAPublicKey):
-        scheme = scheme or DEFAULT_RSA_SIGNATURE_SCHEME
-    elif isinstance(pub, EllipticCurvePublicKey):
-        # only P-256 is accepted here because securesystemslib.CryptoSigner
-        # (used for signing) only implements ecdsa-sha2-nistp256; sslib's
-        # SSlibKey already supports *verifying* nistp384/nistp521
-        # signatures, so this is a signing-side limitation, not a
-        # fundamental one
-        if not isinstance(pub.curve, SECP256R1):
-            raise ValueError(f"unsupported EC curve '{pub.curve.name}'")
-        if scheme not in (None, DEFAULT_ECDSA_SIGNATURE_SCHEME):
-            raise ValueError(f"scheme '{scheme}' not valid for an ecdsa key")
-        scheme = DEFAULT_ECDSA_SIGNATURE_SCHEME
-    else:
-        raise ValueError(f"keytype '{type(pub)}' not supported")
-    key = SSlibKey.from_crypto(pub, scheme=scheme)
+        rsa_schemes = sorted(
+            rsa_scheme
+            for (keytype, rsa_scheme), key_class in KEY_FOR_TYPE_AND_SCHEME.items()
+            if keytype == KEY_TYPE_RSA and key_class is SSlibKey
+        )
+        if not scheme:
+            raise SchemeNotSpecifiedError(
+                "An RSA key can be used with several signing schemes "
+                f"({', '.join(rsa_schemes)}), so its scheme has to be specified. "
+                'Set the key\'s "scheme" in the keys description, or pass --scheme '
+                "to commands that take a public key file."
+            )
+        if scheme not in rsa_schemes:
+            raise ValueError(f"scheme '{scheme}' not valid for rsa key")
+        key = SSlibKey.from_crypto(pub, scheme=scheme)
+    elif scheme not in (None, key.scheme):
+        raise ValueError(f"scheme '{scheme}' not valid for {key.keytype} key")
     # FIXME: include the 'keyid_hash_algorithms' entry in the key portion
     # for legacy taf support purposes once ready to transition current authentication
     # repositories metadata over to new taf, we can safely remove the field
     key.unrecognized_fields["keyid_hash_algorithms"] = ["sha256", "sha512"]
     key.keyid = _get_legacy_keyid(key)
     return key
-
-
-def load_public_key_from_file(path: Union[str, Path]) -> SSlibKey:
-    """Load SSlibKey from a public key file.
-
-    * Expected key file format is SubjectPublicKeyInfo/PEM
-    * Signing scheme is detected from the key material (RSA or ECDSA P-256)
-    * Keyid is computed from legacy canonical representation of public key
-
-    """
-    with open(path, "rb") as f:
-        pem = f.read()
-
-    pub = load_pem_public_key(pem)
-    return _from_crypto(pub)
-
-
-def load_signer_from_file(path: Path, password: Optional[str] = None) -> CryptoSigner:
-    """Load CryptoSigner from a private key file.
-
-    * Expected key file format is PKCS8/PEM
-    * Signing scheme is detected from the key material (RSA or ECDSA P-256)
-    * Keyid is computed from legacy canonical representation of public key
-    * If password is None, the key is expected to be unencrypted
-
-    """
-    with open(path, "rb") as f:
-        pem = f.read()
-
-    password_encoded = password.encode() if password is not None else None
-    priv = load_pem_private_key(pem, password_encoded)
-    pub = priv.public_key()
-    return CryptoSigner(priv, _from_crypto(pub))
-
-
-def load_signer_from_pem(
-    pem: bytes, password: Optional[bytes] = None, scheme: Optional[str] = None
-) -> CryptoSigner:
-    """Load CryptoSigner from a private key in PEM format.
-
-    * Expected key file format is PKCS8/PEM
-    * Signing scheme is detected from the key material (RSA or ECDSA P-256)
-      unless explicitly overridden, which only makes sense for RSA, where
-      the sub-scheme (e.g. rsassa-pss-sha256) can't be inferred from the
-      key bytes alone
-    * Keyid is computed from legacy canonical representation of public key
-    * If password is None, the key is expected to be unencrypted
-
-    """
-    priv = load_pem_private_key(pem, password)
-    pub = priv.public_key()
-    return CryptoSigner(priv, _from_crypto(pub, scheme))
 
 
 class YkSigner(Signer):
@@ -207,12 +203,13 @@ class YkSigner(Signer):
                 return the Yubikey pin.
     """
 
+    SCHEME = "yk"
     _SECRET_PROMPT = "pin"  # nosec B105
 
     def __init__(
         self,
         public_key: SSlibKey,
-        serial_num: str,
+        serial_num: int,
         pin_handler: SecretsHandler,
         key_name: str,
         slot=None,
@@ -232,7 +229,7 @@ class YkSigner(Signer):
         return self._public_key
 
     @property
-    def serial_num(self) -> str:
+    def serial_num(self) -> int:
         return self._serial_num
 
     @property
@@ -243,40 +240,14 @@ class YkSigner(Signer):
     def slot(self):
         return self._slot
 
-    @classmethod
-    def import_(cls) -> SSlibKey:
-        """Import rsa public key from Yubikey.
-
-        * Assigns default signing scheme: "rsa-pkcs1v15-sha256"
-        * Raises ValueError, if key on Yubikey is not an rsa key.
-
-        TODO: Consider returning priv key uri along with public key.
-        See e.g. `self.from_priv_key_uri` and other `import_` methods on
-        securesystemslib signers, e.g. `HSMSigner.import_`.
-
-        TODO: only checks SLOT.SIGNATURE, same as export_piv_pub_key -
-        test-only helper per the comment below, so not extended to other
-        slots for now.
-        """
-        # if multiple keys are inserted, we need to know from which key should be imported
-        # TODO
-        # only used for testing purposes now
-        from taf.yubikey.yubikey import export_piv_pub_key, get_serial_nums
-
-        serials = get_serial_nums()
-        serial = serials[0]
-        pem = export_piv_pub_key(serial=serial)
-        pub = load_pem_public_key(pem)
-        return _from_crypto(pub)
-
     def sign(self, payload: bytes) -> Signature:
         pin = self._pin_handler(self._SECRET_PROMPT)
-        from taf.yubikey.yubikey import sign_piv_rsa_pkcs1v15, verify_yk_inserted
+        from taf.yubikey.yubikey import sign_piv, verify_yk_inserted
         from yubikit.piv import SLOT
 
         verify_yk_inserted(self.serial_num, self.key_name)
         slot = self._slot if self._slot is not None else SLOT.SIGNATURE
-        sig = sign_piv_rsa_pkcs1v15(payload, pin, serial=self.serial_num, slot=slot)
+        sig = sign_piv(payload, pin, self.public_key, serial=self.serial_num, slot=slot)
         return Signature(self.public_key.keyid, sig.hex())
 
     @classmethod
@@ -286,27 +257,27 @@ class YkSigner(Signer):
         public_key: SSlibKey,
         secrets_handler: Optional[SecretsHandler] = None,
     ) -> "Signer":
-        # TODO: Implement this to better separate public key management
-        # (e.g. tuf delegation) and signer configuration from signing. See
-        # https://python-securesystemslib.readthedocs.io/en/latest/signer.html
-        raise NotImplementedError
+        """URI format: ``yk:<serial>?slot=<hex PIV slot>&name=<key name>``.
+        Slot and name are optional."""
+        uri = parse.urlparse(priv_key_uri)
+        if uri.scheme != cls.SCHEME:
+            raise ValueError(f"YkSigner does not support {priv_key_uri}")
+        if secrets_handler is None:
+            raise ValueError("YkSigner requires a secrets handler for the PIN")
+        params = dict(parse.parse_qsl(uri.query))
+        slot = None
+        if "slot" in params:
+            from yubikit.piv import SLOT
+
+            slot = SLOT(int(params["slot"], 16))
+        serial_num = int(uri.path)
+        return cls(
+            public_key,
+            serial_num,
+            secrets_handler,
+            key_name=params.get("name", str(serial_num)),
+            slot=slot,
+        )
 
 
-def root_signature_provider(signature_dict, key_id, _key, _data):
-    """Root signature provider used to return signatures created remotely.
-
-    Args:
-        - signature_dict(dict): Dict where key is key_id and value is signature
-        - key_id(str): Key id from targets metadata file
-        - _key(securesystemslib.formats.RSAKEY_SCHEMA): Key info
-        - _data(dict): Data to sign (already signed remotely)
-
-    Returns:
-        Dictionary that comforms to `securesystemslib.formats.SIGNATURE_SCHEMA`
-
-    Raises:
-        - KeyError: If signature for key_id is not present in signature_dict
-    """
-    from binascii import hexlify
-
-    return {"keyid": key_id, "sig": hexlify(signature_dict.get(key_id)).decode()}
+SIGNER_FOR_URI_SCHEME[YkSigner.SCHEME] = YkSigner

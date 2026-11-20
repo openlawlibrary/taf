@@ -15,8 +15,10 @@ import taf.keys as taf_keys
 import taf.yubikey.yubikey as yk
 from taf.exceptions import KeystoreError, YubikeyError
 from taf.tools.yubikey.yubikey_utils import FakePivController
-from taf.tuf.keys import YkSigner, load_signer_from_file
+from taf.tuf.keys import YkSigner
+from taf.tuf.signer_uris import import_keystore_signer
 from taf.yubikey.yubikey_manager import PinManager, YubiKeyStore
+from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 
 
 def _pin_manager(fake_yubikey) -> PinManager:
@@ -107,7 +109,9 @@ def test_get_piv_public_keys_tuf_covers_every_occupied_slot(fake_yubikey, keysto
         slot=SLOT.AUTHENTICATION,
     )
 
-    keys = yk.get_piv_public_keys_tuf(serial=fake_yubikey.serial)[fake_yubikey.serial]
+    keys = yk.get_piv_public_keys_tuf(
+        scheme=DEFAULT_RSA_SIGNATURE_SCHEME, serial=fake_yubikey.serial
+    )[fake_yubikey.serial]
 
     assert set(keys.keys()) == {SLOT.SIGNATURE, SLOT.AUTHENTICATION}
     assert keys[SLOT.SIGNATURE].keyid == fake_yubikey.tuf_key.public_key.keyid
@@ -294,7 +298,7 @@ def test_setup_test_yubikey_refuses_occupied_slot_without_prompting(
     )
 
 
-def test_sign_piv_rsa_pkcs1v15_uses_given_slot(fake_yubikey, keystore):
+def test_sign_piv_uses_given_slot(fake_yubikey, keystore):
     new_key_pem = (keystore / "root2").read_bytes()
     yk.setup(
         pin="123456",
@@ -304,8 +308,14 @@ def test_sign_piv_rsa_pkcs1v15_uses_given_slot(fake_yubikey, keystore):
         slot=SLOT.AUTHENTICATION,
     )
 
-    sig = yk.sign_piv_rsa_pkcs1v15(
-        b"data", "123456", serial=fake_yubikey.serial, slot=SLOT.AUTHENTICATION
+    sig = yk.sign_piv(
+        b"data",
+        "123456",
+        import_keystore_signer(
+            keystore, "root2", DEFAULT_RSA_SIGNATURE_SCHEME
+        ).public_key,
+        serial=fake_yubikey.serial,
+        slot=SLOT.AUTHENTICATION,
     )
 
     auth_priv_key = serialization.load_pem_private_key(
@@ -324,7 +334,9 @@ def test_read_and_check_yubikeys_finds_role_key_in_non_signature_slot(
     # it must be excluded even though it's on the same device as a real
     # root key (root2) in AUTHENTICATION.
     device = make_fake_yubikey("targets", extra_slots={SLOT.AUTHENTICATION: "root2"})
-    auth_key = load_signer_from_file(keystore / "root2").public_key
+    auth_key = import_keystore_signer(
+        keystore, "root2", DEFAULT_RSA_SIGNATURE_SCHEME
+    ).public_key
     taf_repo = create_auth_repo()
 
     result = yk._read_and_check_yubikeys(
@@ -375,7 +387,9 @@ def test_read_and_check_yubikeys_counts_every_valid_key_on_one_device(
         slot=SLOT.AUTHENTICATION,
     )
     sig_key = fake_yubikey.tuf_key.public_key
-    auth_key = load_signer_from_file(keystore / "root2").public_key
+    auth_key = import_keystore_signer(
+        keystore, "root2", DEFAULT_RSA_SIGNATURE_SCHEME
+    ).public_key
     taf_repo = create_auth_repo()
 
     result = yk._read_and_check_yubikeys(
@@ -497,7 +511,7 @@ def test_read_and_check_single_yubikey_returns_none_when_reusing_empty_device(
     # key on any slot - there's nothing to reuse. Must fail clearly and
     # without ever asking for a PIN, instead of proceeding with
     # public_key=None (which crashed certificate export downstream).
-    monkeypatch.setattr(yk, "get_piv_public_keys_tuf", lambda *a, **k: {})
+    monkeypatch.setattr(yk, "get_piv_public_keys_pem", lambda *a, **k: {})
 
     def _unexpected_prompt(*args, **kwargs):
         raise AssertionError("should not ask for a PIN - nothing to reuse")
@@ -536,7 +550,9 @@ def test_read_and_check_single_yubikey_prompts_when_multiple_slots_occupied(
         private_key_pem=new_key_pem,
         slot=SLOT.AUTHENTICATION,
     )
-    auth_key = load_signer_from_file(keystore / "root2").public_key
+    auth_key = import_keystore_signer(
+        keystore, "root2", DEFAULT_RSA_SIGNATURE_SCHEME
+    ).public_key
     taf_repo = create_auth_repo()
 
     # AUTHENTICATION (slot value 154) sorts before SIGNATURE (156), so
@@ -614,7 +630,7 @@ def test_setup_yubikey_creates_new_key_in_a_free_non_signature_slot(
         "click.prompt", return_value=1
     ):
         key, serial_num, slot = taf_keys._setup_yubikey(
-            auth_repo, "root", "root1", key_size=2048
+            auth_repo, "root", "root1", scheme="rsa-pkcs1v15-sha256", key_size=2048
         )
 
     assert slot == SLOT.AUTHENTICATION
@@ -643,7 +659,12 @@ def test_setup_yubikey_updates_store_with_generated_key_for_cert_export(
         "click.prompt", return_value=1
     ):
         key, serial_num, slot = taf_keys._setup_yubikey(
-            auth_repo, "root", "root1", key_size=2048, certs_dir=str(tmp_path)
+            auth_repo,
+            "root",
+            "root1",
+            scheme="ecdsa-sha2-nistp256",
+            key_size=2048,
+            certs_dir=str(tmp_path),
         )
 
     assert auth_repo.yubikey_store.get_key_data("root1") == (key, serial_num, slot)
@@ -661,7 +682,9 @@ def test_load_and_verify_yubikey_uses_the_slot_the_user_picked(
         private_key_pem=new_key_pem,
         slot=SLOT.AUTHENTICATION,
     )
-    auth_key = load_signer_from_file(keystore / "root2").public_key
+    auth_key = import_keystore_signer(
+        keystore, "root2", DEFAULT_RSA_SIGNATURE_SCHEME
+    ).public_key
     taf_repo = create_auth_repo(pin_manager=_pin_manager(fake_yubikey))
 
     # option 1 is AUTHENTICATION - the correct one for root2
@@ -689,7 +712,9 @@ def test_load_and_verify_yubikey_reports_mismatch_when_wrong_slot_picked(
         private_key_pem=new_key_pem,
         slot=SLOT.AUTHENTICATION,
     )
-    auth_key = load_signer_from_file(keystore / "root2").public_key
+    auth_key = import_keystore_signer(
+        keystore, "root2", DEFAULT_RSA_SIGNATURE_SCHEME
+    ).public_key
     taf_repo = create_auth_repo(pin_manager=_pin_manager(fake_yubikey))
 
     # option 2 is SIGNATURE (the fixture's default key) - the wrong one,

@@ -11,7 +11,7 @@ from taf.api.utils._conf import (
 from taf.auth_repo import AuthenticationRepository
 from taf.config import load_config
 from taf.exceptions import InvalidConfigError, PushFailedError, TAFError
-from taf.keys import load_signers
+from taf.signer_loaders import load_signers
 from taf.messages import git_commit_message
 from taf.constants import METADATA_DIRECTORY_NAME
 from taf.log import taf_logger
@@ -176,15 +176,14 @@ def _setup_auth_repo_and_signers(
 
     for role in sorted_roles:
         if not auth_repo.check_if_keys_loaded(role):
-            keystore_signers, yubikey_signers = load_signers(
+            signers = load_signers(
                 auth_repo,
                 role,
                 keystore=keystore_path,
                 key_id_pins=key_id_pins,
                 use_yubikeys_to_sign=use_yubikeys_to_sign,
             )
-            auth_repo.add_signers_to_cache({role: keystore_signers})
-            auth_repo.add_signers_to_cache({role: yubikey_signers})
+            auth_repo.add_signers_to_cache({role: signers})
 
     return auth_repo
 
@@ -220,9 +219,9 @@ def _resolve_key_id_pins(
     candidates = []
     for serial_num in serial_nums:
         try:
-            slot_keys = yk.get_piv_public_keys_tuf(serial=serial_num).get(
-                serial_num, {}
-            )
+            slot_keys = yk.get_piv_public_keys_tuf(
+                serial=serial_num, taf_repo=auth_repo
+            ).get(serial_num, {})
         except Exception as e:
             taf_logger.debug(
                 f"Could not read public keys of YubiKey serial={serial_num}: {e}"
@@ -307,7 +306,6 @@ def manage_repo_and_signers(
     auth_repo: AuthenticationRepository,
     roles: Optional[List[str]] = None,
     keystore: Optional[Union[str, Path]] = None,
-    prompt_for_keys: Optional[bool] = False,
     paths_to_reset_on_error: Optional[List[Union[str, Path]]] = None,
     load_roles: Optional[bool] = True,
     load_parents: Optional[bool] = False,
@@ -328,7 +326,6 @@ def manage_repo_and_signers(
         auth_repo (AuthenticationRepository): Already instantiated authentication repository.
         roles (Optional[List[str]]): List of roles that are expected to be updated.
         keystore (Optional[Union[str, Path]]): Path to the keystore containing signing keys.
-        prompt_for_keys (Optional[bool]): If True, prompts for keys if not found. Defaults to False.
         paths_to_reset_on_error (Optional[List[Union[str, Path]]]): Paths to reset if an error occurs.
         load_roles (Optional[bool]): If True, loads signing keys of the roles specified using the argument of the same name.
         load_parents (Optional[bool]): If true, loads sining keys of the specified roles' parents.
@@ -358,14 +355,12 @@ def manage_repo_and_signers(
             sorted_roles_to_load = sorted(roles_to_load, key=role_priority)
             for role in sorted_roles_to_load:
                 if not auth_repo.check_if_keys_loaded(role):
-                    keystore_signers, yubikey_signers = load_signers(
+                    signers = load_signers(
                         auth_repo,
                         role,
                         keystore=keystore_path,
-                        prompt_for_keys=prompt_for_keys,
                     )
-                    auth_repo.add_signers_to_cache({role: keystore_signers})
-                    auth_repo.add_signers_to_cache({role: yubikey_signers})
+                    auth_repo.add_signers_to_cache({role: signers})
         yield
         if commit and auth_repo.something_to_commit():
             if not commit_msg and commit_key:

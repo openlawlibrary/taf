@@ -40,6 +40,8 @@ yubikey_require = [
     "pyscard==2.3.*",
 ]
 
+hsm_require = ["securesystemslib[hsm]==1.6.*"]
+
 
 kwargs = {
     "name": PACKAGE_NAME,
@@ -77,6 +79,7 @@ kwargs = {
         "test": tests_require,
         "dev": dev_require,
         "yubikey": yubikey_require,
+        "hsm": hsm_require,
         "executable": executable_require,
     },
     "tests_require": tests_require,

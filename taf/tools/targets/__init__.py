@@ -11,11 +11,11 @@ from taf.api.targets import (
     update_and_sign_targets,
     update_target_repos_from_repositories_json,
 )
-from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import TAFError
 from taf.tools.cli import catch_cli_exception, common_repo_edit_options, find_repository
 from taf.models.types import Commitish
 from taf.tools.repo import pin_managed
+from taf.tuf.keys import SUPPORTED_SCHEMES
 
 
 def add_repo_command():
@@ -48,7 +48,7 @@ def add_repo_command():
         keys_number = config_data.get("keys_number", 1)
         threshold = config_data.get("threshold", 1)
         yubikey = config_data.get("yubikey", False)
-        scheme = config_data.get("scheme", DEFAULT_RSA_SIGNATURE_SCHEME)
+        scheme = config_data.get("scheme")
 
         if directly inside the authentication repository.
 
@@ -86,8 +86,9 @@ def add_repo_command():
     )
     @click.option(
         "--scheme",
-        default=DEFAULT_RSA_SIGNATURE_SCHEME,
-        help="A signature scheme used for signing",
+        type=click.Choice(SUPPORTED_SCHEMES),
+        default=None,
+        help="Signature scheme of the role's keys. Needed to generate new keys and for RSA keys, detected from existing ECDSA and Ed25519 keys",
     )
     @pin_managed
     def add_repo(
@@ -97,7 +98,6 @@ def add_repo_command():
         role,
         config_file,
         keystore,
-        prompt_for_keys,
         scheme,
         no_commit,
         pin_manager,
@@ -136,7 +136,6 @@ def add_repo_command():
                 keystore=keystore,
                 custom=config_data,
                 scheme=scheme,
-                prompt_for_keys=prompt_for_keys,
                 commit=not no_commit,
                 should_create_new_role=True,
                 keys_description=keys_description,
@@ -153,7 +152,6 @@ def add_repo_command():
                 keystore=keystore,
                 custom=config_data,
                 scheme=scheme,
-                prompt_for_keys=prompt_for_keys,
                 commit=not no_commit,
                 should_create_new_role=False,
                 keys_description=keys_description,
@@ -246,7 +244,6 @@ def remove_repo_command():
         path,
         target_name,
         keystore,
-        prompt_for_keys,
         pin_manager,
         keys_description,
         no_remote_check,
@@ -256,7 +253,6 @@ def remove_repo_command():
             pin_manager=pin_manager,
             target_name=target_name,
             keystore=keystore,
-            prompt_for_keys=prompt_for_keys,
             keys_description=keys_description,
             skip_remote_check=no_remote_check,
         )
@@ -275,12 +271,6 @@ def sign_targets_command():
     )
     @find_repository
     @catch_cli_exception(handle=TAFError)
-    @click.option(
-        "--prompt-for-keys",
-        is_flag=True,
-        default=False,
-        help="Whether to ask the user to enter their key if not located inside the keystore directory",
-    )
     @click.option(
         "--keys-description",
         help="A dictionary containing information about the keys or a path to a json file which stores this information",
@@ -302,7 +292,6 @@ def sign_targets_command():
         path,
         keystore,
         keys_description,
-        prompt_for_keys,
         no_commit,
         pin_manager,
     ):
@@ -313,7 +302,6 @@ def sign_targets_command():
                 keystore=keystore,
                 roles_key_infos=keys_description,
                 update_snapshot_and_timestamp=True,
-                prompt_for_keys=prompt_for_keys,
                 commit=not no_commit,
             )
         except TAFError as e:
@@ -369,12 +357,6 @@ def update_and_sign_command():
         help="A dictionary containing information about the keys or a path to a json file which stores the needed information",
     )
     @click.option(
-        "--prompt-for-keys",
-        is_flag=True,
-        default=False,
-        help="Whether to ask the user to enter their key if not located inside the keystore directory",
-    )
-    @click.option(
         "--no-commit",
         is_flag=True,
         default=False,
@@ -387,7 +369,6 @@ def update_and_sign_command():
         target_type,
         keystore,
         keys_description,
-        prompt_for_keys,
         no_commit,
         pin_manager,
     ):
@@ -400,7 +381,6 @@ def update_and_sign_command():
                     target_type,
                     keystore=keystore,
                     roles_key_infos=keys_description,
-                    prompt_for_keys=prompt_for_keys,
                     commit=not no_commit,
                 )
             else:
@@ -409,7 +389,6 @@ def update_and_sign_command():
                     library_dir,
                     add_branch=True,
                     keystore=keystore,
-                    prompt_for_keys=prompt_for_keys,
                     commit=not no_commit,
                     keys_description=keys_description,
                 )

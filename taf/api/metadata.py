@@ -30,7 +30,6 @@ def add_key_names(
     keystore: Optional[str] = None,
     commit: Optional[bool] = True,
     commit_msg: Optional[str] = None,
-    prompt_for_keys: Optional[bool] = False,
     push: Optional[bool] = True,
     update_snapshot_and_timestamp: Optional[bool] = True,
 ):
@@ -69,7 +68,6 @@ def add_key_names(
         auth_repo,
         roles=list(parent_roles),
         keystore=keystore,
-        prompt_for_keys=prompt_for_keys,
         load_snapshot_and_timestamp=update_snapshot_and_timestamp,
         commit=commit,
         commit_msg=commit_msg,
@@ -161,7 +159,6 @@ def update_metadata_expiration_date(
     start_date: Optional[datetime] = None,
     commit: Optional[bool] = True,
     commit_msg: Optional[str] = None,
-    prompt_for_keys: Optional[bool] = False,
     push: Optional[bool] = True,
     update_snapshot_and_timestamp: Optional[bool] = True,
     keys_description: Optional[str] = None,
@@ -181,7 +178,6 @@ def update_metadata_expiration_date(
             Set to today if not specified.
         commit (optional): Indicates if the changes should be committed and pushed automatically.
         commit_msg (optional): Custom commit messages.
-        prompt_for_keys (optional): Whether to ask the user to enter their key if it is not located inside the keystore directory.
         push (optional): Flag specifying whether to push to remote
 
     Side Effects:
@@ -213,7 +209,6 @@ def update_metadata_expiration_date(
         auth_repo,
         roles=roles,
         keystore=keystore,
-        prompt_for_keys=prompt_for_keys,
         load_snapshot_and_timestamp=update_snapshot_and_timestamp,
         commit=commit,
         commit_msg=commit_msg,
@@ -250,7 +245,6 @@ def update_snapshot_and_timestamp(
     roles_to_sync: Optional[List[str]] = None,
     commit: Optional[bool] = True,
     commit_msg: Optional[str] = None,
-    prompt_for_keys: Optional[bool] = False,
     push: Optional[bool] = True,
     update_expiration_dates: Optional[bool] = True,
     keys_description: Optional[str] = None,
@@ -263,7 +257,6 @@ def update_snapshot_and_timestamp(
         keystore (optional): Keystore directory's path
         commit (optional): Indicates if the changes should be committed and pushed automatically.
         commit_msg (optional): Custom commit messages.
-        prompt_for_keys (optional): Whether to ask the user to enter their key if it is not located inside the keystore directory.
         push (optional): Flag specifying whether to push to remote
         update_expiration_dates (optional): Flag specifying whether to update expiration dates
 
@@ -283,7 +276,6 @@ def update_snapshot_and_timestamp(
         auth_repo,
         roles=[],
         keystore=keystore,
-        prompt_for_keys=prompt_for_keys,
         load_snapshot_and_timestamp=True,
         commit=commit,
         commit_msg=commit_msg,

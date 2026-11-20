@@ -111,9 +111,8 @@ require certain information about roles and keys easier to use, an option called
 ```
 
 
-NOTE: in this example, schemes were specified in order to provide an example of how to do so.
-At the moment, all keys should have the same signing scheme.
-The default scheme is `rsa-pkcs1v15-sha256`. Delegated target roles are optional - if all target files
+NOTE: a scheme is needed to generate keys and for RSA keys, which can be used with several schemes. For
+existing ECDSA and Ed25519 keys it is detected from the key. Delegated target roles are optional - if all target files
 should be signed using the `targets` key, there is no point in defining delegated target roles.
 
 -`yubikeys` contains information about YubiKeys which can be references when specifying role's keys. Each key is
@@ -123,14 +122,14 @@ includes:
   - `public`- public key exported from the YubiKey. The specified key will be registered as the role's verification
   key and it will not be necessary to insert the YubiKye (unless the threshold of sining keys is not reached, like when
   public keys of all used YubiKeys are specified)
-  - `scheme` - signing scheme (can be ommitted, default scheme is `rsa-pkcs1v15-sha256`)
+  - `scheme` - signing scheme (needed for RSA keys, detected from ECDSA and Ed25519 public keys)
 - `roles` contains information about roles and their keys, including delegations:
   -  `number` - total number of the role's keys
-  - `length` - length of the role's keys. Only needed when this json is used to generate keys.
+  - `length` - length of the role's RSA keys. Only needed when this json is used to generate RSA keys.
   - `threshold` - role's keys threshold - with how many different keys must a metadata files be signed
   - `yubikey` - a flag which signalizes that the keys should be on YubiKeys (deprecated)
   - `yubikeys` - a list of names of YubiKeys listed in the `yubikeys` section
-  - `scheme` - signing scheme
+  - `scheme` - signing scheme, which also sets the type of generated keys. Needed to generate keys
   - `delegations` and `paths` - delegated roles of a targets role. For each delegated role, it is necessary to specify `paths`. That is, files or directories that the delegated role can sign. Paths are specified using glob expressions. In addition to paths, it is possible to specify the same properties of delegated roles as of main roles (number or keys, threshold, delegations etc.).
   In this example, `delegated_role` is a delegated role of the `targets` role and `inner_role` is a delegated role of `delegated_role`
   - `terminating` - specifies if a delegated role is terminating (as defined in TUF - if a role is trusted with a certain file which is not found in that role an exceptions is raised if terminating is `True`. Affects the updater).
@@ -141,9 +140,8 @@ and a counter (if there is more than one key). E.g. `root1`', `root2`, `targets1
 
 If a property is omitted from the specification, it will have the default value. The default values are:
 - `number=1`
-- `length=3072` Note: If the generated key should be moved to a YubiKey 4, this value must not exceed 2048
+- `length=3072` (RSA keys only) Note: If the generated key should be moved to a YubiKey 4, this value must not exceed 2048
 - `threshold=1`
-- `scheme=rsa-pkcs1v15-sha256`
 
 The `keys-description` option can either directly contain the described json, or be a path to a file
 which contains it.
@@ -152,8 +150,13 @@ information when asked to do so, or confirm that default values should be used.
 
 ### `scheme`
 
-Many commands have the `scheme` optional parameter. It represents the signature scheme.
-`rsa-pkcs1v15-sha256` is used by default.
+Many commands have the `scheme` optional parameter. It represents the signature scheme. It is needed
+to generate keys and for RSA keys, which can be used with several schemes, and detected from existing
+ECDSA and Ed25519 keys. Commands that add an existing public key, like `taf roles add-signing-key`, take
+it as `--scheme`. Supported schemes are `rsa-pkcs1v15-sha256`,
+`rsa-pkcs1v15-sha384`, `rsa-pkcs1v15-sha512`, `rsassa-pss-sha256`, `rsassa-pss-sha384`,
+`rsassa-pss-sha512`, `ecdsa-sha2-nistp256`, `ecdsa-sha2-nistp384`, `ecdsa-sha2-nistp521` and `ed25519`.
+YubiKeys support all of them except `ecdsa-sha2-nistp521`, and `ed25519` needs YubiKey firmware 5.7 or newer.
 
 ## Commands
 
@@ -176,11 +179,12 @@ about the commands. E.g. `taf repo create --help`.
 
 ### `keystore generate`
 
-Generates and write rsa keypairs. Number of keys to generate per a metadata role, as well as their
-lengths and passwords of the keystore files are specified using the `keys-description` parameter.
+Generates key pairs. Number of keys to generate per a metadata role, their scheme and, for RSA
+keys, their length are specified using the `keys-description` parameter. The scheme sets the type
+of the generated keys. Private key files can only be read by their owner.
 
 ```bash
-taf keystore generate E:\\OLL\\keystore_path  E:\\OLL\\data\\keys_description.json
+taf keystore generate --keystore E:\\OLL\\keystore_path --keys-description E:\\OLL\\data\\keys_description.json
 ```
 
 The generated keys files will be saved to `E:\OLL\keystore_path`
@@ -191,13 +195,11 @@ This command can be used to generate the initial authentication repository. The 
 of all metadata files are created, but no targets are added.
 
 ```bash
-taf repo create --path E:\\OLL\\auth_repo_path --keystore E:\\OLL\\keystore --keys-description E:\\OLL\\data\\keys.json --test
+taf repo create E:\\OLL\\auth_repo_path --keystore E:\\OLL\\keystore --keys-description E:\\OLL\\data\\keys.json --test
 ```
 
-will generate a new authentication repository at `E:\OLL\auth_repo_path`, if `path` is provide, or inside
-the current working directory, in case this parameter is omitted. There are several options
-for signing metadata files - from keystore, by directly entering the key when prompted and by using
-Yubikeys. If one or more keys are stored in the keystore, keystore path should be specified
+will generate a new authentication repository at `E:\OLL\auth_repo_path`. Metadata files can be
+signed with keys from the keystore or with Yubikeys. If one or more keys are stored in the keystore, keystore path should be specified
 when calling this command. If `keystore` is specified in `keys-description`, it is not necessary
 to also use the `--keystore` option. All keys that do not already exist will be generated during
 execution of this command. Keys can generated on the Yubikeys, but that will delete everything
@@ -370,8 +372,7 @@ If `path` option is omitted, the repository will be expected to be located insid
 ### `metadata update-expiration-dates`
 
 This command updates expiration date of the given role's metadata file. The metadata file
-can be signed by directly entering the key when prompted to do so, by loading the key
-from disk or from a Yubikey. If key should be loaded from disk, it is necessary to specify
+can be signed by loading the key from disk or from a Yubikey. If key should be loaded from disk, it is necessary to specify
 the keystore path using the `--keystore` option or by providing a `--keys-description` json which
 contains the `keystore` property. The new expiration date is calculated by
 adding interval to the start date, both of which can be specified when calling this command.

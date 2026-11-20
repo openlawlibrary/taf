@@ -12,6 +12,7 @@ from taf.exceptions import KeystoreError, YubikeyError
 from taf.repository_utils import find_valid_repository
 from taf.tools.cli import catch_cli_exception
 from taf.tools.repo import pin_managed
+from taf.tuf.keys import YUBIKEY_SCHEMES
 from taf.yubikey.yubikey import list_connected_yubikeys, list_all_devices
 
 SETUP_SLOT_NAMES = [s.name for s in SETUP_SLOTS]
@@ -58,9 +59,15 @@ def export_pub_key_command():
         "--output",
         help="File to which the exported public key will be written. The result will be written to the console if path is not specified",
     )
+    @click.option(
+        "--scheme",
+        type=click.Choice(YUBIKEY_SCHEMES),
+        default=None,
+        help="Signing scheme of the key, needed for RSA keys",
+    )
     @catch_cli_exception(handle=YubikeyError)
-    def export_pub_key(output):
-        export_yk_public_pem(output)
+    def export_pub_key(output, scheme):
+        export_yk_public_pem(output, scheme=scheme)
 
     return export_pub_key
 
@@ -93,9 +100,15 @@ def export_certificate_command():
         "--output",
         help="File to which the exported certificate key will be written. The result will be written to the user's home directory by default",
     )
+    @click.option(
+        "--scheme",
+        type=click.Choice(YUBIKEY_SCHEMES),
+        default=None,
+        help="Signing scheme of the key, needed for RSA keys",
+    )
     @catch_cli_exception(handle=YubikeyError)
-    def export_certificate(output):
-        export_yk_certificate(output)
+    def export_certificate(output, scheme):
+        export_yk_certificate(output, scheme=scheme)
 
     return export_certificate
 
@@ -142,10 +155,18 @@ def setup_signing_key_command():
         default="SIGNATURE",
         help="PIV slot to set the key up in. Defaults to SIGNATURE.",
     )
+    @click.option(
+        "--scheme",
+        type=click.Choice(YUBIKEY_SCHEMES),
+        required=True,
+        help="Signing scheme of the generated key, which sets its type. ed25519 needs YubiKey firmware 5.7 or newer",
+    )
     @catch_cli_exception(handle=YubikeyError)
     @pin_managed
-    def setup_signing_key(certs_dir, slot, pin_manager):
-        setup_signing_yubikey(pin_manager, certs_dir, key_size=2048, slot=slot)
+    def setup_signing_key(certs_dir, slot, scheme, pin_manager):
+        setup_signing_yubikey(
+            pin_manager, certs_dir, key_size=2048, slot=slot, scheme=scheme
+        )
 
     return setup_signing_key
 

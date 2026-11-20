@@ -12,8 +12,9 @@ from taf.tests.tuf.test_keys.conftest import (
     write_signing_keystore,
     write_target,
 )
-from taf.tuf.keys import load_signer_from_file
+from taf.tuf.signer_uris import import_keystore_signer
 import taf.yubikey.yubikey as yk
+from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 
 
 @pytest.mark.parametrize("device_a_inserted_first", [True, False])
@@ -83,11 +84,11 @@ def test_read_and_check_yubikeys_skips_unauthorized_device_for_delegated_role(
     )
 
     assert result is not None
-    role1_key = load_signer_from_file(
-        keystore_delegations / "delegated_role1"
+    role1_key = import_keystore_signer(
+        keystore_delegations, "delegated_role1", DEFAULT_RSA_SIGNATURE_SCHEME
     ).public_key
-    role2_key = load_signer_from_file(
-        keystore_delegations / "delegated_role2"
+    role2_key = import_keystore_signer(
+        keystore_delegations, "delegated_role2", DEFAULT_RSA_SIGNATURE_SCHEME
     ).public_key
     found_keyids = {entry[0].keyid for entry in result}
     assert found_keyids == {role1_key.keyid, role2_key.keyid}

@@ -9,6 +9,7 @@ from taf.api.roles import (
     remove_paths,
     revoke_signing_key,
 )
+from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.messages import git_commit_message
 from taf.auth_repo import AuthenticationRepository
 from taf.tests.test_api.util import check_new_role, check_role_scheme
@@ -35,6 +36,7 @@ def test_add_role_when_target_is_parent(
         threshold=1,
         yubikey=False,
         keystore=roles_keystore,
+        scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
         push=False,
         skip_prompt=True,
     )
@@ -64,6 +66,7 @@ def test_add_role_when_delegated_role_is_parent(
         threshold=1,
         yubikey=False,
         keystore=roles_keystore,
+        scheme="rsa-pkcs1v15-sha256",
         push=False,
         skip_prompt=True,
     )
@@ -138,7 +141,11 @@ def test_add_multiple_roles_when_parent_is_not_specified(
         path=str(auth_repo.path),
         pin_manager=pin_manager,
         keystore=roles_keystore,
-        roles_key_infos={"roles": {"new_role": {"paths": ["new-path"]}}},
+        roles_key_infos={
+            "roles": {
+                "new_role": {"paths": ["new-path"], "scheme": "rsa-pkcs1v15-sha256"}
+            }
+        },
         push=False,
     )
     assert "new_role" in auth_repo.get_all_targets_roles()
@@ -162,8 +169,13 @@ def test_add_multiple_roles_when_parent_is_a_new_role(
                 "new_inner_role": {
                     "parent_role": "new_role",
                     "paths": ["new-path/inner"],
+                    "scheme": "rsa-pkcs1v15-sha256",
                 },
-                "new_role": {"parent_role": "targets", "paths": ["new-path"]},
+                "new_role": {
+                    "parent_role": "targets",
+                    "paths": ["new-path"],
+                    "scheme": "rsa-pkcs1v15-sha256",
+                },
             }
         },
         push=False,
@@ -383,6 +395,7 @@ def test_add_signing_key(
         keystore=roles_keystore,
         push=False,
         commit_msg=COMMIT_MSG,
+        scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
     )
     commits = auth_repo.list_pygit_commits()
     assert len(commits) == initial_commits_num + 1

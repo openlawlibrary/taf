@@ -5,7 +5,8 @@ from contextlib import contextmanager
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, serialization
-from taf.tuf.keys import load_signer_from_file
+from cryptography.hazmat.primitives.asymmetric import ec, ed25519
+from taf.tuf.signer_uris import import_keystore_signer
 from ykman.piv import OBJECT_ID_PIVMAN_PROTECTED_DATA
 from yubikit.core.smartcard import ApduError, SW
 from yubikit.piv import DEFAULT_MANAGEMENT_KEY, SLOT, InvalidPinError
@@ -33,7 +34,9 @@ class FakeYubiKey:
             self.pub_key_pem, default_backend()
         )
 
-        self.tuf_key = load_signer_from_file(priv_key_path)
+        self.tuf_key = import_keystore_signer(
+            priv_key_path.parent, priv_key_path.name, scheme
+        )
 
         # PIV slot state (key/cert per slot), persisted here rather than on
         # FakePivController, since a new FakePivController is constructed on
@@ -206,7 +209,12 @@ class FakePivController:
         slot_data = self._slots.get(slot)
         if not slot_data or slot_data.get("priv_key") is None:
             raise ApduError(b"", SW.FILE_NOT_FOUND)
-        return slot_data["priv_key"].sign(data, padding, hash)
+        private_key = slot_data["priv_key"]
+        if isinstance(private_key, ec.EllipticCurvePrivateKey):
+            return private_key.sign(data, ec.ECDSA(hash))
+        if isinstance(private_key, ed25519.Ed25519PrivateKey):
+            return private_key.sign(data)
+        return private_key.sign(data, padding, hash)
 
     def verify_pin(self, pin):
         if self._driver.pin != pin:

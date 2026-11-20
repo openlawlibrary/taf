@@ -74,7 +74,6 @@ def add_dependency(
     dependency_url: Optional[str] = None,
     library_dir: Optional[str] = None,
     custom: Optional[Dict] = None,
-    prompt_for_keys: Optional[bool] = False,
     commit: Optional[bool] = True,
     push: Optional[bool] = True,
     no_prompt: Optional[bool] = False,
@@ -96,7 +95,6 @@ def add_dependency(
         dependency_path (optional): Path to the dependency repository which is to be added. Can be omitted if dependency_name
         library_dir (optional): Path to the library's root directory. Determined based on the authentication repository's path if not provided.
         custom (optional): Additional data that will be added to dependencies.json if specified.
-        prompt_for_keys (optional): Whether to ask the user to enter their key if it is not located inside the keystore directory.
         commit (optional): Indicates if the changes should be committed and pushed automatically.
         push (optional): Flag specifying whether to push to remote.
         no_prompt (optional): Flag specifying whether to ask the user to confirm branch and commit values is they are not specified.
@@ -179,7 +177,6 @@ def add_dependency(
         commit=commit,
         auth_repo=auth_repo,
         update_snapshot_and_timestamp=True,
-        prompt_for_keys=prompt_for_keys,
         push=push,
         no_commit_warning=True,
         reset_updated_targets_on_error=True,
@@ -202,7 +199,6 @@ def remove_dependency(
     pin_manager: PinManager,
     dependency_name: str,
     keystore: str,
-    prompt_for_keys: Optional[bool] = False,
     commit: Optional[bool] = True,
     push: Optional[bool] = True,
     keys_description: Optional[str] = None,
@@ -214,7 +210,6 @@ def remove_dependency(
         path: Path to the authentication repository.
         dependency_name: Name of the dependency which should be removed.
         keystore: Location of the keystore files.
-        prompt_for_keys (optional): Whether to ask the user to enter their key if it is not located inside the keystore directory.
         commit (optional): Indicates if the changes should be committed and pushed automatically.
         push (optional): Flag specifying whether to push to remote
     Side Effects:
@@ -265,7 +260,6 @@ def remove_dependency(
         commit=commit,
         auth_repo=auth_repo,
         update_snapshot_and_timestamp=True,
-        prompt_for_keys=prompt_for_keys,
         push=push,
         no_commit_warning=True,
         reset_updated_targets_on_error=True,
