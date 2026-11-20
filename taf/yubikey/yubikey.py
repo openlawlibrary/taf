@@ -21,6 +21,7 @@ from taf.tuf.keys import (
     generate_keypair,
     get_public_key_pem,
     get_sslib_key_from_value,
+    is_same_public_key,
 )
 from taf.yubikey.yubikey_manager import PinManager
 from taf.models.types import KeysMapping
@@ -466,9 +467,10 @@ def _get_slot_key(public_key_pem, taf_repo, scheme) -> SSlibKey:
     metadata is used, so that its signing scheme is known. Otherwise RSA keys
     need scheme."""
     if taf_repo is not None:
-        key = taf_repo.find_public_key(public_key_pem)
-        if key is not None:
-            return key
+        for role in taf_repo.get_all_roles():
+            for key in taf_repo.get_public_keys_of_role(role):
+                if is_same_public_key(key, public_key_pem):
+                    return key
     return get_sslib_key_from_value(public_key_pem, scheme)
 
 
