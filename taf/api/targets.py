@@ -80,7 +80,7 @@ def add_target_repo(
         library_dir (optional): Path to the library's root directory. Determined based on the authentication repository's path if not provided.
         threshold: Signature's threshold.
         keystore: Location of the keystore files.
-        scheme (optional): Signing scheme of the role's keys. Needed to generate new keys and for RSA keys, detected from existing ECDSA and Ed25519 keys.
+        scheme (optional): Signing scheme of the role's keys. Needed for new keys and RSA keys.
         custom (optional): Additional data that will be added to repositories.json if specified.
         commit (optional): Indicates if the changes should be committed and pushed automatically.
         push (optional): Flag specifying whether to push to remote

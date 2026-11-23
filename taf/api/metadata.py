@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from logging import ERROR
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 from logdecorator import log_on_error
 from taf.api.utils._conf import read_keys_name_mapping
 from taf.yubikey.yubikey_manager import PinManager
@@ -25,7 +25,7 @@ from taf.auth_repo import AuthenticationRepository
 @check_if_clean_and_synced
 def add_key_names(
     path: str,
-    keys_description: Path,
+    keys_description: Union[Path, Dict],
     pin_manager: PinManager,
     keystore: Optional[str] = None,
     commit: Optional[bool] = True,
@@ -33,7 +33,7 @@ def add_key_names(
     push: Optional[bool] = True,
     update_snapshot_and_timestamp: Optional[bool] = True,
 ):
-    if not keys_description.is_file():
+    if not isinstance(keys_description, dict) and not keys_description.is_file():
         raise TAFError(f"{keys_description} does not exist")
 
     commit_msg = commit_msg or git_commit_message("add-key-names")

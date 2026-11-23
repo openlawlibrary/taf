@@ -30,7 +30,7 @@ def add_roles_command():
     - 'number' (integer): Number of signing keys. Default is 1.
     - 'threshold' (integer): Number of keys required to sign. Default is 1.
     - 'yubikey' (boolean): Whether to use a YubiKey for signing. Default is false.
-    - 'scheme' (string): Signature scheme, e.g., 'rsa-pkcs1v15-sha256'. Needed to generate new keys and for RSA keys, detected from existing ECDSA and Ed25519 keys.
+    - 'scheme' (string): Signature scheme, e.g., 'rsa-pkcs1v15-sha256'. Needed for new keys and RSA keys.
     - 'yubikeys' (array of strings): Names of the YubiKeys used for signing, defined in the 'yubikeys' section.
 
     The structure of the configuration file is very similar to the structure of the one used when creating the repository,
@@ -203,12 +203,6 @@ def remove_role_command():
         help="Authentication repository's location. If not specified, set to the current directory",
     )
     @click.option(
-        "--scheme",
-        type=click.Choice(SUPPORTED_SCHEMES),
-        default=None,
-        help="Signature scheme of the role's keys. Needed to generate new keys and for RSA keys, detected from existing ECDSA and Ed25519 keys",
-    )
-    @click.option(
         "--remove-targets/--no-remove-targets",
         default=True,
         help="Should targets delegated to this role also be removed. If not removed, they are signed by the parent role",
@@ -218,7 +212,6 @@ def remove_role_command():
         role,
         path,
         keystore,
-        scheme,
         remove_targets,
         no_commit,
         pin_manager,
@@ -230,7 +223,6 @@ def remove_role_command():
             pin_manager=pin_manager,
             role=role,
             keystore=keystore,
-            scheme=scheme,
             remove_targets=remove_targets,
             commit=not no_commit,
             keys_description=keys_description,

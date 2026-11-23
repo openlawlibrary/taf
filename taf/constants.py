@@ -21,7 +21,8 @@ class RoleSetupParams:
     threshold: int = attrs.field(default=1)
     yubikey: bool = attrs.field(default=False)
     scheme: Optional[str] = attrs.field(default=None)
-    length: int = attrs.field(default=3072)
+    # RSA key size, securesystemslib's default if not set
+    length: Optional[int] = attrs.field(default=None)
     terminating: bool = attrs.field(default=True)
 
     def __getitem__(self, key):

@@ -14,13 +14,12 @@ from taf.tuf.keys import (
     get_sslib_key_from_value,
 )
 
-from taf.constants import RoleSetupParams
 from taf.exceptions import (
     KeystoreError,
     SigningError,
     YubikeyError,
 )
-from taf.tuf.signer_uris import check_keystore_path
+from taf.tuf.signer_uris import check_keystore_path_usable_in_uri
 from taf.keystore import load_signer_from_private_keystore
 from taf import YubikeyMissingLibrary
 from securesystemslib.signer import Signer, SSlibKey
@@ -168,7 +167,6 @@ def setup_roles_keys(
     keystore: Optional[Union[Path, str]] = None,
     users_yubikeys_details: Optional[Dict[str, UserKeyData]] = None,
     skip_prompt: Optional[bool] = False,
-    key_size: int = 2048,
 ):
 
     if role.name is None:
@@ -205,13 +203,12 @@ def setup_roles_keys(
             f"Setting up YubiKey-based role '{role.name}' requiring {role.number} key(s)."
         )
         yubikey_keys, yubikey_signers = _setup_yubikey_roles_keys(
-            auth_repo, yubikey_ids, users_yubikeys_details, role, certs_dir, key_size
+            auth_repo, yubikey_ids, users_yubikeys_details, role, certs_dir, role.length
         )
     else:
         if keystore is None:
             taf_logger.error("No keystore provided and no default keystore found")
             raise KeyError("No keystore provided and no default keystore found")
-        default_params = RoleSetupParams()
         for key_num in range(role.number):
             key_name = get_key_name(role.name, key_num, role.number)
             signer, key_id = _setup_keystore_key(
@@ -219,7 +216,7 @@ def setup_roles_keys(
                 role.name,
                 key_name,
                 role.scheme,
-                role.length or default_params["length"],
+                role.length,
                 skip_prompt=skip_prompt,
             )
             keystore_signers.append(signer)
@@ -347,7 +344,7 @@ def _setup_keystore_key(
             print(f"{key_path} is not a file!")
 
     if keystore is not None:
-        check_keystore_path(Path(keystore, key_name))
+        check_keystore_path_usable_in_uri(Path(keystore, key_name))
         keystore_path = str(Path(keystore).expanduser().resolve())
         while signer is None:
             try:
@@ -395,7 +392,7 @@ def _setup_yubikey(
     key_name: str,
     scheme: Optional[str] = None,
     certs_dir: Optional[Union[Path, str]] = None,
-    key_size: int = 2048,
+    key_size: Optional[int] = None,
     yubikeys_to_skip: Optional[List] = None,
 ) -> Tuple[SSlibKey, str, object]:
     print(f"Registering keys for {key_name}")

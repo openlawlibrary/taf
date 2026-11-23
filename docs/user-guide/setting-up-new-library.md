@@ -23,18 +23,21 @@ This document describes how to create a new authentication repository with all o
   },
   "roles": {
       "root": {
+        "scheme": "rsa-pkcs1v15-sha256",
         "threshold": 1,
         "yubikeys": [
           "user1", "user2"
         ]
       },
       "targets": {
+        "scheme": "rsa-pkcs1v15-sha256",
         "threshold": 1,
         "yubikeys": [
           "user1", "user2"
         ],
         "delegations": {
           "delegated_role": {
+            "scheme": "rsa-pkcs1v15-sha256",
             "paths": [
               "dir1/*",
               "path1",
@@ -46,6 +49,7 @@ This document describes how to create a new authentication repository with all o
             ],
             "delegations": {
               "inner_role": {
+                "scheme": "rsa-pkcs1v15-sha256",
                 "paths": ["path3"],
                 "yubikeys": ["user1", "user2"]
               }
@@ -59,15 +63,14 @@ This document describes how to create a new authentication repository with all o
         "scheme": "rsa-pkcs1v15-sha256"
       },
       "timestamp": {
-
+        "scheme": "rsa-pkcs1v15-sha256"
       }
     },
   "keystore": "D:\\oll\\library\\oll-test-repos\\keystore-dev\\keystore-dev"
 }
 ```
 
-NOTE: a scheme is needed to generate keys and for RSA keys, which can be used with several schemes. For
-existing ECDSA and Ed25519 keys it is detected from the key. Delegated target roles are optional - if all target files
+NOTE: delegated target roles are optional - if all target files
 should be signed using the `targets` key, there is no point in defining delegated target roles.
 
 -`yubikeys` contains information about YubiKeys which can be references when specifying role's keys. Each key is
@@ -77,14 +80,14 @@ includes:
   - `public`- public key exported from the YubiKey. The specified key will be registered as the role's verification
   key and it will not be necessary to insert the YubiKey (unless the threshold of signing keys is not reached, like when
   public keys of all used YubiKeys are specified)
-  - `scheme` - signing scheme (needed for RSA keys, detected from ECDSA and Ed25519 public keys)
+  - `scheme` - signing scheme of the YubiKey's key. Required
 - `roles` contains information about roles and their keys, including delegations:
   -  `number` - total number of the role's keys
   - `length` - length of the role's RSA keys. Only needed when this json is used to generate RSA keys.
   - `threshold` - role's keys threshold - with how many different keys must a metadata files be signed
   - `yubikey` - a flag which signalizes that the keys should be on YubiKeys (deprecated)
   - `yubikeys` - a list of names of YubiKeys listed in the `yubikeys` section
-  - `scheme` - signing scheme, which also sets the type of generated keys. Needed to generate keys
+  - `scheme` - signing scheme of the role's keys, which also sets the type of generated keys. Required. Keys listed in `yubikeys` use their own `scheme`. Supported schemes are `rsa-pkcs1v15-sha256`, `rsa-pkcs1v15-sha384`, `rsa-pkcs1v15-sha512`, `rsassa-pss-sha256`, `rsassa-pss-sha384`, `rsassa-pss-sha512`, `ecdsa-sha2-nistp256`, `ecdsa-sha2-nistp384`, `ecdsa-sha2-nistp521` and `ed25519`.
   - `delegations` and `paths` - delegated roles of a targets role. For each delegated role, it is necessary to specify `paths`. That is, files or directories that the delegated role can sign. Paths are specified using glob expressions. In addition to paths, it is possible to specify the same properties of delegated roles as of main roles (number or keys, threshold, delegations etc.).
   In this example, `delegated_role` is a delegated role of the `targets` role and `inner_role` is a delegated role of `delegated_role`
   - `terminating` - specifies if a delegated role is terminating (as defined in TUF - if a role is trusted with a certain file which is not found in that role an exceptions is raised if terminating is `True`. Affects the updater).
@@ -95,7 +98,7 @@ and a counter (if there is more than one key). E.g. `root1`', `root2`, `targets1
 
 If a property is omitted from the specification, it will have the default value. The default values are:
 - `number=1`
-- `length=3072` (RSA keys only) Note: If the generated key should be moved to a YubiKey 4, this value must not exceed 2048
+- `length=3072`, securesystemslib's default (RSA keys only). YubiKeys with firmware older than 5.7 only hold RSA keys of up to 2048 bits
 - `threshold=1`
 
 The `keys-description` option can either directly contain the described json, or be a path to a file
@@ -122,9 +125,9 @@ To set up a new key on a YubiKey, call
 
 The scheme sets the type of the generated key. YubiKeys support all schemes listed in
 [`scheme`](repo-creation-and-update-util.md#scheme) except `ecdsa-sha2-nistp521`, and `ed25519` needs
-firmware 5.7 or newer. `taf yubikey setup-signing-key --help` lists them. The key is put into the given PIV
-slot (`SIGNATURE` by default), which has to be free: taf does not overwrite or reset slots that already hold
-a key. New repositories can be created using already set up YubiKeys.
+firmware 5.7 or newer. `taf yubikey setup-signing-key --help` lists them. `--slot` sets the PIV slot the key
+is put into, `SIGNATURE` if it is not given, and `--key-size` the size of an RSA key. If that slot already holds a key, the command fails with an error:
+taf does not overwrite or reset slots. New repositories can be created using already set up YubiKeys.
 
 ## Create a repository
 
@@ -134,7 +137,7 @@ Use the `repo create` command to create a new authentication repository:
 taf repo create auth_path --keystore keystore_path --keys-description keys-description.json --test
 ```
 
-- `path` is the folder where the new authentication repository's content should be stored, e.g. `test/law`.
+- `path` is the folder where the new authentication repository's content should be stored, e.g. `test/law`. It is required.
 - `keys-description` is the previously described dictionary containing information about roles, keys and optionally keystore location. If one or more keys should be loaded from the disk their location can be determined based on `keystore` property of this json.
 - `keystore` is the location of the keystore files. Use this options if the keystore files were previously generated and not all metadata files should be signed using Yubikeys. This location can also be defined using the `keystore` property of the `keys-description` json.
 - `test`  flag determines if a special target file called `test-auth-repo` will be created. That
@@ -148,7 +151,7 @@ For each role, keys can be:
 - loaded from the keystore files if they already exist
 - generated and stored to keystore files
 - loaded from previously initialized Yubikeys
-- generated and stored on a Yubikey (this deletes all existing data from that key)
+- generated and stored in a free PIV slot of a Yubikey
 
 Changes will be committed automatically, unless the `--no-commit` flag is provided.
 If changes are not committed automatically, it's important to commit manually before updating metadata files

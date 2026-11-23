@@ -1,13 +1,13 @@
-import json
-
 import pytest
 from yubikit.piv import SLOT
 
 import taf.utils
 from taf.api.api_workflow import key_management_context
-from taf.api.keystore import generate_keys
 from taf.api.metadata import update_snapshot_and_timestamp
-from taf.tests.conftest import create_authentication_repository
+from taf.tests.conftest import (
+    create_authentication_repository,
+    keys_description_of_scheme,
+)
 from taf.tests.tuf.test_keys.conftest import (
     pin_manager_for,
     sign_target_update,
@@ -123,29 +123,16 @@ def test_key_management_context_with_key_pin_loads_role_key_from_non_signature_s
 
 
 def test_sign_target_update_with_rsa_pss_key_on_yubikey(
-    make_fake_yubikey, repo_path, tmp_path
+    make_fake_yubikey, keystore_of_scheme, repo_path, tmp_path
 ):
     scheme = "rsassa-pss-sha256"
-    keystore = tmp_path / "keystore"
-    keystore.mkdir()
-    keys_description = tmp_path / "keys-description.json"
-    keys_description.write_text(
-        json.dumps(
-            {
-                "roles": {
-                    role: {"scheme": scheme}
-                    for role in ("root", "targets", "snapshot", "timestamp")
-                }
-            }
-        )
-    )
-    generate_keys(str(keystore), str(keys_description))
+    keystore = keystore_of_scheme(scheme)
     device = make_fake_yubikey("targets", keystore_path=keystore, scheme=scheme)
     auth_repo = create_authentication_repository(
         repo_path,
         pin_manager_for(device),
         "test/auth",
-        str(keys_description),
+        keys_description_of_scheme(scheme),
         keystore=keystore,
     )
     versions_before = verify_and_get_versions(auth_repo, *ROLES)

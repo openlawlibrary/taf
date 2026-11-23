@@ -9,7 +9,7 @@ from taf.auth_repo import AuthenticationRepository
 from taf.exceptions import KeystoreError, TAFError, YubikeyError
 
 from taf.log import taf_logger
-from taf.tuf.keys import get_public_key_pem, get_sslib_key_from_value
+from taf.tuf.keys import get_sslib_key_from_value
 from taf.tuf.repository import MAIN_ROLES
 import taf.yubikey.yubikey as yk
 from taf.yubikey.yubikey import SETUP_SLOTS
@@ -93,6 +93,7 @@ def export_yk_public_pem(
     path: Optional[str] = None,
     serial: Optional[str] = None,
     scheme: Optional[str] = None,
+    slot: str = "SIGNATURE",
 ) -> None:
     """
     Export public key from a YubiKey and save it to a file or print to console.
@@ -100,7 +101,8 @@ def export_yk_public_pem(
     Arguments:
         path (optional): Path to a file to which the public key should be written.
         The key is printed to console if file path is not provided.
-        scheme (optional): Signing scheme of the key, needed for RSA keys.
+        scheme (optional): Signing scheme of the key, needed to print the key id of an RSA key.
+        slot (optional): Name of the PIV slot holding the key. Defaults to "SIGNATURE".
 
     Side Effects:
        Write public key to a file if path is specified
@@ -108,6 +110,7 @@ def export_yk_public_pem(
     Returns:
         None
     """
+    piv_slot = _resolve_slot(slot)
     try:
         serials = [serial] if serial else yk.get_serial_nums()
 
@@ -116,10 +119,12 @@ def export_yk_public_pem(
             return
 
         for serial in serials:
-            pub_key = yk.get_piv_public_key_tuf(scheme=scheme, serial=serial)
-            keyid = yk._get_legacy_keyid(pub_key)
-            pub_key_pem = get_public_key_pem(pub_key)
+            pub_key_pem = yk.export_piv_pub_key(serial=serial, slot=piv_slot).decode(
+                "utf-8"
+            )
             if path is None:
+                pub_key = get_sslib_key_from_value(pub_key_pem, scheme)
+                keyid = yk._get_legacy_keyid(pub_key)
                 print(f"Serial: {serial}")
                 print(f"Key id: {keyid}")
                 print(pub_key_pem)
@@ -149,6 +154,7 @@ def export_yk_certificate(
     path: Optional[str] = None,
     serial: Optional[str] = None,
     scheme: Optional[str] = None,
+    slot: str = "SIGNATURE",
 ) -> None:
     """
     Export certificate from the YubiKey.
@@ -156,7 +162,9 @@ def export_yk_certificate(
     Arguments:
         path (optional): Path to a file to which the certificate key should be written.
         Will be written to the user's home directory by default
-        scheme (optional): Signing scheme of the key, needed for RSA keys.
+        scheme (optional): Signing scheme of the key, needed for RSA keys. The
+        certificate's file is named after the key id, which depends on it.
+        slot (optional): Name of the PIV slot holding the key. Defaults to "SIGNATURE".
 
     Side Effects:
        Write certificate to a file
@@ -164,6 +172,7 @@ def export_yk_certificate(
     Returns:
         None
     """
+    piv_slot = _resolve_slot(slot)
     try:
         serials = [serial] if serial else yk.get_serial_nums()
 
@@ -171,9 +180,11 @@ def export_yk_certificate(
             print("YubiKey not inserted.")
             return
         for serial in serials:
-            pub_key_pem = yk.export_piv_pub_key(serial=serial).decode("utf-8")
+            pub_key_pem = yk.export_piv_pub_key(serial=serial, slot=piv_slot).decode(
+                "utf-8"
+            )
             key = get_sslib_key_from_value(pub_key_pem, scheme)
-            yk.export_yk_certificate(path, key, serial)
+            yk.export_yk_certificate(path, key, serial, slot=piv_slot)
     except Exception as e:
         print(e)
         print("Could not export certificate. Check if a YubiKey is inserted")
@@ -282,20 +293,21 @@ def list_yk_slots(serial: Optional[str] = None) -> None:
 )
 def setup_signing_yubikey(
     pin_manager: PinManager,
+    scheme: str,
     certs_dir: Optional[str] = None,
-    key_size: int = 2048,
+    key_size: Optional[int] = None,
     slot: str = "SIGNATURE",
-    scheme: Optional[str] = None,
 ) -> None:
     """
     Generate a new key and copy it to the given PIV slot of the inserted YubiKey.
     Optionally export and save the certificate to a file.
 
     Arguments:
+        scheme: Signing scheme of the generated key, which sets its type.
         certs_dir (optional): Path to a directory where the exported certificate should be stored.
         slot (optional): Name of the PIV slot to set the key up in ("SIGNATURE",
             "AUTHENTICATION", "KEY_MANAGEMENT", or "CARD_AUTH"). Defaults to "SIGNATURE".
-        scheme: Signing scheme of the generated key, which sets its type.
+        key_size (optional): Size of an RSA key in bits, securesystemslib's default if not given.
 
     Side Effects:
        None
@@ -303,8 +315,6 @@ def setup_signing_yubikey(
     Returns:
         None
     """
-    if not scheme:
-        raise YubikeyError("A signing scheme is needed to generate a key")
     piv_slot = _resolve_slot(slot)
 
     serial_num, _ = _prepare_setup(

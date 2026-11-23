@@ -1,3 +1,4 @@
+import click
 import pytest
 import shutil
 
@@ -5,8 +6,10 @@ from yubikit.piv import SLOT
 
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 
+import taf.signer_loaders
 import taf.yubikey.yubikey as yk
 from taf.api.targets import register_target_files
+from taf.signer_loaders import SignerLoader
 from taf.tests.conftest import create_authentication_repository
 from taf.tools.yubikey.yubikey_utils import FakeYubiKey, _yk_piv_ctrl_mock
 from taf.utils import on_rm_error
@@ -163,7 +166,8 @@ def unauthorized_device(make_fake_yubikey, keystore_delegations):
 def block_reprompt(monkeypatch):
     """Fail loudly instead of hanging if yubikey_prompt retries - guards
     against yubikey_prompt's unbounded retry loop turning a real bug into a
-    hang instead of a clean assertion failure."""
+    hang instead of a clean assertion failure. Asking the user to confirm
+    something, or whether to load more keys, fails the same way."""
 
     def _unexpected_reprompt(*_args, **_kwargs):
         raise AssertionError(
@@ -171,7 +175,12 @@ def block_reprompt(monkeypatch):
             "the authorized YubiKey among the inserted devices"
         )
 
+    def _unexpected_prompt(message, *_args, **_kwargs):
+        raise AssertionError(f"unexpected prompt: {message}")
+
     monkeypatch.setattr(yk, "getpass", _unexpected_reprompt)
+    monkeypatch.setattr(click, "confirm", _unexpected_prompt)
+    monkeypatch.setattr(taf.signer_loaders, "secret_yes_no_prompt", _unexpected_prompt)
 
 
 def insert_in_order(*devices):
@@ -190,12 +199,18 @@ def write_target(path, text="hello"):
 
 
 def write_signing_keystore(tmp_path, source_keystore, names=("snapshot", "timestamp")):
+    """Write a keystore with keys of source_keystore. names lists the keys to
+    copy, or maps file names to the keys they should hold."""
     signing_keystore = tmp_path / "signing_keystore"
     signing_keystore.mkdir()
-    for name in names:
-        (signing_keystore / name).write_bytes((source_keystore / name).read_bytes())
+    if not isinstance(names, dict):
+        names = {name: name for name in names}
+    for name, source_name in names.items():
+        (signing_keystore / name).write_bytes(
+            (source_keystore / source_name).read_bytes()
+        )
         (signing_keystore / f"{name}.pub").write_bytes(
-            (source_keystore / f"{name}.pub").read_bytes()
+            (source_keystore / f"{source_name}.pub").read_bytes()
         )
     return signing_keystore
 
@@ -231,3 +246,34 @@ def sign_target_update(auth_repo, signing_keystore, target_path="a-new-target.tx
         push=False,
     )
     assert target_path in auth_repo.get_signed_target_files()
+
+
+@pytest.fixture
+def declined_prompts(monkeypatch):
+    """Answer no to every confirmation and to the "load more keys?" question.
+    Returns the list of questions that were asked."""
+    asked = []
+
+    def _decline(message, *_args, **_kwargs):
+        asked.append(message)
+        return False
+
+    monkeypatch.setattr(click, "confirm", _decline)
+    monkeypatch.setattr(taf.signer_loaders, "secret_yes_no_prompt", _decline)
+    return asked
+
+
+class RecordingLoader(SignerLoader):
+    """A signer loader that returns the given signers and records its name
+    in calls each time it is used"""
+
+    def __init__(self, name, priority, input_needed, signers, calls):
+        self.name = name
+        self.priority = priority
+        self.input_needed = input_needed
+        self._signers = signers
+        self._calls = calls
+
+    def load(self, role, keys, threshold_reached):
+        self._calls.append(self.name)
+        return self._signers

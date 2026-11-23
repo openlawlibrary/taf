@@ -5,6 +5,7 @@ load_role_signers tries the loaders in order of their priority, so a new place
 to keep keys only needs a new loader.
 """
 
+import click
 from abc import ABC, abstractmethod
 from enum import IntEnum
 from functools import partial
@@ -12,7 +13,6 @@ from logging import INFO
 from pathlib import Path
 from typing import Dict, List, Optional
 
-import click
 from logdecorator import log_on_start
 from securesystemslib.signer import Signer, SSlibKey
 
@@ -22,7 +22,11 @@ from taf.exceptions import KeystoreError, SigningError
 from taf.keystore import get_keystore_keys_of_role, load_signer_from_keystore_uri
 from taf.log import taf_logger
 from taf.tuf.repository import MetadataRepository as TUFRepository
-from taf.tuf.signer_uris import check_keystore_path, get_yubikey_uri, load_signer
+from taf.tuf.signer_uris import (
+    check_keystore_path_usable_in_uri,
+    get_yubikey_uri,
+    load_signer,
+)
 from taf.utils import secret_yes_no_prompt
 
 try:
@@ -260,7 +264,7 @@ def _load_signer_from_keystore(
     if keystore_path is None:
         return None
     if (keystore_path / key_name).is_file():
-        check_keystore_path(keystore_path / key_name)
+        check_keystore_path_usable_in_uri(keystore_path / key_name)
         try:
             return load_signer_from_keystore_uri(keystore_path, key_name, public_keys)
         except KeystoreError:

@@ -24,7 +24,7 @@ from taf.exceptions import KeystoreError
 from taf.tuf.keys import YkSigner, _from_crypto
 
 
-def check_keystore_path(path: Union[str, Path]) -> None:
+def check_keystore_path_usable_in_uri(path: Union[str, Path]) -> None:
     """Raise KeystoreError if a keystore file's path can't be used in a URI.
     A URI ends at '#' or '?', so it would point to another file."""
     path = Path(path).expanduser().resolve()
@@ -34,7 +34,7 @@ def check_keystore_path(path: Union[str, Path]) -> None:
 
 def get_keystore_uri(keystore: Union[str, Path], key_name: str) -> str:
     path = Path(keystore, key_name).expanduser().resolve()
-    check_keystore_path(path)
+    check_keystore_path_usable_in_uri(path)
     return f"{CryptoSigner.SCHEME}:{path.as_posix()}"
 
 

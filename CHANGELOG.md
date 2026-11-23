@@ -19,6 +19,9 @@ and this project adheres to [Semantic Versioning][semver].
 - `taf roles add-signing-key`, `taf roles rotate-key`, `taf yubikey export-pub-key` and `taf yubikey export-certificate` take `--scheme`
 - `taf keystore generate` asks before overwriting existing key files
 - `taf yubikey setup-signing-key` needs `--scheme`
+- `taf yubikey export-pub-key` and `taf yubikey export-certificate` take `--slot`, and only need `--scheme` for the key id of an RSA key
+- RSA keys on YubiKeys use the role's `length`, or securesystemslib's default size (3072) instead of 2048, and `taf yubikey setup-signing-key` takes `--key-size`
+- Setting up a key that a YubiKey's firmware can't hold fails with an error that says so
 - Keystore paths can't contain '#' or '?'
 
 ### Removed

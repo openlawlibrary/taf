@@ -1,5 +1,6 @@
+import click
 from logging import INFO
-from typing import Optional, Union
+from typing import Dict, Optional, Union
 from logdecorator import log_on_start, log_on_end
 from pathlib import Path
 from taf.models.types import RolesKeysData
@@ -11,9 +12,8 @@ from taf.log import taf_logger
 from taf.models.types import RolesIterator
 from taf.models.converter import from_dict
 from taf.exceptions import KeystoreError
-import click
 from taf.tuf.keys import generate_and_write_keypair
-from taf.tuf.signer_uris import check_keystore_path
+from taf.tuf.signer_uris import check_keystore_path_usable_in_uri
 
 
 @log_on_start(INFO, "Generating '{key_path:s}'", logger=taf_logger)
@@ -49,7 +49,7 @@ def _generate_key(
 
 
 def generate_keys(
-    keystore: Optional[Union[str, Path]], roles_key_infos: Optional[str]
+    keystore: Optional[Union[str, Path]], roles_key_infos: Optional[Union[str, Dict]]
 ) -> None:
     """
     Generate public and private keys and writes them to disk. Names of keys correspond to names
@@ -58,7 +58,7 @@ def generate_keys(
 
     Arguments:
         keystore: Location where the generated files should be saved
-        roles_key_infos: Path to a json file which contains information about repository's roles and keys.
+        roles_key_infos: Path to a json file, or a dictionary, which contains information about repository's roles and keys.
     Raises:
         UnsupportedLibraryError: pyca/cryptography is not available.
         FormatError: One or more keys not properly specified
@@ -94,7 +94,7 @@ def generate_keys(
             for key_num in range(role.number):
                 key_name = get_key_name(role.name, key_num, role.number)
                 key_path = Path(keystore, key_name)
-                check_keystore_path(key_path)
+                check_keystore_path_usable_in_uri(key_path)
                 if key_path.exists() and not click.confirm(
                     f"{key_path} already exists. Overwrite it?"
                 ):

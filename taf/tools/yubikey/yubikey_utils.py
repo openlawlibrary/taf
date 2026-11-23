@@ -8,8 +8,14 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, ed25519
 from taf.tuf.signer_uris import import_keystore_signer
 from ykman.piv import OBJECT_ID_PIVMAN_PROTECTED_DATA
+from yubikit.core import Version
 from yubikit.core.smartcard import ApduError, SW
-from yubikit.piv import DEFAULT_MANAGEMENT_KEY, SLOT, InvalidPinError
+from yubikit.piv import (
+    DEFAULT_MANAGEMENT_KEY,
+    SLOT,
+    InvalidPinError,
+    _do_check_key_support,
+)
 
 VALID_PIN = "123456"
 WRONG_PIN = "111111"
@@ -49,6 +55,7 @@ class FakeYubiKey:
         self.pin_verified = False
         self.management_key = DEFAULT_MANAGEMENT_KEY
         self.pin_attempts_remaining = 3
+        self.firmware_version = Version(5, 7, 0)
 
     @property
     def driver(self):
@@ -102,6 +109,22 @@ class FakePivController:
     @property
     def _slots(self):
         return self._driver.slots
+
+    @property
+    def version(self):
+        return self._driver.firmware_version
+
+    def check_key_support(
+        self, key_type, pin_policy, touch_policy, generate, fips_restrictions=False
+    ):
+        _do_check_key_support(
+            self.version,
+            key_type,
+            pin_policy,
+            touch_policy,
+            generate,
+            fips_restrictions,
+        )
 
     @property
     def driver(self):

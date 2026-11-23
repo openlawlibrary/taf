@@ -1,6 +1,6 @@
 from logging import ERROR, INFO
 import shutil
-from typing import Dict, Iterator, Optional, Tuple
+from typing import Dict, Iterator, Optional, Tuple, Union
 import click
 from logdecorator import log_on_end, log_on_error, log_on_start
 from taf.git import GitRepository
@@ -48,7 +48,7 @@ def create_repository(
     path: str,
     pin_manager: PinManager,
     keystore: Optional[str] = None,
-    roles_key_infos: Optional[str] = None,
+    roles_key_infos: Optional[Union[str, Dict]] = None,
     commit: Optional[bool] = False,
     test: Optional[bool] = False,
 ) -> None:
@@ -60,7 +60,7 @@ def create_repository(
     Arguments:
         path: Authentication repository's location.
         keystore: Location of the keystore files.
-        roles_key_infos: Path to a json file which contains information about repository's roles and keys.
+        roles_key_infos: Path to a json file, or a dictionary, which contains information about repository's roles and keys.
         commit (optional): Indicates if the changes should be committed and pushed automatically.
         test (optional): Specifies if the created repository is a test authentication repository.
 

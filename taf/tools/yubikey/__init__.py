@@ -63,11 +63,17 @@ def export_pub_key_command():
         "--scheme",
         type=click.Choice(YUBIKEY_SCHEMES),
         default=None,
-        help="Signing scheme of the key, needed for RSA keys",
+        help="Signing scheme of the key, needed to print the key id of an RSA key",
+    )
+    @click.option(
+        "--slot",
+        type=click.Choice(SETUP_SLOT_NAMES),
+        default="SIGNATURE",
+        help="PIV slot holding the key. Defaults to SIGNATURE.",
     )
     @catch_cli_exception(handle=YubikeyError)
-    def export_pub_key(output, scheme):
-        export_yk_public_pem(output, scheme=scheme)
+    def export_pub_key(output, scheme, slot):
+        export_yk_public_pem(output, scheme=scheme, slot=slot)
 
     return export_pub_key
 
@@ -104,11 +110,17 @@ def export_certificate_command():
         "--scheme",
         type=click.Choice(YUBIKEY_SCHEMES),
         default=None,
-        help="Signing scheme of the key, needed for RSA keys",
+        help="Signing scheme of the key, needed for RSA keys, because the certificate's file is named after the key id",
+    )
+    @click.option(
+        "--slot",
+        type=click.Choice(SETUP_SLOT_NAMES),
+        default="SIGNATURE",
+        help="PIV slot holding the key. Defaults to SIGNATURE.",
     )
     @catch_cli_exception(handle=YubikeyError)
-    def export_certificate(output, scheme):
-        export_yk_certificate(output, scheme=scheme)
+    def export_certificate(output, scheme, slot):
+        export_yk_certificate(output, scheme=scheme, slot=slot)
 
     return export_certificate
 
@@ -161,11 +173,18 @@ def setup_signing_key_command():
         required=True,
         help="Signing scheme of the generated key, which sets its type. ed25519 needs YubiKey firmware 5.7 or newer",
     )
+    @click.option(
+        "--key-size",
+        type=int,
+        default=None,
+        help="Size of an RSA key in bits, securesystemslib's default (3072) if not given. "
+        "RSA keys longer than 2048 bits need YubiKey firmware 5.7 or newer",
+    )
     @catch_cli_exception(handle=YubikeyError)
     @pin_managed
-    def setup_signing_key(certs_dir, slot, scheme, pin_manager):
+    def setup_signing_key(certs_dir, slot, scheme, key_size, pin_manager):
         setup_signing_yubikey(
-            pin_manager, certs_dir, key_size=2048, slot=slot, scheme=scheme
+            pin_manager, scheme, certs_dir, key_size=key_size, slot=slot
         )
 
     return setup_signing_key

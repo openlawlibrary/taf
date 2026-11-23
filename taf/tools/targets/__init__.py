@@ -88,7 +88,7 @@ def add_repo_command():
         "--scheme",
         type=click.Choice(SUPPORTED_SCHEMES),
         default=None,
-        help="Signature scheme of the role's keys. Needed to generate new keys and for RSA keys, detected from existing ECDSA and Ed25519 keys",
+        help="Signature scheme of the role's keys. Needed for new keys and RSA keys",
     )
     @pin_managed
     def add_repo(

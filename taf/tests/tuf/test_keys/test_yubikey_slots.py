@@ -7,7 +7,7 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
 from ykman.piv import MANAGEMENT_KEY_TYPE, pivman_set_mgm_key
-from yubikit.core import NotSupportedError
+from yubikit.core import NotSupportedError, Version
 from yubikit.piv import SLOT
 
 import taf.api.yubikey as yk_api
@@ -140,6 +140,62 @@ def test_setup_into_free_slot_does_not_touch_existing_key(fake_yubikey, keystore
     )
 
 
+def test_setup_generates_rsa_key_of_given_size(fake_yubikey):
+    public_pem = yk.setup(
+        pin="123456",
+        serial=fake_yubikey.serial,
+        cert_cn="RSA 4096 key",
+        key_size=4096,
+        slot=SLOT.AUTHENTICATION,
+        scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
+    )
+
+    assert serialization.load_pem_public_key(public_pem).key_size == 4096
+
+
+@pytest.mark.parametrize(
+    "scheme, key_size", [(DEFAULT_RSA_SIGNATURE_SCHEME, 3072), ("ed25519", None)]
+)
+def test_setup_refuses_key_that_older_firmware_cannot_hold(
+    fake_yubikey, scheme, key_size
+):
+    fake_yubikey.firmware_version = Version(5, 4, 3)
+
+    with pytest.raises(YubikeyError, match="requires YubiKey 5.7 or later"):
+        yk.setup(
+            pin="123456",
+            serial=fake_yubikey.serial,
+            cert_cn="Too new key",
+            key_size=key_size,
+            slot=SLOT.AUTHENTICATION,
+            scheme=scheme,
+        )
+
+    status = yk.get_slot_status(serial=fake_yubikey.serial)[fake_yubikey.serial]
+    assert status[SLOT.AUTHENTICATION] is None
+
+
+def test_export_public_key_of_given_slot_without_scheme(
+    fake_yubikey, keystore, tmp_path
+):
+    yk.setup(
+        pin="123456",
+        serial=fake_yubikey.serial,
+        cert_cn="Second key",
+        private_key_pem=(keystore / "root2").read_bytes(),
+        slot=SLOT.AUTHENTICATION,
+    )
+    output = tmp_path / "root2.pub"
+
+    yk_api.export_yk_public_pem(
+        str(output), serial=fake_yubikey.serial, slot="AUTHENTICATION"
+    )
+
+    exported = serialization.load_pem_public_key(output.read_bytes())
+    expected = serialization.load_pem_public_key((keystore / "root2.pub").read_bytes())
+    assert exported.public_numbers() == expected.public_numbers()
+
+
 def test_setup_refuses_to_overwrite_occupied_slot(fake_yubikey):
     with pytest.raises(YubikeyError):
         yk.setup(
@@ -194,6 +250,7 @@ def test_setup_signing_yubikey_refuses_occupied_slot_without_prompting(
         with pytest.raises(YubikeyError):
             yk_api.setup_signing_yubikey(
                 _pin_manager(fake_yubikey),
+                DEFAULT_RSA_SIGNATURE_SCHEME,
                 key_size=2048,
                 slot="SIGNATURE",
             )

@@ -119,7 +119,7 @@ class Role:
     the subclasses, which also set the role's name.
 
     >>> Role(name="my_role")
-    Role(name='my_role', threshold=1, scheme=None, length=3072,
+    Role(name='my_role', threshold=1, scheme=None, length=None,
          yubikeys=None, number=1, yubikey=None)
 
     If `yubikeys` are listed, `number` is set to the number of listed YubiKeys:
@@ -186,7 +186,7 @@ class RootRole(Role):
     """
     >>> from taf.models.converter import from_dict
     >>> from_dict({}, RootRole)
-    RootRole(threshold=1, scheme=None, length=3072,
+    RootRole(threshold=1, scheme=None, length=None,
              yubikeys=None, number=1, yubikey=None, name='root')
     >>> from_dict({"number": 3, "threshold": 2, "length": 2048, "yubikey": True}, RootRole)
     RootRole(threshold=2, scheme=None, length=2048,
@@ -203,7 +203,7 @@ class TargetsRole(Role):
 
     >>> from taf.models.converter import from_dict
     >>> from_dict({}, TargetsRole)
-    TargetsRole(threshold=1, scheme=None, length=3072,
+    TargetsRole(threshold=1, scheme=None, length=None,
                 yubikeys=None, number=1, yubikey=None, name='targets',
                 parent=None, paths=None, terminating=True, delegations={})
 

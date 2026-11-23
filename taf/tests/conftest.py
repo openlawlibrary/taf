@@ -4,8 +4,9 @@ import json
 import re
 import shutil
 from pathlib import Path
-from typing import Optional
+from typing import Dict, Optional, Union
 
+from taf.api.keystore import generate_keys
 from taf.api.repository import create_repository
 from taf.auth_repo import AuthenticationRepository
 from taf.tuf.signer_uris import import_keystore_signer
@@ -58,6 +59,35 @@ def keystore():
 def keystore_delegations():
     """Create signer from some rsa test key."""
     return TEST_DATA_PATH / "keystores" / "keystore_delegations"
+
+
+def keys_description_of_scheme(scheme: str) -> Dict:
+    """Keys description whose roles all use scheme, matching the keys of
+    keystore_of_scheme"""
+    return {
+        "roles": {
+            "root": {"number": 2, "threshold": 2, "scheme": scheme},
+            "targets": {"scheme": scheme},
+            "snapshot": {"scheme": scheme},
+            "timestamp": {"scheme": scheme},
+        }
+    }
+
+
+@pytest.fixture(scope="session")
+def keystore_of_scheme(tmp_path_factory):
+    """Factory for keystores with the keys of keys_description_of_scheme,
+    generated once per scheme for the whole test session"""
+    keystores: Dict[str, Path] = {}
+
+    def _keystore(scheme: str) -> Path:
+        if scheme not in keystores:
+            keystore = tmp_path_factory.mktemp(f"keystore-{scheme}")
+            generate_keys(str(keystore), keys_description_of_scheme(scheme))
+            keystores[scheme] = keystore
+        return keystores[scheme]
+
+    return _keystore
 
 
 @pytest.fixture(scope="session")
@@ -183,7 +213,7 @@ def create_authentication_repository(
     library_dir: Path,
     pin_manager: PinManager,
     repo_name: str,
-    keys_description: str,
+    keys_description: Union[str, Dict],
     is_test_repo: bool = False,
     keystore: Optional[Path] = None,
 ) -> AuthenticationRepository:

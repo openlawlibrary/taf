@@ -66,15 +66,14 @@ def test_get_sslib_key_from_value_rejects_mismatched_scheme_for_ecdsa_key():
         get_sslib_key_from_value(public_pem, "rsassa-pss-sha256")
 
 
-def test_ecdsa_signer_round_trip(tmp_path):
+def test_ecdsa_signer_round_trip(keystore_of_scheme):
     """An EC keystore file loaded through its URI must produce a signer that
     verifies against the corresponding public key.
     """
-    private_pem, public_pem = _ec_keypair_pem()
-    (tmp_path / "key").write_bytes(private_pem)
+    keystore = keystore_of_scheme(DEFAULT_ECDSA_SIGNATURE_SCHEME)
 
-    signer = import_keystore_signer(tmp_path, "key")
-    public_key = get_sslib_key_from_value(public_pem)
+    signer = import_keystore_signer(keystore, "targets")
+    public_key = get_sslib_key_from_value((keystore / "targets.pub").read_text())
 
     assert signer.public_key.keyid == public_key.keyid
 

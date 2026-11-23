@@ -1,5 +1,5 @@
 from logging import DEBUG, ERROR
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple, Union
 import click
 import copy
 from collections import defaultdict
@@ -73,7 +73,7 @@ def add_role(
         threshold: Signature's threshold.
         yubikey: Specifies if the metadata file should be signed using a YubiKey.
         keystore: Location of the keystore files.
-        scheme (optional): Signing scheme of the role's keys. Needed to generate new keys and for RSA keys, detected from existing ECDSA and Ed25519 keys.
+        scheme (optional): Signing scheme of the role's keys. Needed for new keys and RSA keys.
         auth_repo (optional): Instance of the authentication repository. Will be created if not passed into the function.
         commit (optional): Indicates if the changes should be committed and pushed automatically.
         push (optional): Flag specifying whether to push to remote.
@@ -626,15 +626,11 @@ def _enter_role_info(
     if scheme is not None:
         role_info["scheme"] = scheme
     is_rsa = scheme is not None and scheme.startswith("rsa")
-    if role_info["yubikey"]:
-        # in case of yubikeys, the length of RSA keys has to have a specific value
-        if is_rsa:
-            role_info["length"] = 2048
-    elif is_rsa:
+    if is_rsa:
         # if keystore is specified and contains keys corresponding to this role
         # get key size based on the public key
         keystore_length = 0
-        if keystore is not None:
+        if keystore is not None and not role_info["yubikey"]:
             keystore_length = _get_roles_key_size(role, keystore, keys_num)
         if keystore_length == 0:
             key_length = _read_val(int, f"{role} key length", "length")
@@ -809,7 +805,7 @@ def _initialize_roles_and_keystore_for_existing_repo(
 
 
 def initialize_roles_and_keystore(
-    roles_key_infos: Optional[str],
+    roles_key_infos: Optional[Union[str, Dict]],
     keystore: Optional[str],
     enter_info: Optional[bool] = True,
 ) -> Tuple[Dict, Optional[str], bool]:
@@ -823,7 +819,7 @@ def initialize_roles_and_keystore(
             - their parent roles
             - threshold of signatures per role
             - should keys of a role be on Yubikeys or should a keystore files be used
-            - scheme (needed to generate keys and for RSA keys, detected from existing ECDSA and Ed25519 keys)
+            - scheme (needed for new keys and RSA keys)
             - keystore path, if not specified via keystore option
         keystore: Location of the keystore files.
         enter_info (optional): Indicates if the user should be asked to enter information about the
@@ -844,7 +840,9 @@ def initialize_roles_and_keystore(
     roles_key_infos_dict = read_input_dict(roles_key_infos)
 
     if not roles_key_infos_dict and enter_info:
-        roles_key_infos_dict = _enter_roles_infos(None, roles_key_infos)
+        roles_key_infos_dict = _enter_roles_infos(
+            None, roles_key_infos if isinstance(roles_key_infos, str) else None
+        )
 
     # Check if all keys should be loaded from/stored to Yubikeys
     use_yubikeys = all(
@@ -996,7 +994,6 @@ def remove_role(
     pin_manager: PinManager,
     role: str,
     keystore: str,
-    scheme: Optional[str] = None,
     commit: Optional[bool] = True,
     remove_targets: Optional[bool] = False,
     auth_repo: Optional[AuthenticationRepository] = None,
@@ -1012,7 +1009,6 @@ def remove_role(
         path: Path to the authentication repository.
         role: Name of the role which is to be removed.
         keystore: Location of the keystore files.
-        scheme (optional): Signing scheme of the role's keys. Needed to generate new keys and for RSA keys, detected from existing ECDSA and Ed25519 keys.
         commit (optional): Indicates if the changes should be committed and pushed automatically.
         remove_targets (optional): Indicates if target files should be removed to, or signed by the parent role.
             Set to False by default.
@@ -1085,7 +1081,6 @@ def remove_role(
     #         removed_targets_data,
     #         keystore,
     #         write=False,
-    #         scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
     #     )
 
     # # if targets should be deleted, also removed them from repositories.json
@@ -1102,9 +1097,7 @@ def remove_role(
     #                 json.dumps(repositories_json, indent=4)
     #             )
 
-    # update_snapshot_and_timestamp(
-    #     auth_repo, keystore, scheme=scheme
-    # )
+    # update_snapshot_and_timestamp(auth_repo, keystore)
     # if commit:
     #     commit_msg = git_commit_message("remove-role", role=role)
     #     auth_repo.commit_and_push(commit_msg=commit_msg, push=push)

@@ -39,6 +39,7 @@ from yubikit.piv import (
     ALGORITHM,
     DEFAULT_MANAGEMENT_KEY,
     PIN_POLICY,
+    TOUCH_POLICY,
     InvalidPinError,
 )
 
@@ -235,13 +236,16 @@ def export_piv_x509(
 
 
 @raise_yubikey_err("Cannot export public key.")
-def export_piv_pub_key(pub_key_format=serialization.Encoding.PEM, serial=None):
+def export_piv_pub_key(
+    pub_key_format=serialization.Encoding.PEM, serial=None, slot=SLOT.SIGNATURE
+):
     """Exports YubiKey's piv slot public key.
 
     Args:
         - pub_key_format(str): One of 'serialization.Encoding' formats.
         - pub_key_pem(str): Match Yubikey's public key (PEM) if multiple keys
                             are inserted
+        - slot(SLOT): The PIV slot holding the key. Defaults to SLOT.SIGNATURE.
 
     Returns:
         PIV public key in a given format (bytes)
@@ -252,7 +256,7 @@ def export_piv_pub_key(pub_key_format=serialization.Encoding.PEM, serial=None):
     taf_logger.debug(f"Exporting public key for serial={serial}")
     with _yk_piv_ctrl(serial=serial) as [(ctrl, _)]:
         try:
-            x509_cert = ctrl.get_certificate(SLOT.SIGNATURE)
+            x509_cert = ctrl.get_certificate(slot)
             public_key = x509_cert.public_key()
             return public_key.public_bytes(
                 encoding=pub_key_format,
@@ -925,7 +929,7 @@ def setup(
     cert_cn,
     cert_exp_days=365,
     private_key_pem=None,
-    key_size=2048,
+    key_size=None,
     slot=SLOT.SIGNATURE,
     management_key=None,
     scheme=None,
@@ -941,6 +945,8 @@ def setup(
                                 imported to Yubikey.
         - scheme(str): Signing scheme of the generated key, which sets its type.
                        Needed when private_key_pem is not given.
+        - key_size(int): Size of a generated RSA key in bits, securesystemslib's
+                         default if not given.
         - slot(SLOT): The PIV slot to write the key and certificate to.
                       Defaults to SLOT.SIGNATURE.
         - management_key(bytes): The card's current management key, used to
@@ -1006,6 +1012,17 @@ def setup(
                     private_key_pem, pem_pwd, default_backend()
                 )
 
+        key_type = KEY_TYPE.from_public_key(private_key.public_key())
+        try:
+            ctrl.check_key_support(
+                key_type, PIN_POLICY.ALWAYS, TOUCH_POLICY.DEFAULT, generate=False
+            )
+        except NotSupportedError as e:
+            raise YubikeyError(
+                f"YubiKey serial={serial} cannot hold this key: {e}. Use a 2048-bit "
+                'RSA key ("length": 2048 or --key-size 2048) or an ECDSA scheme.'
+            ) from e
+
         taf_logger.debug(f"Placing key in {slot.name} slot with PIN_POLICY.ALWAYS...")
         ctrl.put_key(slot, private_key, PIN_POLICY.ALWAYS)
         pub_key = private_key.public_key()
@@ -1042,7 +1059,7 @@ def setup_new_yubikey(
     pin_manager: PinManager,
     serial: str,
     scheme: Optional[str] = None,
-    key_size: Optional[int] = 2048,
+    key_size: Optional[int] = None,
     slot=SLOT.SIGNATURE,
 ) -> SSlibKey:
     taf_logger.debug(

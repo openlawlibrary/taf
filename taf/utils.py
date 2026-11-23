@@ -32,7 +32,7 @@ from json import JSONDecoder
 from taf.log import taf_logger
 import taf.settings
 from taf.exceptions import ExecutableNotFoundError, PINMissmatchError
-from typing import List, Optional, Tuple, Dict
+from typing import List, Optional, Tuple, Dict, Union
 from securesystemslib.storage import FilesystemBackend, StorageBackendInterface
 
 
@@ -434,13 +434,13 @@ def to_tuf_datetime_format(start_date, interval):
 
 
 def resolve_keystore_path(
-    keystore: Optional[str], roles_key_infos: Optional[str]
+    keystore: Optional[str], roles_key_infos: Optional[Union[str, Dict]]
 ) -> str:
     if not keystore:
         return ""
 
     keystore_path = Path(keystore).expanduser().resolve()
-    if roles_key_infos:
+    if roles_key_infos and not isinstance(roles_key_infos, dict):
         roles_key_infos_path = Path(roles_key_infos)
         if roles_key_infos_path.is_file() and not keystore_path.is_absolute():
             keystore_path = (roles_key_infos_path.parent / keystore_path).resolve()
