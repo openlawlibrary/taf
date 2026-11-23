@@ -61,8 +61,8 @@ targets/<namespace>/<repo>/refs/heads/<name>.json
   and doesn't end in `.lock`.
 - Two names are reserved. `refs/heads/current.json` is the repo's current pointer, and any file
   whose name ends in `.moves.json` is a moves file. Neither stands for a git ref of that name.
-- A data repo is validated when it has at least one ref file. `repositories.json` still lists every
-  data repo and carries its custom data.
+- The data repos are the repos listed in `repositories.json`, which also carries their custom data.
+  Only a listed repo's files under `refs/heads/` are ref files.
 - Ref names carry no meaning for taf and no order. Refs are ordered by the auth commit that adds
   their ref file.
 
@@ -255,9 +255,9 @@ of every auth commit from the first to the migration commit's parent, in first-p
 2. If the commit is already the last entry of that branch, nothing is added. Otherwise, append an
    entry for the commit to that branch, with every field except `branch` and `commit`. Converted
    entries have no `publish-date` unless the legacy file had one.
-3. Each branch that matches a rename (7.2) becomes a branch ref under its new name, with no `fork`,
-   and a pointer under its old name that targets it from its first entry. Every other branch becomes
-   a list ref under its own name.
+3. Each renamed branch (7.2) becomes a branch ref under its new name, with no `fork`, and a pointer
+   under its old name that targets it from its first entry. Every other branch becomes a list ref
+   under its own name.
 4. In a repo with pointers, `current.json` targets them in the order their branches first appeared.
    Every pointer except the last is frozen.
 
@@ -266,9 +266,10 @@ migration, or one move per commit, dated from a field of the legacy entries.
 
 ### 7.2 Renames
 
-The migration MAY rename branches. A rename is a pair of patterns, such as `release/*` to
-`builds/*`, where `*` matches one segment. The renames used are recorded in the migration commit,
-so that any reader can repeat the conversion.
+The migration MAY move a branch's commits to a new name and keep the old name for a pointer to
+them. The pointer is the record of the rename: a branch is renamed when the migration commit has a
+pointer of its name, and its new name is the ref that pointer first targets. So any reader can repeat
+the conversion from the migration commit alone.
 
 ### 7.3 The migration commit
 
@@ -277,24 +278,10 @@ The migration commit:
 - adds the ref files of the conversion, and removes every legacy target file, since a file and a
   directory can't share a path;
 - changes delegated paths from `<namespace>/<repo>` to patterns under `<namespace>/<repo>/refs/heads/`;
-- adds `taf-spec-version` and the migration record to `protected/info.json`:
-
-```json
-{
-  "namespace": "example",
-  "name": "auth",
-  "taf-spec-version": "1.0",
-  "taf-spec-migration": {
-    "parent": "<the migration commit's parent>",
-    "renames": [{"from": "release/*", "to": "builds/*"}]
-  }
-}
-```
+- adds `taf-spec-version` to `protected/info.json` ([2](#2-spec-version)).
 
 Other target files are unchanged. A branch that was renamed needs its new git ref in the data repo,
 at the same commit as the old one, before the migration commit is published.
-
-**Open:** the field names of the migration record.
 
 ## 8 Validation
 
@@ -312,7 +299,7 @@ There are 21 checks. Each has an id that readers report and tests refer to.
 | Id | Fails when | Level |
 | --- | --- | --- |
 | `spec.version` | The declared major version is unknown, or the version goes down ([2](#2-spec-version)) | error |
-| `spec.migration` | The migration commit's ref files differ from the conversion of the legacy history before it, with the recorded renames ([7](#7-migration-from-the-legacy-layout)) | error |
+| `spec.migration` | The migration commit's ref files differ from the conversion of the legacy history before it, with the renames its pointers show ([7](#7-migration-from-the-legacy-layout)) | error |
 | `metadata.signed` | TUF rejects the auth commit | error |
 | `metadata.version` | A role's version goes down, or a role's metadata changes without a new version. Versions no longer have to go up by exactly one | error |
 | `metadata.expiry` | The timestamp metadata of the last auth commit has expired at the clock. Readers MUST NOT turn this into a warning | error |
