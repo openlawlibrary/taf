@@ -1,8 +1,9 @@
 """Load the signers of a role from the places that can hold its keys.
 
 Each place, like keystore files, YubiKeys or an HSM, has its own loader.
-load_role_signers tries the loaders in order of their priority, so a new place
-to keep keys only needs a new loader.
+load_role_signers tries the loaders in order of their priority, and a loader's
+setup_keys loads or creates the keys of a new role, so a new place to keep keys
+only needs a new loader.
 """
 
 import click
@@ -11,17 +12,29 @@ from enum import IntEnum
 from functools import partial
 from logging import INFO
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple, Union
 
 from logdecorator import log_on_start
 from securesystemslib.signer import Signer, SSlibKey
 
 from taf import YubikeyMissingLibrary
 from taf.api.utils._conf import find_keystore
-from taf.exceptions import KeystoreError, SigningError
-from taf.keystore import get_keystore_keys_of_role, load_signer_from_keystore_uri
+from taf.auth_repo import AuthenticationRepository
+from taf.exceptions import KeystoreError, SigningError, YubikeyError
+from taf.keystore import (
+    get_key_name,
+    get_keystore_keys_of_role,
+    load_signer_from_keystore_uri,
+    load_signer_from_private_keystore,
+)
 from taf.log import taf_logger
-from taf.tuf.repository import MetadataRepository as TUFRepository
+from taf.models.types import Role, UserKeyData
+from taf.tuf.keys import (
+    _get_legacy_keyid,
+    generate_and_write_keypair,
+    get_sslib_key_from_value,
+)
+from taf.tuf.repository import is_auth_repo
 from taf.tuf.signer_uris import (
     check_keystore_path_usable_in_uri,
     get_yubikey_uri,
@@ -32,6 +45,9 @@ from taf.utils import secret_yes_no_prompt
 try:
     import taf.yubikey.yubikey as yk
 except ImportError:
+    taf_logger.warning(
+        "WARNING: yubikey-manager dependency not installed. You will not be able to use YubiKeys."
+    )
     yk = YubikeyMissingLibrary()  # type: ignore
 
 
@@ -64,16 +80,31 @@ class SignerLoader(ABC):
         """Return signers for any of keys, which are the role's keys that are
         not loaded yet"""
 
+    @abstractmethod
+    def setup_keys(self, role: Role) -> Tuple[List[Signer], List[SSlibKey]]:
+        """Load or create the keys of a role that is not in metadata yet.
+        Return signers of the keys that were loaded, and public keys of the
+        role's other keys"""
+
 
 class KeystoreSignerLoader(SignerLoader):
-    """Loads signers from the role's keystore files, e.g. targets1 and targets2"""
+    """Loads signers from the role's keystore files, e.g. targets1 and targets2.
+    Generates the keystore files of a new role that can't be loaded, if the
+    user wants that."""
 
     name = "keystore"
     priority = 0
     input_needed = InputNeeded.NONE
 
-    def __init__(self, keystore_path: Optional[Path]):
+    def __init__(
+        self,
+        taf_repo: AuthenticationRepository,
+        keystore_path: Optional[Path],
+        skip_prompt: Optional[bool] = False,
+    ):
+        self.taf_repo = taf_repo
         self.keystore_path = keystore_path
+        self.skip_prompt = skip_prompt
 
     def load(
         self, role: str, keys: List[SSlibKey], threshold_reached: bool
@@ -94,22 +125,47 @@ class KeystoreSignerLoader(SignerLoader):
                 signers.append(signer)
         return signers
 
+    def setup_keys(self, role: Role) -> Tuple[List[Signer], List[SSlibKey]]:
+        if self.keystore_path is None:
+            taf_logger.error("No keystore provided and no default keystore found")
+            raise KeyError("No keystore provided and no default keystore found")
+        signers = []
+        for key_num in range(role.number):
+            key_name = get_key_name(role.name, key_num, role.number)
+            signer, key_id = _setup_keystore_key(
+                self.keystore_path,
+                role.name,
+                key_name,
+                role.scheme,
+                role.length,
+                skip_prompt=self.skip_prompt,
+            )
+            signers.append(signer)
+            self.taf_repo.add_key_name(key_name, key_id)
+        return signers, []
+
 
 class YubiKeySignerLoader(SignerLoader):
     """Loads signers from YubiKeys. If insert is True, asks the user to insert
-    them, otherwise only reads the ones that are already inserted."""
+    them, otherwise only reads the ones that are already inserted. Sets up the
+    keys of a new role on YubiKeys, or reuses keys that are already on them.
+    yubikeys_data holds the keys description's YubiKeys, by name."""
 
     name = "YubiKey"
 
     def __init__(
         self,
-        taf_repo: TUFRepository,
+        taf_repo: AuthenticationRepository,
         insert: bool,
         key_id_pins: Optional[Dict] = None,
+        certs_dir: Optional[Union[Path, str]] = None,
+        yubikeys_data: Optional[Dict[str, UserKeyData]] = None,
     ):
         self.taf_repo = taf_repo
         self.insert = insert
         self.key_id_pins = key_id_pins
+        self.certs_dir = certs_dir
+        self.yubikeys_data = yubikeys_data
         self.priority = 20 if insert else 10
         self.input_needed = InputNeeded.DEVICE if insert else InputNeeded.SECRET
         self.repeat = insert
@@ -130,6 +186,46 @@ class YubiKeySignerLoader(SignerLoader):
         )
         return signers
 
+    def setup_keys(self, role: Role) -> Tuple[List[Signer], List[SSlibKey]]:
+        yubikey_ids = role.yubikey_ids
+        if yubikey_ids is None:
+            yubikey_ids = []
+        users_yubikeys_details = self.yubikeys_data
+        if users_yubikeys_details is None:
+            users_yubikeys_details = {}
+
+        if yubikey_ids:
+            if self.taf_repo.keys_name_mappings:
+                # check if some of the listed key names are already defined as signing keys
+                # in that case, they need to be loaded and verified
+                if is_auth_repo(self.taf_repo.path):
+                    existing_key_names = {
+                        existing_key_name: existing_key_id
+                        for existing_key_id, existing_key_name in self.taf_repo.keys_name_mappings.items()
+                    }
+                    for key_name in yubikey_ids:
+                        if key_name in existing_key_names:
+                            public_key_pem, scheme = (
+                                self.taf_repo.get_public_key_of_keyid(
+                                    existing_key_names[key_name]
+                                )
+                            )
+                            key_data = {"public": public_key_pem, "scheme": scheme}
+                            users_yubikeys_details[key_name] = UserKeyData(**key_data)
+
+        taf_logger.debug(
+            f"Setting up YubiKey-based role '{role.name}' requiring {role.number} key(s)."
+        )
+        yubikey_keys, yubikey_signers = _setup_yubikey_roles_keys(
+            self.taf_repo,
+            yubikey_ids,
+            users_yubikeys_details,
+            role,
+            self.certs_dir,
+            role.length,
+        )
+        return yubikey_signers, yubikey_keys
+
 
 class HSMSignerLoader(SignerLoader):
     """Loads signers of keys stored on an HSM. Needs the taf[hsm] extra. Not
@@ -144,10 +240,13 @@ class HSMSignerLoader(SignerLoader):
     ) -> List[Signer]:
         raise NotImplementedError("Loading signers from an HSM is not supported yet")
 
+    def setup_keys(self, role: Role) -> Tuple[List[Signer], List[SSlibKey]]:
+        raise NotImplementedError("Setting up keys on an HSM is not supported yet")
+
 
 @log_on_start(INFO, "Loading signing keys of '{role:s}'", logger=taf_logger)
 def load_signers(
-    taf_repo: TUFRepository,
+    taf_repo: AuthenticationRepository,
     role: str,
     keystore: Optional[str] = None,
     key_id_pins: Optional[Dict] = None,
@@ -169,7 +268,7 @@ def load_signers(
 
     taf_repo.add_default_names_of_role(role)
     loaders: List[SignerLoader] = [
-        KeystoreSignerLoader(keystore_path),
+        KeystoreSignerLoader(taf_repo, keystore_path),
         YubiKeySignerLoader(taf_repo, insert=False, key_id_pins=key_id_pins),
         YubiKeySignerLoader(taf_repo, insert=True, key_id_pins=key_id_pins),
     ]
@@ -257,6 +356,85 @@ def _create_signer(auth_repo, public_key, serial_num, key_name, slot=None):
     )
 
 
+def _load_and_verify_yubikey(
+    role_name: str,
+    key_name: str,
+    public_key,
+    taf_repo: AuthenticationRepository,
+) -> Optional[Tuple[str, object]]:
+    if not click.confirm(f"Sign using {key_name} Yubikey?"):
+        return None
+    while True:
+        yubikeys = yk.yubikey_prompt(
+            [key_name],
+            role=role_name,
+            pin_manager=taf_repo.pin_manager,
+            taf_repo=taf_repo,
+            registering_new_key=True,
+            creating_new_key=False,
+            scheme=public_key.scheme,
+            pin_confirm=True,
+            pin_repeat=True,
+        )
+        if yubikeys:
+            yk_public_key, serial_num, _, slot = yubikeys[0]
+            yk_pub_key_id = yk_public_key.keyid if yk_public_key is not None else None
+            if yk_pub_key_id != public_key.keyid:
+                print(
+                    "Public key of the inserted key is not equal to the specified one."
+                )
+                if not click.confirm("Try again?"):
+                    return None
+                continue
+            return serial_num, slot
+
+
+def _load_remaining_keys_of_role(
+    auth_repo: AuthenticationRepository,
+    role: Role,
+    loaded_keys_num: int,
+    users_yubikeys_details: UserKeyData,
+    yk_with_public_key: Dict,
+    yubikey_keys,
+    signers: List,
+):
+    """
+    If a yubikey's public key was specified, meaning that it can be added as a
+    verification key without being inserted, but the total number of signing
+    keys is smaller than the threshold
+    """
+    taf_logger.debug(
+        f"{loaded_keys_num} key(s) loaded so far for role '{role.name}' (threshold {role.threshold}). "
+        f"Attempting to load more with known YubiKeys."
+    )
+    while loaded_keys_num < role.threshold:
+        loaded_keys = []
+        for key_name, public_key in yk_with_public_key.items():
+            result = _load_and_verify_yubikey(
+                role.name,
+                key_name,
+                public_key,
+                taf_repo=auth_repo,
+            )
+            if result:
+                serial_num, slot = result
+                loaded_keys_num += 1
+                loaded_keys.append(key_name)
+                signer = _create_signer(
+                    auth_repo, public_key, serial_num, key_name, slot=slot
+                )
+                signers.append(signer)
+                yubikey_keys.remove(signer.public_key)
+
+        if loaded_keys_num < role.threshold:
+            if not click.confirm(
+                f"Threshold of signing keys of role {role.name} not reached. Continue?"
+            ):
+                raise SigningError("Not enough signing keys")
+            for key_name in loaded_keys:
+                yk_with_public_key.pop(key_name)
+
+
 def _load_signer_from_keystore(
     keystore_path, key_name, public_keys: List[SSlibKey]
 ) -> Optional[Signer]:
@@ -273,7 +451,7 @@ def _load_signer_from_keystore(
 
 
 def _load_yubikeys(
-    taf_repo: TUFRepository,
+    taf_repo: AuthenticationRepository,
     role: str,
     key_names: List[str],
     retry_on_failure: bool,
@@ -323,3 +501,226 @@ def _load_yubikeys(
             taf_logger.info(f"Successfully loaded {key_name} from inserted YubiKey")
 
     return signers_yubikeys, loaded_key_names
+
+
+def _setup_keystore_key(
+    keystore: Optional[Union[Path, str]],
+    role_name: str,
+    key_name: str,
+    scheme: Optional[str],
+    length: Optional[int],
+    skip_prompt: Optional[bool],
+) -> Tuple[Signer, str]:
+    generate_new_keys = keystore is None
+    signer = None
+
+    def _invalid_key_message(key_name, keystore):
+        key_path = Path(keystore, key_name)
+        if key_path.is_file():
+            print(f"Could not load private key {key_path}")
+        else:
+            print(f"{key_path} is not a file!")
+
+    if keystore is not None:
+        check_keystore_path_usable_in_uri(Path(keystore, key_name))
+        keystore_path = str(Path(keystore).expanduser().resolve())
+        while signer is None:
+            try:
+                signer = load_signer_from_private_keystore(
+                    keystore_path, key_name, scheme
+                )
+            except KeystoreError:
+                _invalid_key_message(key_name, keystore)
+
+            if signer is None:
+                generate_new_keys = skip_prompt is True or click.confirm(
+                    "Generate new keys?"
+                )
+                if not generate_new_keys:
+                    if click.confirm("Reuse existing key?"):
+                        reused_key_name = input(
+                            "Enter name of an existing keystore file: "
+                        )
+                        Path(keystore, key_name).write_bytes(
+                            Path(keystore, reused_key_name).read_bytes()
+                        )
+                        Path(keystore, key_name + ".pub").write_bytes(
+                            Path(keystore, reused_key_name + ".pub").read_bytes()
+                        )
+                    else:
+                        raise KeystoreError(f"Could not load {key_name}")
+                else:
+                    break
+    if generate_new_keys:
+        if keystore is None:
+            raise KeystoreError(
+                f"Cannot generate {key_name}: no keystore to write it to"
+            )
+        generate_and_write_keypair(Path(keystore, key_name), scheme, length)
+        signer = load_signer_from_private_keystore(keystore, key_name, scheme)
+
+    if signer is not None:
+        return signer, _get_legacy_keyid(signer.public_key)
+    raise KeystoreError(f"Could not load signer {key_name}")
+
+
+def _setup_yubikey(
+    auth_repo: AuthenticationRepository,
+    role_name: str,
+    key_name: str,
+    scheme: Optional[str] = None,
+    certs_dir: Optional[Union[Path, str]] = None,
+    key_size: Optional[int] = None,
+    yubikeys_to_skip: Optional[List] = None,
+) -> Tuple[SSlibKey, str, object]:
+    print(f"Registering keys for {key_name}")
+    taf_logger.debug(
+        f"Starting YubiKey setup for role '{role_name}', key '{key_name}'. Checking if user wants to reuse an existing key."
+    )
+    while True:
+        use_existing = click.confirm("Do you want to reuse already set up Yubikey?")
+        taf_logger.debug(
+            f"User chose to {'reuse' if use_existing else 'generate a new'} YubiKey for '{key_name}'."
+        )
+        if not use_existing and not scheme:
+            raise YubikeyError(
+                f"Cannot set up a new key for {key_name}: set the signing scheme of {role_name}"
+            )
+
+        yubikeys = yk.yubikey_prompt(
+            [key_name],
+            pin_manager=auth_repo.pin_manager,
+            role=role_name,
+            taf_repo=auth_repo,
+            registering_new_key=True,
+            creating_new_key=not use_existing,
+            pin_confirm=True,
+            pin_repeat=True,
+            yubikeys_to_skip=yubikeys_to_skip,
+            scheme=scheme,
+        )
+        if yubikeys is not None:
+            key, serial_num, key_name, slot = yubikeys[0]
+            if not use_existing:
+                key = yk.setup_new_yubikey(
+                    auth_repo.pin_manager,
+                    serial_num,
+                    scheme,
+                    key_size=key_size,
+                    slot=slot,
+                )
+                # the key didn't exist yet when yubikey_prompt recorded this
+                # entry, so it was stored with public_key=None - refresh it
+                # now that the key has actually been generated
+                auth_repo.yubikey_store.add_key_data(
+                    key_name, serial_num, key, role_name, slot=slot
+                )
+
+            if certs_dir is not None:
+                # check if already exported
+                if len(auth_repo.yubikey_store.get_roles_of_key(serial_num, key)) == 1:
+                    # this is the first time that this key is being used (can only be used once per role)
+                    yk.export_yk_certificate(
+                        certs_dir, key, serial=serial_num, slot=slot
+                    )
+            return key, serial_num, slot
+
+
+def _setup_yubikey_roles_keys(
+    auth_repo, yubikey_ids, users_yubikeys_details, role, certs_dir, key_size
+):
+    loaded_keys_num = 0
+    yk_with_public_key = {}
+    yubikey_keys = []
+    signers = []
+
+    # if a key was already loaded (while setting up a different role)
+    # register signers and remove the key id, so that the user is not asked to enter it again
+    yubikes_to_skip = []
+    names_defined = bool(yubikey_ids)
+    if names_defined:
+        for key_name in list(yubikey_ids):
+            key_data = auth_repo.yubikey_store.get_key_data(key_name)
+            if key_data is not None:
+                public_key, serial_num, slot = key_data
+                auth_repo.yubikey_store.add_key_data(
+                    key_name, serial_num, public_key, role.name, slot=slot
+                )
+                yubikey_ids.remove(key_name)
+                yubikey_keys.append(public_key)
+                loaded_keys_num += 1
+                signer = _create_signer(
+                    auth_repo, public_key, serial_num, key_name, slot=slot
+                )
+                signers.append(signer)
+
+        # if key already loaded while setting up a different role, skip it
+        # if the current role's yubikey ids are defined
+        # however, if the current role's yubikey ids are not specified
+        # it can be possible to reuse a yubikey
+        for key_name, key_data in auth_repo.yubikey_store.yubikeys_data.items():
+            if key_name not in yubikey_ids:
+                yubikes_to_skip.append(key_data["serial"])
+    else:
+        yubikey_ids = [f"{role.name}{counter}" for counter in range(1, role.number + 1)]
+
+    for key_name in yubikey_ids:
+        public_key_text = None
+        if key_name in users_yubikeys_details:
+            public_key_text = users_yubikeys_details[key_name].public
+        if public_key_text:
+            scheme = users_yubikeys_details[key_name].scheme
+            public_key = get_sslib_key_from_value(public_key_text, scheme)
+            # Check if the signing key is already loaded
+            if not auth_repo.yubikey_store.is_key_name_loaded(key_name):
+                yk_with_public_key[key_name] = public_key
+            else:
+                _, serial_num, slot = auth_repo.yubikey_store.get_key_data(key_name)
+                auth_repo.yubikey_store.add_key_data(
+                    key_name, serial_num, public_key, role.name, slot=slot
+                )
+                loaded_keys_num += 1
+            yubikey_keys.append(public_key)
+        else:
+            key_scheme = None
+            if key_name in users_yubikeys_details:
+                key_scheme = users_yubikeys_details[key_name].scheme
+            key_scheme = key_scheme or role.scheme
+            taf_logger.debug(
+                f"Preparing to set up YubiKey for role '{role.name}', key_name='{key_name}'."
+            )
+            public_key, serial_num, slot = _setup_yubikey(
+                auth_repo,
+                role.name,
+                key_name,
+                key_scheme,
+                certs_dir,
+                key_size,
+                yubikes_to_skip,
+            )
+            loaded_keys_num += 1
+            signer = _create_signer(
+                auth_repo, public_key, serial_num, key_name, slot=slot
+            )
+            signers.append(signer)
+
+        key_id = _get_legacy_keyid(public_key)
+        auth_repo.add_key_name(key_name, key_id, overwrite=names_defined)
+
+    if loaded_keys_num < role.number:
+        if loaded_keys_num < role.threshold:
+            print(f"Threshold of role {role.name} is {role.threshold}")
+        taf_logger.debug(
+            f"Only loaded {loaded_keys_num} out of {role.number} needed key(s) for '{role.name}'. Checking if threshold is met..."
+        )
+
+        _load_remaining_keys_of_role(
+            auth_repo,
+            role,
+            loaded_keys_num,
+            users_yubikeys_details,
+            yk_with_public_key,
+            yubikey_keys,
+            signers,
+        )
+    return yubikey_keys, signers

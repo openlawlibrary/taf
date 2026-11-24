@@ -273,3 +273,6 @@ class FakeSignerLoader(SignerLoader):
     def load(self, role, keys, threshold_reached):
         self._calls.append(self.name)
         return self._signers
+
+    def setup_keys(self, role):
+        raise NotImplementedError

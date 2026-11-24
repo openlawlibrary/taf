@@ -88,7 +88,7 @@ def test_load_role_signers_tries_loaders_by_priority_and_stops_at_threshold(
         ],
         calls,
     )
-    keystore_loader = KeystoreSignerLoader(None)
+    keystore_loader = KeystoreSignerLoader(auth_repo, None)
     first_file_loader = FakeSignerLoader(
         "first file",
         0,

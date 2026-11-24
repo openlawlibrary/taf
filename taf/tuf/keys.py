@@ -30,30 +30,13 @@ from cryptography.hazmat.primitives import serialization
 
 from taf.exceptions import SchemeNotSpecifiedError, TAFError
 
-
-def _generate_rsa_key(scheme: str, rsa_key_size: Optional[int]) -> CryptoSigner:
-    if rsa_key_size is None:
-        return CryptoSigner.generate_rsa(scheme=scheme)
-    return CryptoSigner.generate_rsa(scheme=scheme, size=rsa_key_size)
-
-
-# how to generate a key of each supported key type, given its scheme and RSA
-# key size. PGP keys are left out, since they need GnuPG
-KEY_GENERATORS: Dict[str, Callable[[str, Optional[int]], CryptoSigner]] = {
-    KEY_TYPE_RSA: _generate_rsa_key,
-    KEY_TYPE_ECDSA: lambda scheme, _rsa_key_size: CryptoSigner.generate_ecdsa(
-        scheme=scheme
-    ),
-    KEY_TYPE_ED25519: lambda _scheme, _rsa_key_size: CryptoSigner.generate_ed25519(),
-    KEY_TYPE_MLDSA: lambda scheme, _rsa_key_size: CryptoSigner.generate_mldsa(
-        scheme=scheme
-    ),
-}
+# PGP keys are left out, since they need GnuPG
+SUPPORTED_KEY_TYPES = (KEY_TYPE_RSA, KEY_TYPE_ECDSA, KEY_TYPE_ED25519, KEY_TYPE_MLDSA)
 # key type of each supported scheme
 KEY_TYPE_OF_SCHEME = {
     scheme: keytype
     for (keytype, scheme), key_class in KEY_FOR_TYPE_AND_SCHEME.items()
-    if key_class is SSlibKey and keytype in KEY_GENERATORS
+    if key_class is SSlibKey and keytype in SUPPORTED_KEY_TYPES
 }
 SUPPORTED_SCHEMES = sorted(KEY_TYPE_OF_SCHEME)
 
@@ -63,14 +46,12 @@ def is_rsa_scheme(scheme: Optional[str]) -> bool:
     return KEY_TYPE_OF_SCHEME.get(scheme) == KEY_TYPE_RSA
 
 
-# YubiKeys can't hold P-521 or ML-DSA keys
-YUBIKEY_SCHEMES = [
-    s
-    for s in SUPPORTED_SCHEMES
-    if s != "ecdsa-sha2-nistp521" and KEY_TYPE_OF_SCHEME[s] != KEY_TYPE_MLDSA
-]
 # an RSA key does not record which of these it is used with
 RSA_SCHEMES = [s for s in SUPPORTED_SCHEMES if is_rsa_scheme(s)]
+# schemes of the keys YubiKeys can hold
+YUBIKEY_SCHEMES = sorted(
+    RSA_SCHEMES + ["ecdsa-sha2-nistp256", "ecdsa-sha2-nistp384", "ed25519"]
+)
 
 
 def generate_keypair(
@@ -89,7 +70,17 @@ def generate_keypair(
         raise TAFError(
             f"A key size can only be set for RSA keys, not for scheme '{scheme}'"
         )
-    signer = KEY_GENERATORS[KEY_TYPE_OF_SCHEME[scheme]](scheme, rsa_key_size)
+    key_generators: Dict[str, Callable[[], CryptoSigner]] = {
+        KEY_TYPE_RSA: lambda: (
+            CryptoSigner.generate_rsa(scheme=scheme)
+            if rsa_key_size is None
+            else CryptoSigner.generate_rsa(scheme=scheme, size=rsa_key_size)
+        ),
+        KEY_TYPE_ECDSA: lambda: CryptoSigner.generate_ecdsa(scheme=scheme),
+        KEY_TYPE_ED25519: CryptoSigner.generate_ed25519,
+        KEY_TYPE_MLDSA: lambda: CryptoSigner.generate_mldsa(scheme=scheme),
+    }
+    signer = key_generators[KEY_TYPE_OF_SCHEME[scheme]]()
 
     private_pem = signer.private_bytes
 

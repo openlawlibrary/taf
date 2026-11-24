@@ -11,7 +11,7 @@ from yubikit.core import NotSupportedError, Version
 from yubikit.piv import SLOT
 
 import taf.api.yubikey as yk_api
-import taf.keys as taf_keys
+import taf.signer_loaders as signer_loaders
 import taf.yubikey.yubikey as yk
 from securesystemslib.exceptions import UnverifiedSignatureError
 from taf.exceptions import KeystoreError, YubikeyError
@@ -672,7 +672,7 @@ def test_setup_yubikey_creates_new_key_in_a_free_non_signature_slot(
     ), mock.patch(  # "reuse already set up Yubikey?" -> no, create a new one
         "click.prompt", return_value=1
     ):
-        key, serial_num, slot = taf_keys._setup_yubikey(
+        key, serial_num, slot = signer_loaders._setup_yubikey(
             auth_repo, "root", "root1", scheme="rsa-pkcs1v15-sha256", key_size=2048
         )
 
@@ -698,7 +698,7 @@ def test_setup_yubikey_updates_store_with_generated_key_for_cert_export(
     ), mock.patch(  # "reuse already set up Yubikey?" -> no, create a new one
         "click.prompt", return_value=1
     ):
-        key, serial_num, slot = taf_keys._setup_yubikey(
+        key, serial_num, slot = signer_loaders._setup_yubikey(
             auth_repo,
             "root",
             "root1",
@@ -730,7 +730,7 @@ def test_load_and_verify_yubikey_uses_the_slot_the_user_picked(
     with mock.patch("click.prompt", return_value=1), mock.patch(
         "click.confirm", return_value=True
     ):
-        result = taf_keys._load_and_verify_yubikey(
+        result = signer_loaders._load_and_verify_yubikey(
             "root", "root2", auth_key, taf_repo=taf_repo
         )
 
@@ -763,7 +763,7 @@ def test_load_and_verify_yubikey_reports_mismatch_when_wrong_slot_picked(
     with mock.patch("click.prompt", return_value=2), mock.patch(
         "click.confirm", side_effect=[True, False]
     ):
-        result = taf_keys._load_and_verify_yubikey(
+        result = signer_loaders._load_and_verify_yubikey(
             "root", "root2", auth_key, taf_repo=taf_repo
         )
 

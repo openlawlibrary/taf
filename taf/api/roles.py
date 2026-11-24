@@ -14,10 +14,10 @@ from taf.exceptions import KeystoreError, TAFError
 from taf.models.converter import from_dict
 from taf.models.types import TargetsRole, compare_roles_data
 from taf.keys import (
-    get_key_name,
     get_metadata_key_info,
     load_sorted_keys_of_new_roles,
 )
+from taf.keystore import get_key_name
 from taf.api.utils._conf import find_keystore
 from taf.auth_repo import AuthenticationRepository
 from taf.constants import (

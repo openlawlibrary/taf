@@ -22,6 +22,18 @@ def default_keystore_path() -> str:
     return keystore_path
 
 
+def get_key_name(role_name: str, key_num: int, num_of_keys: int) -> str:
+    """
+    Return a keystore key's name based on the role's name and total number of signing keys,
+    as well as the specified counter. If number of signing keys is one, return the role's name.
+    If the number of signing keys is greater that one, return role's name + counter (root1, root2...)
+    """
+    if num_of_keys == 1:
+        return role_name
+    else:
+        return role_name + str(key_num + 1)
+
+
 def get_keystore_keys_of_role(keystore: str, role: str) -> List[str]:
     keystores_glob = f"{keystore}/{role}*"
     # Use glob to find matching files
