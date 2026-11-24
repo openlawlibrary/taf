@@ -40,7 +40,7 @@ from taf.tuf.signer_uris import (
     get_yubikey_uri,
     load_signer,
 )
-from taf.utils import secret_yes_no_prompt
+from taf.utils import secret_yes_no_prompt, write_private_file
 
 try:
     import taf.yubikey.yubikey as yk
@@ -541,8 +541,9 @@ def _setup_keystore_key(
                         reused_key_name = input(
                             "Enter name of an existing keystore file: "
                         )
-                        Path(keystore, key_name).write_bytes(
-                            Path(keystore, reused_key_name).read_bytes()
+                        write_private_file(
+                            Path(keystore, key_name),
+                            Path(keystore, reused_key_name).read_bytes(),
                         )
                         Path(keystore, key_name + ".pub").write_bytes(
                             Path(keystore, reused_key_name + ".pub").read_bytes()

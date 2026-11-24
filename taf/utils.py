@@ -404,6 +404,16 @@ def safely_move_file(src, dst, overwrite=False):
             raise
 
 
+def write_private_file(path: Union[str, Path], data: bytes) -> None:
+    """Write data to path, so that only its owner can read and write it. On
+    Windows, the file gets the permissions of its directory."""
+    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, "O_BINARY", 0)
+    with os.fdopen(os.open(path, flags, 0o600), "wb") as f:
+        f.write(data)
+    # os.open sets the permissions only when it creates the file
+    os.chmod(path, 0o600)
+
+
 def secret_yes_no_prompt(message: str) -> bool:
     """
     Ask user a yes/no question about loading more keys in a "hidden" manner.

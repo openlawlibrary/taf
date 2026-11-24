@@ -1,7 +1,6 @@
 """TUF metadata key functions."""
 
 import hashlib
-import os
 from typing import Callable, Dict, Optional, Tuple
 from urllib import parse
 
@@ -29,6 +28,7 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 
 from taf.exceptions import SchemeNotSpecifiedError, TAFError
+from taf.utils import write_private_file
 
 # PGP keys are left out, since they need GnuPG
 SUPPORTED_KEY_TYPES = (KEY_TYPE_RSA, KEY_TYPE_ECDSA, KEY_TYPE_ED25519, KEY_TYPE_MLDSA)
@@ -104,10 +104,7 @@ def generate_and_write_keypair(
     """
     private_pem, public_pem = generate_keypair(scheme, rsa_key_size)
 
-    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, "O_BINARY", 0)
-    with os.fdopen(os.open(path, flags, 0o600), "wb") as f:
-        f.write(private_pem)
-    os.chmod(path, 0o600)
+    write_private_file(path, private_pem)
 
     with open(f"{path}.pub", "wb") as f:
         f.write(public_pem)
