@@ -39,9 +39,8 @@ def get_keystore_keys_of_role(keystore: str, role: str) -> List[str]:
 def load_signer_from_keystore_uri(
     keystore: Union[str, Path], key_name: str, public_keys: List[SSlibKey]
 ) -> Optional[Signer]:
-    """Build a signer for a keystore file from its URI. The file does not say
-    which of the role's keys it holds, so each one is tried. Return None if
-    none match."""
+    """Build a signer for a keystore file from its URI, for the first of
+    public_keys that the file holds. Return None if none match."""
     uri = get_keystore_uri(keystore, key_name)
 
     def _read_key(uri, public_keys):

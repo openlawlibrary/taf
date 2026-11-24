@@ -8,7 +8,7 @@ from pathlib import Path
 from logdecorator import log_on_end, log_on_error, log_on_start
 from taf.api.api_workflow import manage_repo_and_signers, transactional_execution
 from taf.api.utils._conf import read_keys_name_mapping
-from taf.tuf.keys import get_sslib_key_from_value
+from taf.tuf.keys import get_sslib_key_from_value, is_rsa_scheme
 from taf.api.utils._git import check_if_clean_and_synced
 from taf.exceptions import KeystoreError, TAFError
 from taf.models.converter import from_dict
@@ -625,7 +625,7 @@ def _enter_role_info(
     scheme = _read_val(str, f"{role} signature scheme", "scheme")
     if scheme is not None:
         role_info["scheme"] = scheme
-    is_rsa = scheme is not None and scheme.startswith("rsa")
+    is_rsa = is_rsa_scheme(scheme)
     if is_rsa:
         # if keystore is specified and contains keys corresponding to this role
         # get key size based on the public key

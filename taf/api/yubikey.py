@@ -306,7 +306,7 @@ def setup_signing_yubikey(
         certs_dir (optional): Path to a directory where the exported certificate should be stored.
         slot (optional): Name of the PIV slot to set the key up in ("SIGNATURE",
             "AUTHENTICATION", "KEY_MANAGEMENT", or "CARD_AUTH"). Defaults to "SIGNATURE".
-        key_size (optional): Size of an RSA key in bits, securesystemslib's default if not given.
+        key_size (optional): Size of an RSA key in bits, 3072 if not given.
 
     Side Effects:
        None

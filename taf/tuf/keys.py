@@ -2,7 +2,7 @@
 
 import hashlib
 import os
-from typing import Optional, Tuple
+from typing import Callable, Dict, Optional, Tuple
 from urllib import parse
 
 from securesystemslib.signer import (
@@ -29,20 +29,41 @@ from cryptography.hazmat.primitives import serialization
 
 from taf.exceptions import SchemeNotSpecifiedError, TAFError
 
-SUPPORTED_SCHEMES = sorted(
-    scheme
+
+def _generate_rsa_key(scheme: str, rsa_key_size: Optional[int]) -> CryptoSigner:
+    if rsa_key_size is None:
+        return CryptoSigner.generate_rsa(scheme=scheme)
+    return CryptoSigner.generate_rsa(scheme=scheme, size=rsa_key_size)
+
+
+# how to generate a key of each supported key type, given its scheme and RSA
+# key size. PGP and ML-DSA keys are left out, since they need additional
+# dependencies
+KEY_GENERATORS: Dict[str, Callable[[str, Optional[int]], CryptoSigner]] = {
+    KEY_TYPE_RSA: _generate_rsa_key,
+    KEY_TYPE_ECDSA: lambda scheme, _rsa_key_size: CryptoSigner.generate_ecdsa(
+        scheme=scheme
+    ),
+    KEY_TYPE_ED25519: lambda _scheme, _rsa_key_size: CryptoSigner.generate_ed25519(),
+}
+# key type of each supported scheme
+KEY_TYPE_OF_SCHEME = {
+    scheme: keytype
     for (keytype, scheme), key_class in KEY_FOR_TYPE_AND_SCHEME.items()
-    if key_class is SSlibKey
-    and keytype in (KEY_TYPE_RSA, KEY_TYPE_ECDSA, KEY_TYPE_ED25519)
-)
+    if key_class is SSlibKey and keytype in KEY_GENERATORS
+}
+SUPPORTED_SCHEMES = sorted(KEY_TYPE_OF_SCHEME)
+
+
+def is_rsa_scheme(scheme: Optional[str]) -> bool:
+    """Check if scheme is a signing scheme of RSA keys"""
+    return KEY_TYPE_OF_SCHEME.get(scheme) == KEY_TYPE_RSA
+
+
 # YubiKeys can't hold P-521 keys
 YUBIKEY_SCHEMES = [s for s in SUPPORTED_SCHEMES if s != "ecdsa-sha2-nistp521"]
 # an RSA key does not record which of these it is used with
-RSA_SCHEMES = sorted(
-    scheme
-    for (keytype, scheme), key_class in KEY_FOR_TYPE_AND_SCHEME.items()
-    if key_class is SSlibKey and keytype == KEY_TYPE_RSA
-)
+RSA_SCHEMES = [s for s in SUPPORTED_SCHEMES if is_rsa_scheme(s)]
 
 
 def generate_keypair(
@@ -50,33 +71,18 @@ def generate_keypair(
 ) -> Tuple[bytes, bytes]:
     """
     Generate a private and public key for the signing scheme, both in PEM
-    format. securesystemslib generates the key and the scheme decides its
-    type. rsa_key_size can only be set for RSA keys, and securesystemslib's
-    default is used if it is not set.
+    format. The scheme sets the key type. rsa_key_size can only be set for RSA
+    keys, which are 3072 bits if it is not set.
     """
     if not scheme:
         raise TAFError("A signing scheme is needed to generate a key")
-    keytypes = {
-        keytype
-        for (keytype, key_scheme), key_class in KEY_FOR_TYPE_AND_SCHEME.items()
-        if key_scheme == scheme and key_class is SSlibKey
-    }
-    if rsa_key_size is not None and KEY_TYPE_RSA not in keytypes:
+    if scheme not in KEY_TYPE_OF_SCHEME:
+        raise TAFError(f"Cannot generate a key for scheme '{scheme}'")
+    if rsa_key_size is not None and not is_rsa_scheme(scheme):
         raise TAFError(
             f"A key size can only be set for RSA keys, not for scheme '{scheme}'"
         )
-    signer: CryptoSigner
-    if KEY_TYPE_RSA in keytypes:
-        if rsa_key_size is None:
-            signer = CryptoSigner.generate_rsa(scheme=scheme)
-        else:
-            signer = CryptoSigner.generate_rsa(scheme=scheme, size=rsa_key_size)
-    elif KEY_TYPE_ECDSA in keytypes:
-        signer = CryptoSigner.generate_ecdsa(scheme=scheme)
-    elif KEY_TYPE_ED25519 in keytypes:
-        signer = CryptoSigner.generate_ed25519()
-    else:
-        raise TAFError(f"Cannot generate a key for scheme '{scheme}'")
+    signer = KEY_GENERATORS[KEY_TYPE_OF_SCHEME[scheme]](scheme, rsa_key_size)
 
     private_pem = signer.private_bytes
 
@@ -122,8 +128,7 @@ def get_sslib_key_from_value(key: str, scheme: Optional[str] = None) -> SSlibKey
 
 def get_public_key_pem(key: SSlibKey) -> str:
     """
-    Return the public key in PEM format. securesystemslib stores some key
-    types, like ed25519, in another format.
+    Return the public key in PEM format.
     """
     if key.keyval["public"].startswith("-----BEGIN"):
         return key.keyval["public"]
@@ -166,10 +171,7 @@ def _get_legacy_keyid(key: SSlibKey) -> str:
 
 def _from_crypto(pub: PublicKeyTypes, scheme: Optional[str] = None) -> SSlibKey:
     """Converts pyca/cryptography public key to SSlibKey with legacy keyid.
-
-    securesystemslib detects the key type and its scheme. RSA keys can use
-    several schemes, which the key does not record, so their scheme has to be
-    given. Other key types have only one scheme.
+    scheme is needed for RSA keys. The scheme of other keys is detected.
     """
     key = SSlibKey.from_crypto(pub)
     # securesystemslib does not (yet) check if keytype and scheme are compatible
@@ -182,7 +184,7 @@ def _from_crypto(pub: PublicKeyTypes, scheme: Optional[str] = None) -> SSlibKey:
                 'Set the key\'s "scheme" in the keys description, or pass --scheme '
                 "to commands that take a public key file."
             )
-        if scheme not in RSA_SCHEMES:
+        if not is_rsa_scheme(scheme):
             raise ValueError(f"scheme '{scheme}' not valid for rsa key")
         key = SSlibKey.from_crypto(pub, scheme=scheme)
     elif scheme not in (None, key.scheme):
@@ -230,7 +232,6 @@ class YkSigner(Signer):
         self._slot = slot
         from taf.yubikey.yubikey import get_piv_sign_args
 
-        # worked out once from the key's scheme, like CryptoSigner does
         self._sign_args = get_piv_sign_args(public_key)
 
     @property

@@ -3,8 +3,7 @@
 ``SSlibKey._crypto_key`` re-parses the public key on every signature
 verification. A TAF update verifies the same handful of keys thousands of
 times (once per metadata file per validated commit), so the parsing is
-memoized here. securesystemslib's own method does the parsing, so every key
-type it supports keeps working. The cache key is the SSlibKey itself and the
+memoized here. The cache key is the SSlibKey itself and the
 returned ``cryptography`` public key objects are immutable, so sharing them
 between SSlibKey instances cannot change any verification outcome.
 """

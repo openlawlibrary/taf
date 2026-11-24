@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple, Union
 from securesystemslib.exceptions import StorageError
 from cryptography.hazmat.primitives import serialization
 
-from securesystemslib.signer import KEY_TYPE_RSA, Signer
+from securesystemslib.signer import Signer
 
 from taf import YubikeyMissingLibrary
 
@@ -53,6 +53,7 @@ from taf.tuf.keys import (
     _get_legacy_keyid,
     get_public_key_pem,
     get_sslib_key_from_value,
+    is_rsa_scheme,
 )
 from tuf.repository import Repository
 
@@ -1284,7 +1285,7 @@ class MetadataRepository(Repository):
             scheme = metadata["keys"][keyid]["scheme"]
             pub_key_pem = metadata["keys"][keyid]["keyval"]["public"]
             length = None
-            if metadata["keys"][keyid]["keytype"] == KEY_TYPE_RSA:
+            if is_rsa_scheme(scheme):
                 pub_key = serialization.load_pem_public_key(
                     pub_key_pem.encode(), backend=default_backend()
                 )

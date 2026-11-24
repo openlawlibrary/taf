@@ -1,8 +1,4 @@
-"""Private key URIs of signing keys, and loading signers from them.
-
-Every signer is built through securesystemslib's ``Signer.from_priv_key_uri``,
-which picks the signer class from the URI's prefix.
-"""
+"""Private key URIs of signing keys, and loading signers from them."""
 
 from pathlib import Path
 from typing import List, Optional, Union
@@ -41,8 +37,7 @@ def get_keystore_uri(keystore: Union[str, Path], key_name: str) -> str:
 def create_signer_from_keystore_file(
     keystore: Union[str, Path], key_name: str, scheme: Optional[str] = None
 ) -> Signer:
-    """Create the signer of a keystore file whose key is not in metadata yet.
-    The key file is read once to get its public part, which the signer needs."""
+    """Create the signer of a keystore file whose key is not in metadata yet"""
     path = Path(keystore, key_name).expanduser().resolve()
     private_key = load_pem_private_key(path.read_bytes(), None)
     public_key = _from_crypto(private_key.public_key(), scheme)
@@ -62,9 +57,8 @@ def load_signer(
     secrets_handler: Optional[SecretsHandler] = None,
 ) -> Optional[Signer]:
     """Return a signer for the first of ``public_keys`` that matches the
-    private key, or None. Keystore keys are checked by securesystemslib.
-    YubiKey keys are not checked here, so pass only the key read from the
-    device."""
+    private key, or None. YubiKey keys are not checked, so pass only the key
+    read from the device."""
     for public_key in public_keys:
         try:
             return Signer.from_priv_key_uri(uri, public_key, secrets_handler)

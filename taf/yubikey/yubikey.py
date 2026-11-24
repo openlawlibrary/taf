@@ -21,6 +21,7 @@ from taf.tuf.keys import (
     generate_keypair,
     get_public_key_pem,
     get_sslib_key_from_value,
+    is_rsa_scheme,
     is_same_public_key,
 )
 from taf.yubikey.yubikey_manager import PinManager
@@ -36,7 +37,6 @@ from ykman.piv import (
     get_pivman_protected_data,
 )
 from yubikit.piv import (
-    ALGORITHM,
     DEFAULT_MANAGEMENT_KEY,
     PIN_POLICY,
     TOUCH_POLICY,
@@ -426,9 +426,8 @@ def get_piv_public_keys_tuf(scheme=None, serial=None, taf_repo=None) -> dict:
 
 
 def _get_slot_key(public_key_pem, taf_repo, scheme) -> SSlibKey:
-    """Return the key of a YubiKey slot. If metadata lists it, the key from
-    metadata is used, so that its signing scheme is known. Otherwise RSA keys
-    need scheme."""
+    """Return the key of a YubiKey slot as listed in taf_repo's metadata, or,
+    if metadata does not list it, built with scheme"""
     if taf_repo is not None:
         for role in taf_repo.get_all_roles():
             for key in taf_repo.get_public_keys_of_role(role):
@@ -803,7 +802,7 @@ def get_piv_sign_args(public_key: SSlibKey) -> Tuple:
     if key_type != KEY_TYPE.ED25519:
         hash_name = public_key.get_hash_algorithm_name()
         hash_algorithm = getattr(hashes, hash_name.upper())()
-    if key_type.algorithm == ALGORITHM.RSA:
+    if is_rsa_scheme(public_key.scheme):
         if public_key.get_padding_name() == "pss":
             signing_padding = padding.PSS(
                 mgf=padding.MGF1(hash_algorithm),
@@ -933,8 +932,8 @@ def setup(
                                 imported to Yubikey.
         - scheme(str): Signing scheme of the generated key, which sets its type.
                        Needed when private_key_pem is not given.
-        - key_size(int): Size of a generated RSA key in bits, securesystemslib's
-                         default if not given.
+        - key_size(int): Size of a generated RSA key in bits, 3072 if not
+                         given.
         - slot(SLOT): The PIV slot to write the key and certificate to.
                       Defaults to SLOT.SIGNATURE.
         - management_key(bytes): The card's current management key, used to

@@ -132,9 +132,8 @@ class YubiKeySignerLoader(SignerLoader):
 
 
 class HSMSignerLoader(SignerLoader):
-    """Loads signers of keys stored on an HSM, using securesystemslib's
-    HSMSigner. Needs the taf[hsm] extra. Not implemented yet, so it is not
-    one of the loaders load_signers uses."""
+    """Loads signers of keys stored on an HSM. Needs the taf[hsm] extra. Not
+    implemented yet, so load_signers does not use it."""
 
     name = "HSM"
     priority = 30
