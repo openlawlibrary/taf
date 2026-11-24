@@ -2304,6 +2304,8 @@ but commit not on branch {current_branch}"
                 # call merge again as that can clean up a messy state of that repository
                 # such as it being in the detached head state
                 last_commit = self.state.auth_commits_since_last_validated[0]
+            elif self.no_targets:
+                last_commit = self.state.auth_commits_since_last_validated[-1]
             else:
                 last_commit = self.state.validated_auth_commits[-1]
 
@@ -2313,6 +2315,9 @@ but commit not on branch {current_branch}"
                 last_commit,
                 True,
             )
+
+            if self.no_targets:
+                return self.state.update_status
 
             # store information about which target (data) repositories were updated
             # some might have been omitted if the update was run with --exclude-target
