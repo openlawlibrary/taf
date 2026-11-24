@@ -36,7 +36,7 @@ tests_require = [
 ]
 
 yubikey_require = [
-    "yubikey-manager==5.8.*",
+    "yubikey-manager==5.9.*",
     "pyscard==2.3.*",
 ]
 
@@ -64,12 +64,11 @@ kwargs = {
         "colorama>=0.3.9",
         "tuf==7.*",
         "requests==2.*",
-        "cryptography==43.0.*",
-        "securesystemslib==1.6.*",
+        "cryptography==50.0.*",
+        "securesystemslib[crypto]==1.6.*",
         "loguru==0.7.*",
         'pygit2==1.9.*; python_version < "3.11"',
         'pygit2==1.16.*; python_version >= "3.11"',
-        "pyOpenSSL==24.2.*",
         "logdecorator==2.*",
         "tomli==2.0.*",
         "rich==15.*",

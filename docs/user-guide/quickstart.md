@@ -87,7 +87,7 @@ includes:
   - `threshold` - role's keys threshold - with how many different keys must a metadata files be signed
   - `yubikey` - a flag which signalizes that the keys should be on YubiKeys (deprecated)
   - `yubikeys` - a list of names of YubiKeys listed in the `yubikeys` section
-  - `scheme` - signing scheme of the role's keys, which also sets the type of generated keys. Required. Keys listed in `yubikeys` use their own `scheme`. Supported schemes are `rsa-pkcs1v15-sha256`, `rsa-pkcs1v15-sha384`, `rsa-pkcs1v15-sha512`, `rsassa-pss-sha256`, `rsassa-pss-sha384`, `rsassa-pss-sha512`, `ecdsa-sha2-nistp256`, `ecdsa-sha2-nistp384`, `ecdsa-sha2-nistp521` and `ed25519`.
+  - `scheme` - signing scheme of the role's keys, which also sets the type of generated keys. Required. Keys listed in `yubikeys` use their own `scheme`. Supported schemes are `rsa-pkcs1v15-sha256`, `rsa-pkcs1v15-sha384`, `rsa-pkcs1v15-sha512`, `rsassa-pss-sha256`, `rsassa-pss-sha384`, `rsassa-pss-sha512`, `ecdsa-sha2-nistp256`, `ecdsa-sha2-nistp384`, `ecdsa-sha2-nistp521`, `ed25519`, `ml-dsa-44/1`, `ml-dsa-65/1` and `ml-dsa-87/1`.
   - `delegations` and `paths` - delegated roles of a targets role. For each delegated role, it is necessary to specify `paths`. That is, files or directories that the delegated role can sign. Paths are specified using glob expressions. In addition to paths, it is possible to specify the same properties of delegated roles as of main roles (number or keys, threshold, delegations etc.).
   - `terminating` - specifies if a delegated role is terminating (as defined in TUF - if a role is trusted with a certain file which is not found in that role an exceptions is raised if terminating is `True`. Affects the updater).
 - `keystore` - location of the keystore files. This path can also be specified through an input parameter. This is the location where the keys will be saved to when being generated and where they will be read from when signing metadata files.
@@ -123,7 +123,7 @@ To set up a new key on a YubiKey, call
 `taf yubikey setup-signing-key --scheme scheme --slot slot`
 
 The scheme sets the type of the generated key. YubiKeys support all schemes listed in
-[`scheme`](repo-creation-and-update-util.md#scheme) except `ecdsa-sha2-nistp521`, and `ed25519` needs
+[`scheme`](repo-creation-and-update-util.md#scheme) except `ecdsa-sha2-nistp521` and the `ml-dsa` schemes, and `ed25519` needs
 firmware 5.7 or newer. `taf yubikey setup-signing-key --help` lists them. `--slot` sets the PIV slot the key
 is put into, `SIGNATURE` if it is not given, and `--key-size` the size of an RSA key. If that slot already holds a key, the command fails with an error:
 taf does not overwrite or reset slots. New repositories can be created using already set up YubiKeys.

@@ -146,6 +146,7 @@ def test_create_repository_when_add_repositories_json(
         "ecdsa-sha2-nistp384",
         "ecdsa-sha2-nistp521",
         "ed25519",
+        "ml-dsa-65/1",
     ],
 )
 def test_create_repository_and_sign_when_keystore_keys_are_of_type(

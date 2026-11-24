@@ -132,7 +132,7 @@ includes:
   - `threshold` - role's keys threshold - with how many different keys must a metadata files be signed
   - `yubikey` - a flag which signalizes that the keys should be on YubiKeys (deprecated)
   - `yubikeys` - a list of names of YubiKeys listed in the `yubikeys` section
-  - `scheme` - signing scheme of the role's keys, which also sets the type of generated keys. Required. Keys listed in `yubikeys` use their own `scheme`. Supported schemes are `rsa-pkcs1v15-sha256`, `rsa-pkcs1v15-sha384`, `rsa-pkcs1v15-sha512`, `rsassa-pss-sha256`, `rsassa-pss-sha384`, `rsassa-pss-sha512`, `ecdsa-sha2-nistp256`, `ecdsa-sha2-nistp384`, `ecdsa-sha2-nistp521` and `ed25519`.
+  - `scheme` - signing scheme of the role's keys, which also sets the type of generated keys. Required. Keys listed in `yubikeys` use their own `scheme`. Supported schemes are `rsa-pkcs1v15-sha256`, `rsa-pkcs1v15-sha384`, `rsa-pkcs1v15-sha512`, `rsassa-pss-sha256`, `rsassa-pss-sha384`, `rsassa-pss-sha512`, `ecdsa-sha2-nistp256`, `ecdsa-sha2-nistp384`, `ecdsa-sha2-nistp521`, `ed25519`, `ml-dsa-44/1`, `ml-dsa-65/1` and `ml-dsa-87/1`.
   - `delegations` and `paths` - delegated roles of a targets role. For each delegated role, it is necessary to specify `paths`. That is, files or directories that the delegated role can sign. Paths are specified using glob expressions. In addition to paths, it is possible to specify the same properties of delegated roles as of main roles (number or keys, threshold, delegations etc.).
   In this example, `delegated_role` is a delegated role of the `targets` role and `inner_role` is a delegated role of `delegated_role`
   - `terminating` - specifies if a delegated role is terminating (as defined in TUF - if a role is trusted with a certain file which is not found in that role an exceptions is raised if terminating is `True`. Affects the updater).
@@ -157,8 +157,8 @@ information when asked to do so, or confirm that default values should be used.
 role in `keys-description`. Commands that generate keys or read a public key file, like
 `taf roles add-signing-key`, take it as `--scheme`. Supported schemes are `rsa-pkcs1v15-sha256`,
 `rsa-pkcs1v15-sha384`, `rsa-pkcs1v15-sha512`, `rsassa-pss-sha256`, `rsassa-pss-sha384`,
-`rsassa-pss-sha512`, `ecdsa-sha2-nistp256`, `ecdsa-sha2-nistp384`, `ecdsa-sha2-nistp521` and `ed25519`.
-YubiKeys support all of them except `ecdsa-sha2-nistp521`, and `ed25519` needs YubiKey firmware 5.7 or newer.
+`rsassa-pss-sha512`, `ecdsa-sha2-nistp256`, `ecdsa-sha2-nistp384`, `ecdsa-sha2-nistp521`, `ed25519`, `ml-dsa-44/1`, `ml-dsa-65/1` and `ml-dsa-87/1`.
+YubiKeys support all of them except `ecdsa-sha2-nistp521` and the `ml-dsa` schemes, and `ed25519` needs YubiKey firmware 5.7 or newer.
 
 ## Commands
 

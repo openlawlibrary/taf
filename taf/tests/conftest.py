@@ -79,7 +79,7 @@ def keystore_of_scheme():
     keys_description_of_scheme, use the given scheme"""
 
     def _keystore(scheme: str) -> Path:
-        return KEYSTORES_PATH / f"keystore_{scheme.replace('-', '_')}"
+        return KEYSTORES_PATH / f"keystore_{scheme.replace('-', '_').replace('/', '_')}"
 
     return _keystore
 

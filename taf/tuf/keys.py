@@ -9,6 +9,7 @@ from securesystemslib.signer import (
     KEY_FOR_TYPE_AND_SCHEME,
     KEY_TYPE_ECDSA,
     KEY_TYPE_ED25519,
+    KEY_TYPE_MLDSA,
     KEY_TYPE_RSA,
     SIGNER_FOR_URI_SCHEME,
     SSlibKey,
@@ -37,14 +38,16 @@ def _generate_rsa_key(scheme: str, rsa_key_size: Optional[int]) -> CryptoSigner:
 
 
 # how to generate a key of each supported key type, given its scheme and RSA
-# key size. PGP and ML-DSA keys are left out, since they need additional
-# dependencies
+# key size. PGP keys are left out, since they need GnuPG
 KEY_GENERATORS: Dict[str, Callable[[str, Optional[int]], CryptoSigner]] = {
     KEY_TYPE_RSA: _generate_rsa_key,
     KEY_TYPE_ECDSA: lambda scheme, _rsa_key_size: CryptoSigner.generate_ecdsa(
         scheme=scheme
     ),
     KEY_TYPE_ED25519: lambda _scheme, _rsa_key_size: CryptoSigner.generate_ed25519(),
+    KEY_TYPE_MLDSA: lambda scheme, _rsa_key_size: CryptoSigner.generate_mldsa(
+        scheme=scheme
+    ),
 }
 # key type of each supported scheme
 KEY_TYPE_OF_SCHEME = {
@@ -60,8 +63,12 @@ def is_rsa_scheme(scheme: Optional[str]) -> bool:
     return KEY_TYPE_OF_SCHEME.get(scheme) == KEY_TYPE_RSA
 
 
-# YubiKeys can't hold P-521 keys
-YUBIKEY_SCHEMES = [s for s in SUPPORTED_SCHEMES if s != "ecdsa-sha2-nistp521"]
+# YubiKeys can't hold P-521 or ML-DSA keys
+YUBIKEY_SCHEMES = [
+    s
+    for s in SUPPORTED_SCHEMES
+    if s != "ecdsa-sha2-nistp521" and KEY_TYPE_OF_SCHEME[s] != KEY_TYPE_MLDSA
+]
 # an RSA key does not record which of these it is used with
 RSA_SCHEMES = [s for s in SUPPORTED_SCHEMES if is_rsa_scheme(s)]
 
