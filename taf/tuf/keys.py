@@ -37,6 +37,12 @@ SUPPORTED_SCHEMES = sorted(
 )
 # YubiKeys can't hold P-521 keys
 YUBIKEY_SCHEMES = [s for s in SUPPORTED_SCHEMES if s != "ecdsa-sha2-nistp521"]
+# an RSA key does not record which of these it is used with
+RSA_SCHEMES = sorted(
+    scheme
+    for (keytype, scheme), key_class in KEY_FOR_TYPE_AND_SCHEME.items()
+    if key_class is SSlibKey and keytype == KEY_TYPE_RSA
+)
 
 
 def generate_keypair(
@@ -45,7 +51,7 @@ def generate_keypair(
     """
     Generate a private and public key for the signing scheme, both in PEM
     format. securesystemslib generates the key and the scheme decides its
-    type. rsa_key_size is only used for RSA keys, and securesystemslib's
+    type. rsa_key_size can only be set for RSA keys, and securesystemslib's
     default is used if it is not set.
     """
     if not scheme:
@@ -55,6 +61,10 @@ def generate_keypair(
         for (keytype, key_scheme), key_class in KEY_FOR_TYPE_AND_SCHEME.items()
         if key_scheme == scheme and key_class is SSlibKey
     }
+    if rsa_key_size is not None and KEY_TYPE_RSA not in keytypes:
+        raise TAFError(
+            f"A key size can only be set for RSA keys, not for scheme '{scheme}'"
+        )
     signer: CryptoSigner
     if KEY_TYPE_RSA in keytypes:
         if rsa_key_size is None:
@@ -165,19 +175,14 @@ def _from_crypto(pub: PublicKeyTypes, scheme: Optional[str] = None) -> SSlibKey:
     # securesystemslib does not (yet) check if keytype and scheme are compatible
     # https://github.com/secure-systems-lab/securesystemslib/issues/766
     if isinstance(pub, RSAPublicKey):
-        rsa_schemes = sorted(
-            rsa_scheme
-            for (keytype, rsa_scheme), key_class in KEY_FOR_TYPE_AND_SCHEME.items()
-            if keytype == KEY_TYPE_RSA and key_class is SSlibKey
-        )
         if not scheme:
             raise SchemeNotSpecifiedError(
                 "An RSA key can be used with several signing schemes "
-                f"({', '.join(rsa_schemes)}), so its scheme has to be specified. "
+                f"({', '.join(RSA_SCHEMES)}), so its scheme has to be specified. "
                 'Set the key\'s "scheme" in the keys description, or pass --scheme '
                 "to commands that take a public key file."
             )
-        if scheme not in rsa_schemes:
+        if scheme not in RSA_SCHEMES:
             raise ValueError(f"scheme '{scheme}' not valid for rsa key")
         key = SSlibKey.from_crypto(pub, scheme=scheme)
     elif scheme not in (None, key.scheme):
@@ -223,6 +228,10 @@ class YkSigner(Signer):
         # sign() - kept untyped here so this module stays importable without
         # yubikey-manager installed (an optional extra)
         self._slot = slot
+        from taf.yubikey.yubikey import get_piv_sign_args
+
+        # worked out once from the key's scheme, like CryptoSigner does
+        self._sign_args = get_piv_sign_args(public_key)
 
     @property
     def public_key(self) -> SSlibKey:
@@ -247,7 +256,7 @@ class YkSigner(Signer):
 
         verify_yk_inserted(self.serial_num, self.key_name)
         slot = self._slot if self._slot is not None else SLOT.SIGNATURE
-        sig = sign_piv(payload, pin, self.public_key, serial=self.serial_num, slot=slot)
+        sig = sign_piv(payload, pin, self._sign_args, serial=self.serial_num, slot=slot)
         return Signature(self.public_key.keyid, sig.hex())
 
     @classmethod

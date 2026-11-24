@@ -1,5 +1,5 @@
 from logging import DEBUG, ERROR
-from typing import Dict, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from pathlib import Path
 from cryptography import x509
@@ -52,6 +52,15 @@ def _prepare_setup(
     )
 
     return serial, pin_manager.get_pin(serial)
+
+
+def _yubikey_serials(serial: Optional[str] = None) -> List:
+    """The given serial number, or those of all inserted YubiKeys. Prints a
+    message if no YubiKey is inserted."""
+    serials = [serial] if serial else yk.get_serial_nums()
+    if not len(serials):
+        print("YubiKey not inserted.")
+    return serials
 
 
 def _resolve_single_serial(prompt: Optional[str] = None) -> str:
@@ -112,16 +121,12 @@ def export_yk_public_pem(
     """
     piv_slot = _resolve_slot(slot)
     try:
-        serials = [serial] if serial else yk.get_serial_nums()
-
+        serials = _yubikey_serials(serial)
         if not len(serials):
-            print("YubiKey not inserted.")
             return
 
         for serial in serials:
-            pub_key_pem = yk.export_piv_pub_key(serial=serial, slot=piv_slot).decode(
-                "utf-8"
-            )
+            pub_key_pem = yk.export_piv_pub_key(serial=serial, slot=piv_slot)
             if path is None:
                 pub_key = get_sslib_key_from_value(pub_key_pem, scheme)
                 keyid = yk._get_legacy_keyid(pub_key)
@@ -174,15 +179,11 @@ def export_yk_certificate(
     """
     piv_slot = _resolve_slot(slot)
     try:
-        serials = [serial] if serial else yk.get_serial_nums()
-
+        serials = _yubikey_serials(serial)
         if not len(serials):
-            print("YubiKey not inserted.")
             return
         for serial in serials:
-            pub_key_pem = yk.export_piv_pub_key(serial=serial, slot=piv_slot).decode(
-                "utf-8"
-            )
+            pub_key_pem = yk.export_piv_pub_key(serial=serial, slot=piv_slot)
             key = get_sslib_key_from_value(pub_key_pem, scheme)
             yk.export_yk_certificate(path, key, serial, slot=piv_slot)
     except Exception as e:
@@ -213,11 +214,10 @@ def get_yk_roles(path: str, serial: Optional[str] = None) -> Dict:
     Returns:
         A dictionary containing roles and delegated paths in case of delegated target roles
     """
-    serials = [serial] if serial else yk.get_serial_nums()
+    serials = _yubikey_serials(serial)
     roles_per_yubikes: Dict = {}
 
     if not len(serials):
-        print("YubiKey not inserted.")
         return roles_per_yubikes
 
     auth = AuthenticationRepository(path=path)
@@ -260,9 +260,8 @@ def list_yk_slots(serial: Optional[str] = None) -> None:
     Returns:
         None
     """
-    serials = [serial] if serial else yk.get_serial_nums()
+    serials = _yubikey_serials(serial)
     if not len(serials):
-        print("YubiKey not inserted.")
         return
 
     for dev_serial in serials:

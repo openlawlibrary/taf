@@ -2,6 +2,7 @@ import click
 import pytest
 import shutil
 
+from cryptography.hazmat.primitives import serialization
 from yubikit.piv import SLOT
 
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
@@ -198,21 +199,20 @@ def write_target(path, text="hello"):
     path.write_text(text)
 
 
-def write_signing_keystore(tmp_path, source_keystore, names=("snapshot", "timestamp")):
-    """Write a keystore with keys of source_keystore. names lists the keys to
-    copy, or maps file names to the keys they should hold."""
-    signing_keystore = tmp_path / "signing_keystore"
-    signing_keystore.mkdir()
-    if not isinstance(names, dict):
-        names = {name: name for name in names}
-    for name, source_name in names.items():
-        (signing_keystore / name).write_bytes(
-            (source_keystore / source_name).read_bytes()
+def same_public_key(key, other) -> bool:
+    """Check if two public keys are the same key. Each one can be a
+    cryptography public key or PEM data."""
+
+    def _der(public_key):
+        if isinstance(public_key, str):
+            public_key = public_key.encode()
+        if isinstance(public_key, bytes):
+            public_key = serialization.load_pem_public_key(public_key)
+        return public_key.public_bytes(
+            serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo
         )
-        (signing_keystore / f"{name}.pub").write_bytes(
-            (source_keystore / f"{source_name}.pub").read_bytes()
-        )
-    return signing_keystore
+
+    return _der(key) == _der(other)
 
 
 def pin_manager_for(*devices):
@@ -249,23 +249,19 @@ def sign_target_update(auth_repo, signing_keystore, target_path="a-new-target.tx
 
 
 @pytest.fixture
-def declined_prompts(monkeypatch):
-    """Answer no to every confirmation and to the "load more keys?" question.
-    Returns the list of questions that were asked."""
-    asked = []
+def decline_prompts(monkeypatch):
+    """Answer no to every confirmation and to the "load more keys?" question"""
 
-    def _decline(message, *_args, **_kwargs):
-        asked.append(message)
+    def _decline(*_args, **_kwargs):
         return False
 
     monkeypatch.setattr(click, "confirm", _decline)
     monkeypatch.setattr(taf.signer_loaders, "secret_yes_no_prompt", _decline)
-    return asked
 
 
-class RecordingLoader(SignerLoader):
-    """A signer loader that returns the given signers and records its name
-    in calls each time it is used"""
+class FakeSignerLoader(SignerLoader):
+    """A signer loader that always returns the given signers, and appends its
+    name to calls each time it is used, so tests can check the loading order"""
 
     def __init__(self, name, priority, input_needed, signers, calls):
         self.name = name

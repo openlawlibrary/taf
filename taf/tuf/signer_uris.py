@@ -5,7 +5,7 @@ which picks the signer class from the URI's prefix.
 """
 
 from pathlib import Path
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Union
 from urllib import parse
 
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
@@ -38,25 +38,15 @@ def get_keystore_uri(keystore: Union[str, Path], key_name: str) -> str:
     return f"{CryptoSigner.SCHEME}:{path.as_posix()}"
 
 
-def import_keystore_key(
-    keystore: Union[str, Path], key_name: str, scheme: Optional[str] = None
-) -> Tuple[str, SSlibKey]:
-    """Return the URI and public key of a keystore file, for a key that is not
-    in metadata yet. Like securesystemslib's import_ methods, this reads the
-    key once to get its public part."""
-    path = Path(keystore, key_name).expanduser().resolve()
-    private_key = load_pem_private_key(path.read_bytes(), None)
-    return get_keystore_uri(keystore, key_name), _from_crypto(
-        private_key.public_key(), scheme
-    )
-
-
-def import_keystore_signer(
+def create_signer_from_keystore_file(
     keystore: Union[str, Path], key_name: str, scheme: Optional[str] = None
 ) -> Signer:
-    """Return the signer of a keystore file whose key is not in metadata yet"""
-    uri, public_key = import_keystore_key(keystore, key_name, scheme)
-    return Signer.from_priv_key_uri(uri, public_key)
+    """Create the signer of a keystore file whose key is not in metadata yet.
+    The key file is read once to get its public part, which the signer needs."""
+    path = Path(keystore, key_name).expanduser().resolve()
+    private_key = load_pem_private_key(path.read_bytes(), None)
+    public_key = _from_crypto(private_key.public_key(), scheme)
+    return Signer.from_priv_key_uri(get_keystore_uri(keystore, key_name), public_key)
 
 
 def get_yubikey_uri(serial_num: int, slot: Optional[int], key_name: str) -> str:

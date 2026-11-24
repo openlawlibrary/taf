@@ -6,7 +6,11 @@ from typing import List, Optional, Union
 import click
 
 from taf.exceptions import KeystoreError, SchemeNotSpecifiedError
-from taf.tuf.signer_uris import get_keystore_uri, import_keystore_signer, load_signer
+from taf.tuf.signer_uris import (
+    get_keystore_uri,
+    create_signer_from_keystore_file,
+    load_signer,
+)
 
 from securesystemslib.signer import Signer
 
@@ -66,7 +70,7 @@ def load_signer_from_private_keystore(
 
     def _read_key(keystore, key_name, scheme):
         try:
-            return import_keystore_signer(keystore, key_name, scheme), None
+            return create_signer_from_keystore_file(keystore, key_name, scheme), None
         except SchemeNotSpecifiedError:
             raise
         except Exception as e:

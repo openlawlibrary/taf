@@ -12,7 +12,7 @@ from taf.exceptions import KeystoreError, YubikeyError
 from taf.repository_utils import find_valid_repository
 from taf.tools.cli import catch_cli_exception
 from taf.tools.repo import pin_managed
-from taf.tuf.keys import YUBIKEY_SCHEMES
+from taf.tuf.keys import RSA_SCHEMES, YUBIKEY_SCHEMES
 from taf.yubikey.yubikey import list_connected_yubikeys, list_all_devices
 
 SETUP_SLOT_NAMES = [s.name for s in SETUP_SLOTS]
@@ -61,9 +61,9 @@ def export_pub_key_command():
     )
     @click.option(
         "--scheme",
-        type=click.Choice(YUBIKEY_SCHEMES),
+        type=click.Choice(RSA_SCHEMES),
         default=None,
-        help="Signing scheme of the key, needed to print the key id of an RSA key",
+        help="Signing scheme of the key, if it is an RSA key. Needed to print its key id",
     )
     @click.option(
         "--slot",
@@ -108,9 +108,9 @@ def export_certificate_command():
     )
     @click.option(
         "--scheme",
-        type=click.Choice(YUBIKEY_SCHEMES),
+        type=click.Choice(RSA_SCHEMES),
         default=None,
-        help="Signing scheme of the key, needed for RSA keys, because the certificate's file is named after the key id",
+        help="Signing scheme of the key, if it is an RSA key. Needed to name the certificate's file after its key id",
     )
     @click.option(
         "--slot",
@@ -177,7 +177,7 @@ def setup_signing_key_command():
         "--key-size",
         type=int,
         default=None,
-        help="Size of an RSA key in bits, securesystemslib's default (3072) if not given. "
+        help="Size of an RSA key in bits, 3072 if not given. "
         "RSA keys longer than 2048 bits need YubiKey firmware 5.7 or newer",
     )
     @catch_cli_exception(handle=YubikeyError)

@@ -5,7 +5,7 @@ from contextlib import contextmanager
 from functools import wraps
 from getpass import getpass
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable, Optional, Tuple
 
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
@@ -137,23 +137,6 @@ def _yk_piv_ctrl(serial=None):
             connection.close()
 
 
-def is_inserted():
-    """Checks if YubiKey is inserted.
-
-    Args:
-        None
-
-    Returns:
-        True if at least one Yubikey is inserted (bool)
-
-    Raises:
-        - YubikeyError
-    """
-    inserted_devices = list(list_all_devices())
-    taf_logger.debug(f"is_inserted() sees {len(inserted_devices)} device(s)")
-    return len(inserted_devices) > 0
-
-
 @raise_yubikey_err()
 def is_valid_pin(pin: str, serial: Optional[str] = None):
     """Checks if given pin is valid.
@@ -235,20 +218,29 @@ def export_piv_x509(
         return x509_cert.public_bytes(encoding=cert_format)
 
 
+def _public_key_pem(cert) -> str:
+    """Return the public key of a PIV slot's certificate in PEM format"""
+    return (
+        cert.public_key()
+        .public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo,
+        )
+        .decode("utf-8")
+    )
+
+
 @raise_yubikey_err("Cannot export public key.")
-def export_piv_pub_key(
-    pub_key_format=serialization.Encoding.PEM, serial=None, slot=SLOT.SIGNATURE
-):
+def export_piv_pub_key(serial=None, slot=SLOT.SIGNATURE) -> str:
     """Exports YubiKey's piv slot public key.
 
     Args:
-        - pub_key_format(str): One of 'serialization.Encoding' formats.
         - pub_key_pem(str): Match Yubikey's public key (PEM) if multiple keys
                             are inserted
         - slot(SLOT): The PIV slot holding the key. Defaults to SLOT.SIGNATURE.
 
     Returns:
-        PIV public key in a given format (bytes)
+        PIV public key in PEM format
 
     Raises:
         - YubikeyError
@@ -256,12 +248,7 @@ def export_piv_pub_key(
     taf_logger.debug(f"Exporting public key for serial={serial}")
     with _yk_piv_ctrl(serial=serial) as [(ctrl, _)]:
         try:
-            x509_cert = ctrl.get_certificate(slot)
-            public_key = x509_cert.public_key()
-            return public_key.public_bytes(
-                encoding=pub_key_format,
-                format=serialization.PublicFormat.SubjectPublicKeyInfo,
-            )
+            return _public_key_pem(ctrl.get_certificate(slot))
         except Exception as e:
             raise YubikeyError(f"Failed to export public key: {str(e)}") from e
 
@@ -387,26 +374,6 @@ def _pin_from_keys_mapping(public_key: SSlibKey, mapping: dict) -> Optional[str]
     return None
 
 
-@raise_yubikey_err("Cannot get public key in TUF format.")
-def get_piv_public_key_tuf(scheme=None, serial=None) -> SSlibKey:
-    """Return public key from a Yubikey as an SSlibKey.
-
-    Args:
-        - scheme(str): Signature scheme, needed for RSA keys
-        - pub_key_pem(str): Match Yubikey's public key (PEM) if multiple keys
-                            are inserted
-
-    Returns:
-        The public key of the inserted YubiKey, with its legacy key id.
-
-    Raises:
-        - YubikeyError
-    """
-    taf_logger.debug(f"Extracting TUF-format public key from serial={serial}")
-    pub_key_pem = export_piv_pub_key(serial=serial).decode("utf-8")
-    return get_sslib_key_from_value(pub_key_pem, scheme)
-
-
 @raise_yubikey_err("Cannot get public keys.")
 def get_piv_public_keys_pem(serial=None) -> dict:
     """Return the public key of every occupied PIV slot on a YubiKey, in
@@ -427,15 +394,7 @@ def get_piv_public_keys_pem(serial=None) -> dict:
         for slot, cert in slot_status.items():
             if cert is None:
                 continue
-            pub_key_pem = (
-                cert.public_key()
-                .public_bytes(
-                    encoding=serialization.Encoding.PEM,
-                    format=serialization.PublicFormat.SubjectPublicKeyInfo,
-                )
-                .decode("utf-8")
-            )
-            dev_keys[slot] = pub_key_pem
+            dev_keys[slot] = _public_key_pem(cert)
         keys[dev_serial] = dev_keys
     return keys
 
@@ -533,6 +492,50 @@ def _resolve_and_cache_pin(
     pin_manager.add_pin(serial_num, pin)
 
 
+def _inserted_serials():
+    """Serial numbers of the inserted YubiKeys, or None if they can't be read"""
+    try:
+        return get_serial_nums()
+    except Exception:
+        taf_logger.log("NOTICE", "No YubiKeys inserted")
+        return None
+
+
+def _load_device_key(
+    pin_manager,
+    taf_repo,
+    serial_num,
+    public_key,
+    key_name,
+    role,
+    slot,
+    pin_confirm,
+    pin_repeat,
+    key_id_pins,
+    creating_new_key=False,
+):
+    """Get the PIN of the YubiKey holding public_key, and record the key as a
+    key of role in taf_repo's YubiKey store"""
+    lookup_path = taf_repo.path if taf_repo is not None else Path.cwd()
+    _resolve_and_cache_pin(
+        pin_manager,
+        serial_num,
+        public_key,
+        find_taf_directory(lookup_path),
+        key_name,
+        pin_confirm,
+        pin_repeat,
+        key_id_pins,
+        creating_new_key=creating_new_key,
+    )
+    if taf_repo is not None:
+        # when reusing the same yubikey, public key will already be in the public keys dictionary
+        # but the key name still needs to be added to the key id mapping dictionary
+        taf_repo.yubikey_store.add_key_data(
+            key_name, serial_num, public_key, role, slot=slot
+        )
+
+
 def _prompt_for_slot(serial_num, options):
     """Ask the user to pick one of `options` (a list of (SLOT, label) pairs,
     already ordered) and return the chosen SLOT. Auto-selects without
@@ -600,37 +603,31 @@ def _read_and_check_single_yubikey(
         yubikeys_to_skip = []
 
     # make sure that YubiKey is inserted
-    try:
-        serials = get_serial_nums()
-        taf_logger.debug(f"Found serials={serials} for single key check.")
-        if taf_repo is None:
-            # if setting up a YubiKey outside of the creation of a new repository or addition of new roles
-            if len(serials) > 1:
-                print("\nPlease insert only one YubiKey\n")
-                taf_logger.debug("Multiple YubiKeys inserted, cannot proceed.")
-                return
-        else:
-            not_loaded = [
-                serial
-                for serial in serials
-                if not taf_repo.yubikey_store.is_loaded_for_role(serial, role)
-                and serial not in yubikeys_to_skip
-            ]
-            taf_logger.debug(f"Not loaded for role='{role}': {not_loaded}")
-
-            if len(not_loaded) != 1:
-                print("\nPlease insert only one not previously inserted YubiKey\n")
-                return None
-
-            if not len(not_loaded):
-                return None
-
-            # no need to try loading keys that we know were previously loaded
-            serials = not_loaded
-
-    except Exception:
-        taf_logger.log("NOTICE", "No YubiKeys inserted")
+    serials = _inserted_serials()
+    if serials is None:
         return None
+    taf_logger.debug(f"Found serials={serials} for single key check.")
+    if taf_repo is None:
+        # if setting up a YubiKey outside of the creation of a new repository or addition of new roles
+        if len(serials) > 1:
+            print("\nPlease insert only one YubiKey\n")
+            taf_logger.debug("Multiple YubiKeys inserted, cannot proceed.")
+            return None
+    else:
+        not_loaded = [
+            serial
+            for serial in serials
+            if not taf_repo.yubikey_store.is_loaded_for_role(serial, role)
+            and serial not in yubikeys_to_skip
+        ]
+        taf_logger.debug(f"Not loaded for role='{role}': {not_loaded}")
+
+        if len(not_loaded) != 1:
+            print("\nPlease insert only one not previously inserted YubiKey\n")
+            return None
+
+        # no need to try loading keys that we know were previously loaded
+        serials = not_loaded
 
     serial_num = serials[0]
     # check if this key is already loaded as the provided role's key (we can use the same key
@@ -669,26 +666,19 @@ def _read_and_check_single_yubikey(
             taf_logger.debug(f"Public key not valid for role='{role}'.")
             return None
 
-    lookup_path = taf_repo.path if taf_repo is not None else Path.cwd()
-    taf_dir = find_taf_directory(lookup_path)
-    _resolve_and_cache_pin(
+    _load_device_key(
         pin_manager,
+        taf_repo,
         serial_num,
         public_key,
-        taf_dir,
         key_name,
+        role,
+        slot,
         pin_confirm,
         pin_repeat,
         key_id_pins,
         creating_new_key=creating_new_key,
     )
-
-    if taf_repo is not None:
-        # when reusing the same yubikey, public key will already be in the public keys dictionary
-        # but the key name still needs to be added to the key id mapping dictionary
-        taf_repo.yubikey_store.add_key_data(
-            key_name, serial_num, public_key, role, slot=slot
-        )
 
     taf_logger.debug(
         f"_read_and_check_single_yubikey returning for serial={serial_num}, key_name='{key_name}'"
@@ -721,12 +711,10 @@ def _read_and_check_yubikeys(
                 prompt_message = f"Please insert {role} ({', '.join(key_names)}) YubiKey(s) and press ENTER"
         getpass(prompt_message)
 
-    try:
-        serials = get_serial_nums()
-        taf_logger.debug(f"Detected YubiKey serials={serials}")
-    except Exception:
-        taf_logger.log("NOTICE", "No YubiKeys inserted")
+    serials = _inserted_serials()
+    if serials is None:
         return None
+    taf_logger.debug(f"Detected YubiKey serials={serials}")
 
     if not len(serials):
         taf_logger.debug("No YubiKeys present.")
@@ -737,9 +725,6 @@ def _read_and_check_yubikeys(
     yubikeys = []
     invalid_keys = []
     all_loaded = True
-
-    lookup_path = taf_repo.path if taf_repo is not None else Path.cwd()
-    taf_dir = find_taf_directory(lookup_path)
 
     for index, serial_num in enumerate(serials):
         if not taf_repo.yubikey_store.is_loaded_for_role(serial_num, role):
@@ -774,21 +759,17 @@ def _read_and_check_yubikeys(
                 taf_logger.debug(
                     f"Potential YubiKey with serial={serial_num}, associated key_name='{key_name}', slot={slot}."
                 )
-                _resolve_and_cache_pin(
+                _load_device_key(
                     pin_manager,
+                    taf_repo,
                     serial_num,
                     public_key,
-                    taf_dir,
                     key_name,
+                    role,
+                    slot,
                     pin_confirm,
                     pin_repeat,
                     key_id_pins,
-                )
-
-                # when reusing the same yubikey, public key will already be in the public keys dictionary
-                # but the key name still needs to be added to the key id mapping dictionary
-                taf_repo.yubikey_store.add_key_data(
-                    key_name, serial_num, public_key, role, slot=slot
                 )
                 yubikeys.append((public_key, serial_num, key_name, slot))
 
@@ -813,25 +794,9 @@ def _read_and_check_yubikeys(
     return yubikeys
 
 
-@raise_yubikey_err("Cannot sign data.")
-def sign_piv(data, pin, public_key: SSlibKey, serial=None, slot=SLOT.SIGNATURE):
-    """Sign data with key from YubiKey's piv slot, using the signing scheme
-    of the key's public part.
-
-    Args:
-        - data(bytes): Data to be signed
-        - pin(str): Pin for piv slot login.
-        - public_key(SSlibKey): Public part of the key in the slot
-        - slot(SLOT): The PIV slot holding the signing key. Defaults to
-                      SLOT.SIGNATURE.
-
-    Returns:
-        Signature (bytes)
-
-    Raises:
-        - YubikeyError
-    """
-    taf_logger.debug(f"Signing data using YubiKey serial={serial}, slot={slot}.")
+def get_piv_sign_args(public_key: SSlibKey) -> Tuple:
+    """Return the key type, hash algorithm and padding for signing with the key
+    of a PIV slot, from the signing scheme of its public part"""
     key_type = KEY_TYPE.from_public_key(public_key._crypto_key())
     hash_algorithm = None
     signing_padding = None
@@ -846,6 +811,29 @@ def sign_piv(data, pin, public_key: SSlibKey, serial=None, slot=SLOT.SIGNATURE):
             )
         else:
             signing_padding = padding.PKCS1v15()
+    return key_type, hash_algorithm, signing_padding
+
+
+@raise_yubikey_err("Cannot sign data.")
+def sign_piv(data, pin, sign_args: Tuple, serial=None, slot=SLOT.SIGNATURE):
+    """Sign data with key from YubiKey's piv slot.
+
+    Args:
+        - data(bytes): Data to be signed
+        - pin(str): Pin for piv slot login.
+        - sign_args(tuple): Key type, hash algorithm and padding of the key,
+                            from get_piv_sign_args
+        - slot(SLOT): The PIV slot holding the signing key. Defaults to
+                      SLOT.SIGNATURE.
+
+    Returns:
+        Signature (bytes)
+
+    Raises:
+        - YubikeyError
+    """
+    taf_logger.debug(f"Signing data using YubiKey serial={serial}, slot={slot}.")
+    key_type, hash_algorithm, signing_padding = sign_args
     with _yk_piv_ctrl(serial=serial) as [(ctrl, _)]:
         ctrl.verify_pin(pin)
         sig = ctrl.sign(slot, key_type, data, hash_algorithm, signing_padding)

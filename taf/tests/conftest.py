@@ -6,10 +6,9 @@ import shutil
 from pathlib import Path
 from typing import Dict, Optional, Union
 
-from taf.api.keystore import generate_keys
 from taf.api.repository import create_repository
 from taf.auth_repo import AuthenticationRepository
-from taf.tuf.signer_uris import import_keystore_signer
+from taf.tuf.signer_uris import create_signer_from_keystore_file
 
 # from taf.tests import TEST_WITH_REAL_YK
 from taf.utils import on_rm_error
@@ -75,19 +74,47 @@ def keys_description_of_scheme(scheme: str) -> Dict:
 
 
 @pytest.fixture(scope="session")
-def keystore_of_scheme(tmp_path_factory):
-    """Factory for keystores with the keys of keys_description_of_scheme,
-    generated once per scheme for the whole test session"""
-    keystores: Dict[str, Path] = {}
+def keystore_of_scheme():
+    """Factory returning the keystore whose keys, those of
+    keys_description_of_scheme, use the given scheme"""
 
     def _keystore(scheme: str) -> Path:
-        if scheme not in keystores:
-            keystore = tmp_path_factory.mktemp(f"keystore-{scheme}")
-            generate_keys(str(keystore), keys_description_of_scheme(scheme))
-            keystores[scheme] = keystore
-        return keystores[scheme]
+        return KEYSTORES_PATH / f"keystore_{scheme.replace('-', '_')}"
 
     return _keystore
+
+
+@pytest.fixture(scope="session")
+def empty_keystore():
+    return KEYSTORES_PATH / "empty_keystore"
+
+
+@pytest.fixture(scope="session")
+def keystore_delegations_root1():
+    """Only the root1 key of keystore_delegations"""
+    return KEYSTORES_PATH / "keystore_delegations_root1"
+
+
+@pytest.fixture(scope="session")
+def keystore_delegations_snapshot_timestamp():
+    """Only the snapshot and timestamp keys of keystore_delegations"""
+    return KEYSTORES_PATH / "keystore_delegations_snapshot_timestamp"
+
+
+@pytest.fixture(scope="session")
+def keystore_rsassa_pss_sha256_snapshot_timestamp():
+    """Only the snapshot and timestamp keys of the rsassa-pss-sha256 keystore"""
+    return KEYSTORES_PATH / "keystore_rsassa_pss_sha256_snapshot_timestamp"
+
+
+@pytest.fixture(
+    params=["targets1", "root2"],
+    ids=["root1 file holds a key of another role", "root1 file holds a copy of root2"],
+)
+def keystore_delegations_with_unusable_root1_file(request):
+    """root1, root2 and root3 keys of keystore_delegations, but the root1 file
+    holds another key"""
+    return KEYSTORES_PATH / f"keystore_delegations_root1_holds_{request.param}"
 
 
 @pytest.fixture(scope="session")
@@ -95,7 +122,7 @@ def real_public_key(keystore_delegations):
     """Factory returning the real public key of a named key file in keystore_delegations."""
 
     def _real_public_key(key_name):
-        return import_keystore_signer(
+        return create_signer_from_keystore_file(
             keystore_delegations, key_name, DEFAULT_RSA_SIGNATURE_SCHEME
         ).public_key
 
@@ -171,7 +198,7 @@ def _load_signers_from_keystore(keystore):
             if normalized_base_name not in signers:
                 signers[normalized_base_name] = []
             signers[normalized_base_name].append(
-                import_keystore_signer(
+                create_signer_from_keystore_file(
                     file.parent, file.name, DEFAULT_RSA_SIGNATURE_SCHEME
                 )
             )

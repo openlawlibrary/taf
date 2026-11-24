@@ -17,7 +17,7 @@ from taf.tools.cli import catch_cli_exception, common_repo_edit_options, find_re
 
 from taf.api.roles import add_role_paths
 from taf.tools.repo import pin_managed
-from taf.tuf.keys import SUPPORTED_SCHEMES
+from taf.tuf.keys import RSA_SCHEMES
 
 
 def add_roles_command():
@@ -305,9 +305,9 @@ def add_signing_key_command():
     )
     @click.option(
         "--scheme",
-        type=click.Choice(SUPPORTED_SCHEMES),
+        type=click.Choice(RSA_SCHEMES),
         default=None,
-        help="Signing scheme of the new key. Needed for RSA keys",
+        help="Signing scheme of the key, if it is an RSA key. An RSA key file does not record it",
     )
     @click.option("--commit-msg", default=None, help="Commit message")
     @pin_managed
@@ -414,9 +414,9 @@ def rotate_signing_key_command():
     )
     @click.option(
         "--scheme",
-        type=click.Choice(SUPPORTED_SCHEMES),
+        type=click.Choice(RSA_SCHEMES),
         default=None,
-        help="Signing scheme of the new key. Needed for RSA keys",
+        help="Signing scheme of the key, if it is an RSA key. An RSA key file does not record it",
     )
     @click.option("--revoke-commit-msg", default=None, help="Revoke key commit message")
     @click.option(

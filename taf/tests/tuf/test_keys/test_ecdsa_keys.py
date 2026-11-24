@@ -7,7 +7,7 @@ from cryptography.hazmat.primitives.asymmetric.ec import (
 
 from taf.constants import DEFAULT_ECDSA_SIGNATURE_SCHEME, DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import SchemeNotSpecifiedError
-from taf.tuf.signer_uris import import_keystore_signer
+from taf.tuf.signer_uris import create_signer_from_keystore_file
 from taf.tuf.keys import (
     generate_keypair,
     get_sslib_key_from_value,
@@ -72,7 +72,7 @@ def test_ecdsa_signer_round_trip(keystore_of_scheme):
     """
     keystore = keystore_of_scheme(DEFAULT_ECDSA_SIGNATURE_SCHEME)
 
-    signer = import_keystore_signer(keystore, "targets")
+    signer = create_signer_from_keystore_file(keystore, "targets")
     public_key = get_sslib_key_from_value((keystore / "targets.pub").read_text())
 
     assert signer.public_key.keyid == public_key.keyid

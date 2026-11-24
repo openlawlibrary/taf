@@ -2,6 +2,7 @@ import click
 from taf.api.keystore import generate_keys
 from taf.exceptions import KeystoreError
 from taf.tools.cli import catch_cli_exception
+from taf.tuf.keys import SUPPORTED_SCHEMES
 
 
 def generate_keys_command():
@@ -11,6 +12,12 @@ def generate_keys_command():
         for RSA keys, their lengths. The scheme sets the type of the generated keys and has to be specified.
         It is necessary to either directly specify this dictionary when calling this command or
         to provide a path to a `.json` file which contains the needed information.
+
+        \b
+        Supported schemes:
+        """
+        + "\n        ".join(SUPPORTED_SCHEMES)
+        + """
 
         \b
         Keys description example:

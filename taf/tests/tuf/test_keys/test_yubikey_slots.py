@@ -13,10 +13,12 @@ from yubikit.piv import SLOT
 import taf.api.yubikey as yk_api
 import taf.keys as taf_keys
 import taf.yubikey.yubikey as yk
+from securesystemslib.exceptions import UnverifiedSignatureError
 from taf.exceptions import KeystoreError, YubikeyError
+from taf.tests.tuf.test_keys.conftest import same_public_key
 from taf.tools.yubikey.yubikey_utils import FakePivController
 from taf.tuf.keys import YkSigner
-from taf.tuf.signer_uris import import_keystore_signer
+from taf.tuf.signer_uris import create_signer_from_keystore_file
 from taf.yubikey.yubikey_manager import PinManager, YubiKeyStore
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 
@@ -38,9 +40,8 @@ def test_get_slot_status_reports_signature_occupied_and_others_free(fake_yubikey
     status = yk.get_slot_status(serial=fake_yubikey.serial)
 
     slot_status = status[fake_yubikey.serial]
-    assert (
-        slot_status[SLOT.SIGNATURE].public_key().public_numbers()
-        == fake_yubikey.pub_key.public_numbers()
+    assert same_public_key(
+        slot_status[SLOT.SIGNATURE].public_key(), fake_yubikey.pub_key
     )
     assert slot_status[SLOT.AUTHENTICATION] is None
     assert slot_status[SLOT.KEY_MANAGEMENT] is None
@@ -134,10 +135,7 @@ def test_setup_into_free_slot_does_not_touch_existing_key(fake_yubikey, keystore
     assert status[SLOT.AUTHENTICATION] is not None
     # the original SIGNATURE key must be untouched, since we didn't reset
     original_cert = status[SLOT.SIGNATURE]
-    assert (
-        original_cert.public_key().public_numbers()
-        == fake_yubikey.pub_key.public_numbers()
-    )
+    assert same_public_key(original_cert.public_key(), fake_yubikey.pub_key)
 
 
 def test_setup_generates_rsa_key_of_given_size(fake_yubikey):
@@ -191,9 +189,7 @@ def test_export_public_key_of_given_slot_without_scheme(
         str(output), serial=fake_yubikey.serial, slot="AUTHENTICATION"
     )
 
-    exported = serialization.load_pem_public_key(output.read_bytes())
-    expected = serialization.load_pem_public_key((keystore / "root2.pub").read_bytes())
-    assert exported.public_numbers() == expected.public_numbers()
+    assert same_public_key(output.read_bytes(), (keystore / "root2.pub").read_bytes())
 
 
 def test_setup_refuses_to_overwrite_occupied_slot(fake_yubikey):
@@ -207,10 +203,7 @@ def test_setup_refuses_to_overwrite_occupied_slot(fake_yubikey):
 
     # the original key must be untouched
     status = yk.get_slot_status(serial=fake_yubikey.serial)[fake_yubikey.serial]
-    assert (
-        status[SLOT.SIGNATURE].public_key().public_numbers()
-        == fake_yubikey.pub_key.public_numbers()
-    )
+    assert same_public_key(status[SLOT.SIGNATURE].public_key(), fake_yubikey.pub_key)
 
 
 def test_setup_refuses_occupied_slot_without_verifying_pin(fake_yubikey, monkeypatch):
@@ -256,10 +249,7 @@ def test_setup_signing_yubikey_refuses_occupied_slot_without_prompting(
             )
 
     status = yk.get_slot_status(serial=fake_yubikey.serial)[fake_yubikey.serial]
-    assert (
-        status[SLOT.SIGNATURE].public_key().public_numbers()
-        == fake_yubikey.pub_key.public_numbers()
-    )
+    assert same_public_key(status[SLOT.SIGNATURE].public_key(), fake_yubikey.pub_key)
 
 
 def test_setup_test_yubikey_refuses_occupied_slot_without_prompting_for_pin(
@@ -349,39 +339,35 @@ def test_setup_test_yubikey_refuses_occupied_slot_without_prompting(
             yk_api.setup_test_yubikey(_pin_manager(fake_yubikey), str(new_key_path))
 
     status = yk.get_slot_status(serial=fake_yubikey.serial)[fake_yubikey.serial]
-    assert (
-        status[SLOT.SIGNATURE].public_key().public_numbers()
-        == fake_yubikey.pub_key.public_numbers()
-    )
+    assert same_public_key(status[SLOT.SIGNATURE].public_key(), fake_yubikey.pub_key)
 
 
-def test_sign_piv_uses_given_slot(fake_yubikey, keystore):
-    new_key_pem = (keystore / "root2").read_bytes()
+def test_yubikey_signer_signs_with_key_in_its_slot(
+    fake_yubikey, keystore, create_auth_repo
+):
     yk.setup(
         pin="123456",
         serial=fake_yubikey.serial,
         cert_cn="Second key",
-        private_key_pem=new_key_pem,
+        private_key_pem=(keystore / "root2").read_bytes(),
+        slot=SLOT.AUTHENTICATION,
+    )
+    taf_repo = create_auth_repo()
+    serial = fake_yubikey.serial
+    slot_keys = yk.get_piv_public_keys_tuf(serial=serial, taf_repo=taf_repo)[serial]
+    signer = YkSigner(
+        slot_keys[SLOT.AUTHENTICATION],
+        serial,
+        lambda _prompt: "123456",
+        "root2",
         slot=SLOT.AUTHENTICATION,
     )
 
-    sig = yk.sign_piv(
-        b"data",
-        "123456",
-        import_keystore_signer(
-            keystore, "root2", DEFAULT_RSA_SIGNATURE_SCHEME
-        ).public_key,
-        serial=fake_yubikey.serial,
-        slot=SLOT.AUTHENTICATION,
-    )
+    signature = signer.sign(b"data")
 
-    auth_priv_key = serialization.load_pem_private_key(
-        new_key_pem, None, default_backend()
-    )
-    # signed with the AUTHENTICATION slot's key, not SIGNATURE's
-    auth_priv_key.public_key().verify(sig, b"data", padding.PKCS1v15(), hashes.SHA256())
-    with pytest.raises(InvalidSignature):
-        fake_yubikey.pub_key.verify(sig, b"data", padding.PKCS1v15(), hashes.SHA256())
+    slot_keys[SLOT.AUTHENTICATION].verify_signature(signature, b"data")
+    with pytest.raises(UnverifiedSignatureError):
+        slot_keys[SLOT.SIGNATURE].verify_signature(signature, b"data")
 
 
 def test_read_and_check_yubikeys_finds_role_key_in_non_signature_slot(
@@ -391,7 +377,7 @@ def test_read_and_check_yubikeys_finds_role_key_in_non_signature_slot(
     # it must be excluded even though it's on the same device as a real
     # root key (root2) in AUTHENTICATION.
     device = make_fake_yubikey("targets", extra_slots={SLOT.AUTHENTICATION: "root2"})
-    auth_key = import_keystore_signer(
+    auth_key = create_signer_from_keystore_file(
         keystore, "root2", DEFAULT_RSA_SIGNATURE_SCHEME
     ).public_key
     taf_repo = create_auth_repo()
@@ -444,7 +430,7 @@ def test_read_and_check_yubikeys_counts_every_valid_key_on_one_device(
         slot=SLOT.AUTHENTICATION,
     )
     sig_key = fake_yubikey.tuf_key.public_key
-    auth_key = import_keystore_signer(
+    auth_key = create_signer_from_keystore_file(
         keystore, "root2", DEFAULT_RSA_SIGNATURE_SCHEME
     ).public_key
     taf_repo = create_auth_repo()
@@ -607,7 +593,7 @@ def test_read_and_check_single_yubikey_prompts_when_multiple_slots_occupied(
         private_key_pem=new_key_pem,
         slot=SLOT.AUTHENTICATION,
     )
-    auth_key = import_keystore_signer(
+    auth_key = create_signer_from_keystore_file(
         keystore, "root2", DEFAULT_RSA_SIGNATURE_SCHEME
     ).public_key
     taf_repo = create_auth_repo()
@@ -693,10 +679,7 @@ def test_setup_yubikey_creates_new_key_in_a_free_non_signature_slot(
     assert slot == SLOT.AUTHENTICATION
     status = yk.get_slot_status(serial=fake_yubikey.serial)[fake_yubikey.serial]
     assert status[SLOT.AUTHENTICATION] is not None
-    assert (
-        status[SLOT.SIGNATURE].public_key().public_numbers()
-        == fake_yubikey.pub_key.public_numbers()
-    )
+    assert same_public_key(status[SLOT.SIGNATURE].public_key(), fake_yubikey.pub_key)
 
 
 def test_setup_yubikey_updates_store_with_generated_key_for_cert_export(
@@ -720,7 +703,6 @@ def test_setup_yubikey_updates_store_with_generated_key_for_cert_export(
             "root",
             "root1",
             scheme="ecdsa-sha2-nistp256",
-            key_size=2048,
             certs_dir=str(tmp_path),
         )
 
@@ -739,7 +721,7 @@ def test_load_and_verify_yubikey_uses_the_slot_the_user_picked(
         private_key_pem=new_key_pem,
         slot=SLOT.AUTHENTICATION,
     )
-    auth_key = import_keystore_signer(
+    auth_key = create_signer_from_keystore_file(
         keystore, "root2", DEFAULT_RSA_SIGNATURE_SCHEME
     ).public_key
     taf_repo = create_auth_repo(pin_manager=_pin_manager(fake_yubikey))
@@ -769,7 +751,7 @@ def test_load_and_verify_yubikey_reports_mismatch_when_wrong_slot_picked(
         private_key_pem=new_key_pem,
         slot=SLOT.AUTHENTICATION,
     )
-    auth_key = import_keystore_signer(
+    auth_key = create_signer_from_keystore_file(
         keystore, "root2", DEFAULT_RSA_SIGNATURE_SCHEME
     ).public_key
     taf_repo = create_auth_repo(pin_manager=_pin_manager(fake_yubikey))

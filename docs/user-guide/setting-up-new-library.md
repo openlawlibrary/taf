@@ -98,7 +98,7 @@ and a counter (if there is more than one key). E.g. `root1`', `root2`, `targets1
 
 If a property is omitted from the specification, it will have the default value. The default values are:
 - `number=1`
-- `length=3072`, securesystemslib's default (RSA keys only). YubiKeys with firmware older than 5.7 only hold RSA keys of up to 2048 bits
+- `length=3072` (RSA keys only). YubiKeys with firmware older than 5.7 only hold RSA keys of up to 2048 bits
 - `threshold=1`
 
 The `keys-description` option can either directly contain the described json, or be a path to a file

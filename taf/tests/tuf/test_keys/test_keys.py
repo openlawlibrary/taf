@@ -1,7 +1,7 @@
 import pytest
 from tuf.api.metadata import Metadata, Root
 from taf.tuf.keys import get_sslib_key_from_value
-from taf.tuf.signer_uris import import_keystore_signer
+from taf.tuf.signer_uris import create_signer_from_keystore_file
 
 from securesystemslib.exceptions import UnverifiedSignatureError
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
@@ -35,7 +35,7 @@ def test_keys(tuf_repo, keystore_delegations):
         assert public_key.scheme == "rsa-pkcs1v15-sha256"
         assert public_key.keyid in root.signed.keys
 
-        signer = import_keystore_signer(
+        signer = create_signer_from_keystore_file(
             keystore_delegations, name, DEFAULT_RSA_SIGNATURE_SCHEME
         )
 
