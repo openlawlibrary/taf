@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Merge auth commits when updating with `no_targets` ([842])
+
+[842]: https://github.com/openlawlibrary/taf/pull/842
 [838]: https://github.com/openlawlibrary/taf/pull/838
 
 
