@@ -8,7 +8,7 @@ from typing import Dict, Optional, Union
 
 from taf.api.repository import create_repository
 from taf.auth_repo import AuthenticationRepository
-from taf.tuf.signer_uris import create_signer_from_keystore_file
+from taf.signers.keystore import create_signer_from_keystore_file
 
 # from taf.tests import TEST_WITH_REAL_YK
 from taf.utils import on_rm_error

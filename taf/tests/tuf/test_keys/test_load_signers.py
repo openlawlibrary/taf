@@ -2,15 +2,14 @@ import pytest
 
 import taf.yubikey.yubikey as yk
 from taf.exceptions import SigningError
-from taf.signer_loaders import (
-    InputNeeded,
-    KeystoreSignerLoader,
-    load_role_signers,
-    load_signers,
+from taf.signers.base import InputNeeded
+from taf.signers.keystore import (
+    KeystoreStorage,
+    create_signer_from_keystore_file,
 )
-from taf.tests.tuf.test_keys.conftest import FakeSignerLoader, pin_manager_for
+from taf.signers.loaders import load_role_signers, load_signers
+from taf.tests.tuf.test_keys.conftest import FakeKeyStorage, pin_manager_for
 from taf.tools.yubikey.yubikey_utils import _yk_piv_ctrl_mock
-from taf.tuf.signer_uris import create_signer_from_keystore_file
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 
 
@@ -71,13 +70,13 @@ def test_load_signers_raises_when_keys_are_missing_and_user_declines_yubikeys(
         load_signers(auth_repo, "root", keystore=str(keystore_delegations_root1))
 
 
-def test_load_role_signers_tries_loaders_by_priority_and_stops_at_threshold(
+def test_load_role_signers_tries_storages_by_priority_and_stops_at_threshold(
     create_delegated_auth_repo, keystore_delegations, real_public_key, block_reprompt
 ):
     auth_repo = create_delegated_auth_repo()
     calls = []
-    device_loader = FakeSignerLoader("device", 5, InputNeeded.DEVICE, [], calls)
-    second_file_loader = FakeSignerLoader(
+    device_storage = FakeKeyStorage("device", 5, InputNeeded.DEVICE, [], calls)
+    second_file_storage = FakeKeyStorage(
         "second file",
         1,
         InputNeeded.NONE,
@@ -88,8 +87,8 @@ def test_load_role_signers_tries_loaders_by_priority_and_stops_at_threshold(
         ],
         calls,
     )
-    keystore_loader = KeystoreSignerLoader(auth_repo, None)
-    first_file_loader = FakeSignerLoader(
+    keystore_storage = KeystoreStorage(auth_repo, None)
+    first_file_storage = FakeKeyStorage(
         "first file",
         0,
         InputNeeded.NONE,
@@ -104,7 +103,7 @@ def test_load_role_signers_tries_loaders_by_priority_and_stops_at_threshold(
     signers = load_role_signers(
         auth_repo,
         "root",
-        [device_loader, second_file_loader, keystore_loader, first_file_loader],
+        [device_storage, second_file_storage, keystore_storage, first_file_storage],
     )
 
     assert calls == ["first file", "second file"]

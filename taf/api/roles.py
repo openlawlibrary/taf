@@ -17,7 +17,7 @@ from taf.keys import (
     get_metadata_key_info,
     load_sorted_keys_of_new_roles,
 )
-from taf.keystore import get_key_name
+from taf.signers.keystore import get_key_name
 from taf.api.utils._conf import find_keystore
 from taf.auth_repo import AuthenticationRepository
 from taf.constants import (

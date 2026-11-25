@@ -11,7 +11,7 @@ from taf.tests.tuf.test_keys.conftest import (
     sign_target_update,
     write_target,
 )
-from taf.tuf.signer_uris import create_signer_from_keystore_file
+from taf.signers.keystore import create_signer_from_keystore_file
 import taf.yubikey.yubikey as yk
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 

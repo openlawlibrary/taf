@@ -53,7 +53,7 @@ def test_fake_yk(monkeypatch):
     )
 
     import taf.yubikey.yubikey as yk
-    from taf.tuf.keys import YkSigner
+    from taf.signers.yubikey import YkSigner
 
     key = get_sslib_key_from_value(
         yk.export_piv_pub_key(), DEFAULT_RSA_SIGNATURE_SCHEME
@@ -78,7 +78,7 @@ def test_real_yk():
     """Test public key export and signing with real Yubikey."""
 
     import taf.yubikey.yubikey as yk
-    from taf.tuf.keys import YkSigner
+    from taf.signers.yubikey import YkSigner
     from taf.yubikey.yubikey import get_serial_nums
 
     serials = get_serial_nums()

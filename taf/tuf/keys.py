@@ -2,7 +2,6 @@
 
 import hashlib
 from typing import Callable, Dict, Optional, Tuple
-from urllib import parse
 
 from securesystemslib.signer import (
     KEY_FOR_TYPE_AND_SCHEME,
@@ -10,12 +9,8 @@ from securesystemslib.signer import (
     KEY_TYPE_ED25519,
     KEY_TYPE_MLDSA,
     KEY_TYPE_RSA,
-    SIGNER_FOR_URI_SCHEME,
     SSlibKey,
     CryptoSigner,
-    Signer,
-    SecretsHandler,
-    Signature,
 )
 from securesystemslib.formats import encode_canonical
 from cryptography.hazmat.primitives.serialization import (
@@ -39,6 +34,11 @@ KEY_TYPE_OF_SCHEME = {
     if key_class is SSlibKey and keytype in SUPPORTED_KEY_TYPES
 }
 SUPPORTED_SCHEMES = sorted(KEY_TYPE_OF_SCHEME)
+
+
+def is_rsa_public_key(public_key_pem: str) -> bool:
+    """Check if public_key_pem is the public key of an RSA key"""
+    return isinstance(load_pem_public_key(public_key_pem.encode()), RSAPublicKey)
 
 
 def is_rsa_scheme(scheme: Optional[str]) -> bool:
@@ -123,9 +123,10 @@ def get_sslib_key_from_value(key: str, scheme: Optional[str] = None) -> SSlibKey
 
 def get_public_key_pem(key: SSlibKey) -> str:
     """
-    Return the public key in PEM format.
+    Return the public key in PEM format. Ed25519 public keys are stored as hex,
+    and the others as PEM.
     """
-    if key.keyval["public"].startswith("-----BEGIN"):
+    if key.keytype != KEY_TYPE_ED25519:
         return key.keyval["public"]
     public_key = key._crypto_key()
     public_pem = public_key.public_bytes(
@@ -133,21 +134,6 @@ def get_public_key_pem(key: SSlibKey) -> str:
         format=serialization.PublicFormat.SubjectPublicKeyInfo,
     )
     return public_pem.decode()
-
-
-def is_same_public_key(key: SSlibKey, public_key_pem: str) -> bool:
-    """Check if key's public key is the one in public_key_pem, whatever their
-    signing schemes"""
-    public_key = load_pem_public_key(public_key_pem.encode())
-    der_format = (
-        serialization.Encoding.DER,
-        serialization.PublicFormat.SubjectPublicKeyInfo,
-    )
-    try:
-        key_der = key._crypto_key().public_bytes(*der_format)
-    except Exception:
-        return False
-    return key_der == public_key.public_bytes(*der_format)
 
 
 def _get_legacy_keyid(key: SSlibKey) -> str:
@@ -190,99 +176,3 @@ def _from_crypto(pub: PublicKeyTypes, scheme: Optional[str] = None) -> SSlibKey:
     key.unrecognized_fields["keyid_hash_algorithms"] = ["sha256", "sha512"]
     key.keyid = _get_legacy_keyid(key)
     return key
-
-
-class YkSigner(Signer):
-    """Signer implementation for Yubikeys.
-
-    Provides a minimal compatibility layer over `taf.yubikey` module functions
-    for use with MetadataRepository.
-
-    Attrs:
-        public_key: An SSlibkey, whose keyid and signing scheme are the single
-                of truth for creating signatures.
-        pin_handler: A function, which is called in `sign` and expected to
-                return the Yubikey pin.
-    """
-
-    SCHEME = "yk"
-    _SECRET_PROMPT = "pin"  # nosec B105
-
-    def __init__(
-        self,
-        public_key: SSlibKey,
-        serial_num: int,
-        pin_handler: SecretsHandler,
-        key_name: str,
-        slot=None,
-    ):
-
-        self._public_key = public_key
-        self._pin_handler = pin_handler
-        self._serial_num = serial_num
-        self._key_name = key_name
-        # the PIV slot holding this key; None defaults to SLOT.SIGNATURE in
-        # sign() - kept untyped here so this module stays importable without
-        # yubikey-manager installed (an optional extra)
-        self._slot = slot
-        from taf.yubikey.yubikey import get_piv_sign_args
-
-        self._sign_args = get_piv_sign_args(public_key)
-
-    @property
-    def public_key(self) -> SSlibKey:
-        return self._public_key
-
-    @property
-    def serial_num(self) -> int:
-        return self._serial_num
-
-    @property
-    def key_name(self) -> str:
-        return self._key_name
-
-    @property
-    def slot(self):
-        return self._slot
-
-    def sign(self, payload: bytes) -> Signature:
-        pin = self._pin_handler(self._SECRET_PROMPT)
-        from taf.yubikey.yubikey import sign_piv, verify_yk_inserted
-        from yubikit.piv import SLOT
-
-        verify_yk_inserted(self.serial_num, self.key_name)
-        slot = self._slot if self._slot is not None else SLOT.SIGNATURE
-        sig = sign_piv(payload, pin, self._sign_args, serial=self.serial_num, slot=slot)
-        return Signature(self.public_key.keyid, sig.hex())
-
-    @classmethod
-    def from_priv_key_uri(
-        cls,
-        priv_key_uri: str,
-        public_key: SSlibKey,
-        secrets_handler: Optional[SecretsHandler] = None,
-    ) -> "Signer":
-        """URI format: ``yk:<serial>?slot=<hex PIV slot>&name=<key name>``.
-        Slot and name are optional."""
-        uri = parse.urlparse(priv_key_uri)
-        if uri.scheme != cls.SCHEME:
-            raise ValueError(f"YkSigner does not support {priv_key_uri}")
-        if secrets_handler is None:
-            raise ValueError("YkSigner requires a secrets handler for the PIN")
-        params = dict(parse.parse_qsl(uri.query))
-        slot = None
-        if "slot" in params:
-            from yubikit.piv import SLOT
-
-            slot = SLOT(int(params["slot"], 16))
-        serial_num = int(uri.path)
-        return cls(
-            public_key,
-            serial_num,
-            secrets_handler,
-            key_name=params.get("name", str(serial_num)),
-            slot=slot,
-        )
-
-
-SIGNER_FOR_URI_SCHEME[YkSigner.SCHEME] = YkSigner

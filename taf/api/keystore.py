@@ -7,13 +7,12 @@ from taf.models.types import RolesKeysData
 from taf.api.utils._conf import find_taf_directory
 
 from taf.api.roles import initialize_roles_and_keystore
-from taf.keystore import get_key_name
+from taf.signers.keystore import check_keystore_path_usable_in_uri, get_key_name
 from taf.log import taf_logger
 from taf.models.types import RolesIterator
 from taf.models.converter import from_dict
 from taf.exceptions import KeystoreError
 from taf.tuf.keys import generate_and_write_keypair
-from taf.tuf.signer_uris import check_keystore_path_usable_in_uri
 
 
 @log_on_start(INFO, "Generating '{key_path:s}'", logger=taf_logger)

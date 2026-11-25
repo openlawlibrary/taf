@@ -7,10 +7,10 @@ from yubikit.piv import SLOT
 
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 
-import taf.signer_loaders
+import taf.signers.loaders
 import taf.yubikey.yubikey as yk
 from taf.api.targets import register_target_files
-from taf.signer_loaders import SignerLoader
+from taf.signers.base import KeyStorage
 from taf.tests.conftest import create_authentication_repository
 from taf.tools.yubikey.yubikey_utils import FakeYubiKey, _yk_piv_ctrl_mock
 from taf.utils import on_rm_error
@@ -181,7 +181,7 @@ def block_reprompt(monkeypatch):
 
     monkeypatch.setattr(yk, "getpass", _unexpected_reprompt)
     monkeypatch.setattr(click, "confirm", _unexpected_prompt)
-    monkeypatch.setattr(taf.signer_loaders, "secret_yes_no_prompt", _unexpected_prompt)
+    monkeypatch.setattr(taf.signers.loaders, "secret_yes_no_prompt", _unexpected_prompt)
 
 
 def insert_in_order(*devices):
@@ -256,11 +256,11 @@ def decline_prompts(monkeypatch):
         return False
 
     monkeypatch.setattr(click, "confirm", _decline)
-    monkeypatch.setattr(taf.signer_loaders, "secret_yes_no_prompt", _decline)
+    monkeypatch.setattr(taf.signers.loaders, "secret_yes_no_prompt", _decline)
 
 
-class FakeSignerLoader(SignerLoader):
-    """A signer loader that always returns the given signers, and appends its
+class FakeKeyStorage(KeyStorage):
+    """A key storage that always returns the given signers, and appends its
     name to calls each time it is used, so tests can check the loading order"""
 
     def __init__(self, name, priority, input_needed, signers, calls):
@@ -270,7 +270,7 @@ class FakeSignerLoader(SignerLoader):
         self._signers = signers
         self._calls = calls
 
-    def load(self, role, keys, threshold_reached):
+    def load_signers(self, role, keys, threshold_reached):
         self._calls.append(self.name)
         return self._signers
 

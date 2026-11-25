@@ -1,18 +1,12 @@
 import os
-from types import SimpleNamespace
 
 import pytest
 
+from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import InvalidPINError
+from taf.tuf.keys import get_sslib_key_from_value
 from taf.yubikey.yubikey import _pin_from_keys_mapping, _resolve_and_cache_pin
 from taf.yubikey.yubikey_manager import PinManager
-
-
-class DummyKey(SimpleNamespace):
-    """Just enough shape for .keyval['public']"""
-
-    def __init__(self, pem: str):
-        super().__init__(keyval={"public": pem})
 
 
 @pytest.fixture(autouse=True)
@@ -24,18 +18,19 @@ def clean_env():
     os.environ.update(snapshot)
 
 
-def test_pin_found():
-    pem = "-----BEGIN PUBLIC KEY-----\nABC\n-----END PUBLIC KEY-----"
+def test_pin_found(keystore):
+    key = get_sslib_key_from_value(
+        (keystore / "root1.pub").read_text(), DEFAULT_RSA_SIGNATURE_SCHEME
+    )
     os.environ["PIN_MY_KEY"] = "123456"
 
     mapping = {
         "my-key": {
-            "public": pem,
+            "public": key.keyval["public"],
             "keyid": "x",
             "scheme": "rsa",
         }
     }
-    key = DummyKey(pem)
 
     assert _pin_from_keys_mapping(key, mapping) == "123456"
 
@@ -60,11 +55,14 @@ def test_resolve_and_cache_pin_when_pin_from_environment_is_wrong(fake_yubikey):
     assert pin_manager.get_pin(fake_yubikey.serial) is None
 
 
-def test_pin_not_found():
-    pem = "-----BEGIN PUBLIC KEY-----\nXYZ\n-----END PUBLIC KEY-----"
-    key = DummyKey(pem)
+def test_pin_not_found(keystore):
+    key = get_sslib_key_from_value(
+        (keystore / "root2.pub").read_text(), DEFAULT_RSA_SIGNATURE_SCHEME
+    )
 
     assert _pin_from_keys_mapping(key, {}) is None
 
-    mapping = {"my-key": {"public": pem, "keyid": "x", "scheme": "rsa"}}
+    mapping = {
+        "my-key": {"public": key.keyval["public"], "keyid": "x", "scheme": "rsa"}
+    }
     assert _pin_from_keys_mapping(key, mapping) is None

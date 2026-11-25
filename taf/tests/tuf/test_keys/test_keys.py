@@ -1,7 +1,7 @@
 import pytest
 from tuf.api.metadata import Metadata, Root
 from taf.tuf.keys import get_sslib_key_from_value
-from taf.tuf.signer_uris import create_signer_from_keystore_file
+from taf.signers.keystore import create_signer_from_keystore_file
 
 from securesystemslib.exceptions import UnverifiedSignatureError
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME

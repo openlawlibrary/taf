@@ -4,11 +4,9 @@ from taf.auth_repo import AuthenticationRepository
 from taf.models.types import Role, RolesIterator
 from taf.models.models import TAFKey
 from taf.models.types import TargetsRole, MainRoles, UserKeyData
-from taf.signer_loaders import (
-    KeystoreSignerLoader,
-    SignerLoader,
-    YubiKeySignerLoader,
-)
+from taf.signers.base import KeyStorage
+from taf.signers.keystore import KeystoreStorage
+from taf.signers.yubikey import YubiKeyStorage
 
 from taf.exceptions import (
     KeystoreError,
@@ -141,25 +139,25 @@ def setup_roles_keys(
     skip_prompt: Optional[bool] = False,
 ) -> Tuple[List[Signer], List[SSlibKey]]:
     """
-    Load or create the keys of a new role, using the loader of the place that
-    holds them, YubiKeys or the keystore. Return signers of the keys that were
+    Load or create the keys of a new role, using the storage that holds them,
+    YubiKeys or the keystore. Return signers of the keys that were
     loaded, and public keys of the role's other keys.
     """
     if role.name is None:
         raise SigningError("Cannot set up roles keys. Role name not specified")
 
-    loader: SignerLoader
+    storage: KeyStorage
     if role.is_yubikey:
-        loader = YubiKeySignerLoader(
+        storage = YubiKeyStorage(
             auth_repo,
             insert=True,
             certs_dir=certs_dir,
             yubikeys_data=users_yubikeys_details,
         )
     else:
-        loader = KeystoreSignerLoader(
+        storage = KeystoreStorage(
             auth_repo,
             Path(keystore) if keystore is not None else None,
             skip_prompt=skip_prompt,
         )
-    return loader.setup_keys(role)
+    return storage.setup_keys(role)

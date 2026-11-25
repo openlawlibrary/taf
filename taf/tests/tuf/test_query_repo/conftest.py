@@ -4,7 +4,7 @@ from taf.utils import on_rm_error
 import pytest
 from taf.models.types import RolesKeysData
 from taf.models.converter import from_dict
-from taf.tuf.signer_uris import create_signer_from_keystore_file
+from taf.signers.keystore import create_signer_from_keystore_file
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 
 

@@ -11,7 +11,7 @@ from taf.api.utils._conf import (
 from taf.auth_repo import AuthenticationRepository
 from taf.config import load_config
 from taf.exceptions import InvalidConfigError, PushFailedError, TAFError
-from taf.signer_loaders import load_signers
+from taf.signers.loaders import load_signers
 from taf.messages import git_commit_message
 from taf.constants import METADATA_DIRECTORY_NAME
 from taf.log import taf_logger

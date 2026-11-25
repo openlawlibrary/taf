@@ -14,7 +14,7 @@ from taf.tests.tuf.test_keys.conftest import (
     verify_and_get_versions,
 )
 from taf.tools.yubikey.yubikey_utils import VALID_PIN
-from taf.tuf.signer_uris import create_signer_from_keystore_file
+from taf.signers.keystore import create_signer_from_keystore_file
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 
 ROLES = ("targets", "snapshot", "timestamp")

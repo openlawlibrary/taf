@@ -9,40 +9,32 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
-- Read and generate ECDSA (P-256, P-384, P-521) and Ed25519 keys, not only RSA
-- Read and generate ML-DSA keys in keystore files
-- Set up and sign with ECDSA (P-256, P-384) and Ed25519 keys on YubiKeys
+- ECDSA, Ed25519 and ML-DSA keys, not only RSA. YubiKeys can hold ECDSA (P-256, P-384) and Ed25519 keys ([839])
+- `--slot` for `taf yubikey export-pub-key` and `taf yubikey export-certificate` ([839])
 
 ### Changed
 
-- Upgrade to python-tuf 7 and securesystemslib 1.6 ([838])
-- Upgrade yubikey-manager to 5.9 and cryptography to 50
-- Generating a key needs a signing scheme, and so does adding an RSA key; the scheme of other keys is detected from the key
-- `taf roles add-signing-key`, `taf roles rotate-key`, `taf yubikey export-pub-key` and `taf yubikey export-certificate` take `--scheme`
-- `taf keystore generate` asks before overwriting existing key files
-- `taf yubikey setup-signing-key` needs `--scheme`
-- `taf yubikey export-pub-key` and `taf yubikey export-certificate` take `--slot`, and only need `--scheme` for the key id of an RSA key
-- RSA keys on YubiKeys use the role's `length`, or securesystemslib's default size (3072) instead of 2048, and `taf yubikey setup-signing-key` takes `--key-size`
-- Setting up a key that a YubiKey's firmware can't hold fails with an error that says so
-- A key size (`length`, `--key-size`) can only be set for RSA keys
-- Keystore paths can't contain '#' or '?'
+- Upgrade to python-tuf 7, securesystemslib 1.6, yubikey-manager 5.9 and cryptography 50 ([838], [839])
+- Generating a key and adding an RSA key need a signing scheme (`--scheme`) ([839])
+- New RSA keys are 3072 bits by default, also on YubiKeys (`--key-size`) ([839])
+- `taf keystore generate` asks before overwriting key files ([839])
+- Keystore paths can't contain '#' or '?' ([839])
 
 ### Removed
 
-- Password-protected keystore files
-- `--prompt-for-keys` and entering keys by pasting them
-- Generating keys that are only printed and not written to a keystore
-- `pyOpenSSL` dependency
+- Password-protected keystore files, `--prompt-for-keys`, and generating keys that are not written to a keystore ([839])
+- `--scheme` of `taf roles remove` ([839])
+- `pyOpenSSL` dependency ([839])
 
 ### Fixed
 
-- Fix generating a key that is not written to the keystore
-- Show errors of `taf keystore generate`
-- Make generated private keys readable only by their owner
-- Fix finding the public key of a nested delegated role by its key id
-- Sign with RSA-PSS keys on YubiKeys
-- Load signers from the remaining keystore files when one of them can't be used
+- Make generated private keys readable only by their owner ([839])
+- Show errors of `taf keystore generate` ([839])
+- Sign with RSA-PSS keys on YubiKeys ([839])
+- Fix finding keys of nested delegated roles ([839])
+- Keep loading keystore files when one of them can't be read ([839])
 
+[839]: https://github.com/openlawlibrary/taf/pull/839
 [838]: https://github.com/openlawlibrary/taf/pull/838
 
 

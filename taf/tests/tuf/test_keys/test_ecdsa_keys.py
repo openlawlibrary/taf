@@ -7,7 +7,7 @@ from cryptography.hazmat.primitives.asymmetric.ec import (
 
 from taf.constants import DEFAULT_ECDSA_SIGNATURE_SCHEME, DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import SchemeNotSpecifiedError
-from taf.tuf.signer_uris import create_signer_from_keystore_file
+from taf.signers.keystore import create_signer_from_keystore_file
 from taf.tuf.keys import (
     generate_keypair,
     get_sslib_key_from_value,

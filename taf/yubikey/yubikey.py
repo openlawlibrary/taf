@@ -17,12 +17,13 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from taf.api.utils._conf import find_taf_directory
 from taf.tuf.keys import (
+    RSA_SCHEMES,
     _get_legacy_keyid,
     generate_keypair,
     get_public_key_pem,
     get_sslib_key_from_value,
+    is_rsa_public_key,
     is_rsa_scheme,
-    is_same_public_key,
 )
 from taf.yubikey.yubikey_manager import PinManager
 from taf.models.types import KeysMapping
@@ -427,12 +428,15 @@ def get_piv_public_keys_tuf(scheme=None, serial=None, taf_repo=None) -> dict:
 
 def _get_slot_key(public_key_pem, taf_repo, scheme) -> SSlibKey:
     """Return the key of a YubiKey slot as listed in taf_repo's metadata, or,
-    if metadata does not list it, built with scheme"""
+    if metadata does not list it, built with scheme. An RSA key does not record
+    its scheme, so it is looked up with each RSA scheme"""
     if taf_repo is not None:
-        for role in taf_repo.get_all_roles():
-            for key in taf_repo.get_public_keys_of_role(role):
-                if is_same_public_key(key, public_key_pem):
-                    return key
+        schemes = RSA_SCHEMES if is_rsa_public_key(public_key_pem) else [None]
+        for key_scheme in schemes:
+            key = get_sslib_key_from_value(public_key_pem, key_scheme)
+            metadata_key = taf_repo.get_public_key(key.keyid)
+            if metadata_key is not None:
+                return metadata_key
     return get_sslib_key_from_value(public_key_pem, scheme)
 
 
@@ -799,6 +803,7 @@ def get_piv_sign_args(public_key: SSlibKey) -> Tuple:
     key_type = KEY_TYPE.from_public_key(public_key._crypto_key())
     hash_algorithm = None
     signing_padding = None
+    # Ed25519 signs the whole message, without a separate hash
     if key_type != KEY_TYPE.ED25519:
         hash_name = public_key.get_hash_algorithm_name()
         hash_algorithm = getattr(hashes, hash_name.upper())()
@@ -907,6 +912,14 @@ def is_slot_occupied(serial, slot) -> bool:
     """
     with _yk_piv_ctrl(serial=serial) as [(ctrl, _)]:
         return _slot_occupied(ctrl, slot)
+
+
+def _certificate_hash_algorithm(private_key) -> Optional[hashes.HashAlgorithm]:
+    """Return the hash algorithm for signing a certificate with private_key.
+    Ed25519 keys sign the whole certificate, without a separate hash."""
+    if isinstance(private_key, Ed25519PrivateKey):
+        return None
+    return hashes.SHA256()
 
 
 @raise_yubikey_err("Cannot setup Yubikey.")
@@ -1029,7 +1042,7 @@ def setup(
             .not_valid_after(valid_to)
             .sign(
                 private_key,
-                None if isinstance(private_key, Ed25519PrivateKey) else hashes.SHA256(),
+                _certificate_hash_algorithm(private_key),
                 default_backend(),
             )
         )
