@@ -120,6 +120,7 @@ def add_repo_command():
             keys_number = role_data.get("keys_number", 1)
             threshold = role_data.get("threshold", 1)
             yubikey = role_data.get("yubikey", False)
+            scheme = scheme or role_data.get("scheme")
 
             add_target_repo(
                 path=path,

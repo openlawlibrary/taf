@@ -5,7 +5,7 @@ from contextlib import contextmanager
 from functools import wraps
 from getpass import getpass
 from pathlib import Path
-from typing import Callable, Optional, Tuple
+from typing import Callable, Dict, Optional, Tuple
 
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
@@ -404,8 +404,8 @@ def get_piv_public_keys_pem(serial=None) -> dict:
 def get_piv_public_keys_tuf(scheme=None, serial=None, taf_repo=None) -> dict:
     """Return the public key of every occupied PIV slot on a YubiKey, in
     TUF's key format. Keys listed in taf_repo's metadata are returned as
-    listed there. RSA keys that it does not list are left out, unless scheme
-    is given.
+    listed there. Keys that it does not list are built with scheme, and left
+    out if they can't be, like RSA keys when scheme is not given.
 
     Returns:
         Dict mapping serial number to a dict of {SLOT: SSlibKey}.
@@ -414,29 +414,41 @@ def get_piv_public_keys_tuf(scheme=None, serial=None, taf_repo=None) -> dict:
         - YubikeyError
     """
     taf_logger.debug(f"Extracting TUF-format public keys from serial={serial}")
+    metadata_keys = _get_metadata_keys(taf_repo)
     keys: dict = {}
     for dev_serial, slot_pems in get_piv_public_keys_pem(serial=serial).items():
         dev_keys = {}
         for slot, pub_key_pem in slot_pems.items():
             try:
-                dev_keys[slot] = _get_slot_key(pub_key_pem, taf_repo, scheme)
-            except SchemeNotSpecifiedError:
+                dev_keys[slot] = _get_slot_key(pub_key_pem, metadata_keys, scheme)
+            except (SchemeNotSpecifiedError, ValueError):
+                taf_logger.debug(f"Skipping slot={slot}, its key does not fit {scheme}")
                 continue
         keys[dev_serial] = dev_keys
     return keys
 
 
-def _get_slot_key(public_key_pem, taf_repo, scheme) -> SSlibKey:
-    """Return the key of a YubiKey slot as listed in taf_repo's metadata, or,
-    if metadata does not list it, built with scheme. An RSA key does not record
-    its scheme, so it is looked up with each RSA scheme"""
-    if taf_repo is not None:
-        schemes = RSA_SCHEMES if is_rsa_public_key(public_key_pem) else [None]
-        for key_scheme in schemes:
-            key = get_sslib_key_from_value(public_key_pem, key_scheme)
-            metadata_key = taf_repo.get_public_key(key.keyid)
-            if metadata_key is not None:
-                return metadata_key
+def _get_metadata_keys(taf_repo) -> Dict[str, SSlibKey]:
+    """Return the keys listed in taf_repo's metadata, by key id. Empty if there
+    is no taf_repo, or it has no metadata yet"""
+    if taf_repo is None or not (taf_repo.metadata_path / "root.json").is_file():
+        return {}
+    return {
+        key.keyid: key
+        for role in taf_repo.get_all_roles()
+        for key in taf_repo.get_public_keys_of_role(role)
+    }
+
+
+def _get_slot_key(public_key_pem, metadata_keys, scheme) -> SSlibKey:
+    """Return the key of a YubiKey slot as listed in metadata_keys, or, if it is
+    not listed, built with scheme. An RSA key does not record its scheme, so it
+    is looked up with each RSA scheme"""
+    schemes = RSA_SCHEMES if is_rsa_public_key(public_key_pem) else [None]
+    for key_scheme in schemes:
+        keyid = get_sslib_key_from_value(public_key_pem, key_scheme).keyid
+        if keyid in metadata_keys:
+            return metadata_keys[keyid]
     return get_sslib_key_from_value(public_key_pem, scheme)
 
 
@@ -644,17 +656,14 @@ def _read_and_check_single_yubikey(
         slot = _prompt_for_new_key_slot(serial_num, occupied.keys())
         public_key = None
     else:
-        device_keys = {
-            slot: _get_slot_key(public_key_pem, taf_repo, scheme)
-            for slot, public_key_pem in get_piv_public_keys_pem(serial=serial_num)
-            .get(serial_num, {})
-            .items()
-        }
+        device_keys = get_piv_public_keys_tuf(
+            scheme=scheme, serial=serial_num, taf_repo=taf_repo
+        ).get(serial_num, {})
         if not device_keys:
             print(
-                f"YubiKey serial={serial_num} has no key set up yet - nothing to "
-                "reuse. Insert a YubiKey that has already been set up, or answer "
-                "'n' to create a new key instead."
+                f"YubiKey serial={serial_num} has no key that can be reused for "
+                f"{key_name}. Insert a YubiKey that holds one, or answer 'n' to "
+                "create a new key instead."
             )
             return None
         elif len(device_keys) == 1:

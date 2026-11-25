@@ -4,7 +4,7 @@ from pathlib import Path
 from click.testing import CliRunner
 
 from taf.api.targets import update_target_repos_from_repositories_json
-from taf.constants import TARGETS_DIRECTORY_NAME
+from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME, TARGETS_DIRECTORY_NAME
 from taf.tests.test_api.util import check_if_targets_signed
 from taf.tools.cli.taf import taf
 
@@ -121,6 +121,40 @@ def test_targets_add_repo_cmd_expect_success(
             "delegated_role"
         )
         assert target_repo_name in delegated_paths
+
+
+def test_targets_add_repo_cmd_uses_scheme_of_new_role_from_config_file(
+    auth_repo_when_add_repositories_json, library, keystore_delegations
+):
+    runner = CliRunner()
+    target_repo_name = f"{library.name}/target4"
+
+    with runner.isolated_filesystem():
+        config_file_path = Path.cwd() / "config.json"
+        config = {"role": {"keys_number": 1, "scheme": DEFAULT_RSA_SIGNATURE_SCHEME}}
+        config_file_path.write_text(json.dumps(config))
+
+        result = runner.invoke(
+            taf,
+            [
+                "targets",
+                "add-repo",
+                target_repo_name,
+                "--role",
+                "new_role1",
+                "--path",
+                str(auth_repo_when_add_repositories_json.path),
+                "--config-file",
+                str(config_file_path),
+                "--keystore",
+                str(keystore_delegations),
+            ],
+        )
+
+    assert result.exit_code == 0, result.output
+    assert target_repo_name in auth_repo_when_add_repositories_json.get_paths_of_role(
+        "new_role1"
+    )
 
 
 def test_targets_remove_repo_cmd_expect_success():

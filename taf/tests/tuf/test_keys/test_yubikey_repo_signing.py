@@ -1,3 +1,5 @@
+from unittest import mock
+
 import pytest
 from yubikit.piv import SLOT
 
@@ -15,9 +17,39 @@ from taf.tests.tuf.test_keys.conftest import (
 )
 from taf.tools.yubikey.yubikey_utils import VALID_PIN
 from taf.signers.keystore import create_signer_from_keystore_file
+from taf.tuf.keys import get_sslib_key_from_value
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 
 ROLES = ("targets", "snapshot", "timestamp")
+
+
+def test_create_repo_with_yubikey_whose_public_key_is_in_keys_description(
+    make_fake_yubikey, keystore, repo_path
+):
+    device = make_fake_yubikey("targets")
+    targets_pem = (keystore / "targets.pub").read_text()
+    scheme = DEFAULT_RSA_SIGNATURE_SCHEME
+    keys_description = {
+        "yubikeys": {"targets_yk": {"public": targets_pem, "scheme": scheme}},
+        "roles": {
+            "root": {"number": 2, "threshold": 2, "scheme": scheme},
+            "targets": {"yubikeys": ["targets_yk"], "scheme": scheme},
+            "snapshot": {"scheme": scheme},
+            "timestamp": {"scheme": scheme},
+        },
+    }
+
+    with mock.patch("click.confirm", return_value=True):
+        auth_repo = create_authentication_repository(
+            repo_path,
+            pin_manager_for(device),
+            "test/auth",
+            keys_description,
+            keystore=keystore,
+        )
+
+    expected_keyid = get_sslib_key_from_value(targets_pem, scheme).keyid
+    assert auth_repo.get_keyids_of_role("targets") == [expected_keyid]
 
 
 def test_create_repo_and_sign_target_update_across_devices_and_slots(

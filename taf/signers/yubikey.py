@@ -20,7 +20,7 @@ from taf.auth_repo import AuthenticationRepository
 from taf.exceptions import SigningError, YubikeyError
 from taf.log import taf_logger
 from taf.models.types import Role, UserKeyData
-from taf.signers.base import InputNeeded, KeyStorage, load_signer
+from taf.signers.base import InputNeeded, KeyStorage
 from taf.tuf.keys import _get_legacy_keyid, get_sslib_key_from_value
 from taf.tuf.repository import is_auth_repo
 
@@ -215,9 +215,9 @@ def get_yubikey_uri(serial_num: int, slot: Optional[int], key_name: str) -> str:
 
 
 def _create_signer(auth_repo, public_key, serial_num, key_name, slot=None):
-    return load_signer(
+    return Signer.from_priv_key_uri(
         get_yubikey_uri(serial_num, slot, key_name),
-        [public_key],
+        public_key,
         partial(
             yk.yk_secrets_handler,
             pin_manager=auth_repo.pin_manager,

@@ -42,8 +42,8 @@ class KeyStorage(ABC):
     @abstractmethod
     def setup_keys(self, role: Role) -> Tuple[List[Signer], List[SSlibKey]]:
         """Load or create the keys of a role that is not in metadata yet.
-        Return signers of the keys that were loaded, and public keys of the
-        role's other keys"""
+        Return signers of the keys that were loaded, and public keys that
+        metadata has to list. These can include keys of the signers"""
 
 
 def load_signer(
@@ -52,8 +52,7 @@ def load_signer(
     secrets_handler: Optional[SecretsHandler] = None,
 ) -> Optional[Signer]:
     """Return a signer for the first of ``public_keys`` that matches the
-    private key, or None. YubiKey keys are not checked, so pass only the key
-    read from the device."""
+    private key, or None."""
     for public_key in public_keys:
         try:
             return Signer.from_priv_key_uri(uri, public_key, secrets_handler)

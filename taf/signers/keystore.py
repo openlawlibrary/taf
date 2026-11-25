@@ -195,6 +195,10 @@ def _setup_keystore_key(
                     keystore_path, key_name, scheme
                 )
             except KeystoreError as e:
+                if Path(keystore_path, key_name).is_file():
+                    raise KeystoreError(
+                        f"{e}. The file is not replaced with a new key"
+                    ) from e
                 print(e)
 
             if signer is None:

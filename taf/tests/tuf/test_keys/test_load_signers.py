@@ -1,7 +1,9 @@
 import pytest
 
 import taf.yubikey.yubikey as yk
-from taf.exceptions import SigningError
+from taf.exceptions import KeystoreError, SigningError
+from taf.keys import setup_roles_keys
+from taf.models.types import TargetsRole
 from taf.signers.base import InputNeeded
 from taf.signers.keystore import (
     KeystoreStorage,
@@ -110,3 +112,24 @@ def test_load_role_signers_tries_storages_by_priority_and_stops_at_threshold(
     assert {signer.public_key.keyid for signer in signers} == {
         real_public_key(name).keyid for name in ("root1", "root2")
     }
+
+
+def test_setup_roles_keys_keeps_keystore_file_it_cannot_load(
+    create_auth_repo, keystore_password_protected_key
+):
+    auth_repo = create_auth_repo()
+    key_path = keystore_password_protected_key / "new_role"
+    key_before = key_path.read_bytes()
+    role = TargetsRole(
+        name="new_role", parent=None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME
+    )
+
+    with pytest.raises(KeystoreError, match="The file is not replaced with a new key"):
+        setup_roles_keys(
+            role,
+            auth_repo,
+            keystore=keystore_password_protected_key,
+            skip_prompt=True,
+        )
+
+    assert key_path.read_bytes() == key_before

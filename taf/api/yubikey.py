@@ -9,7 +9,7 @@ from taf.auth_repo import AuthenticationRepository
 from taf.exceptions import KeystoreError, TAFError, YubikeyError
 
 from taf.log import taf_logger
-from taf.tuf.keys import get_sslib_key_from_value
+from taf.tuf.keys import get_sslib_key_from_value, is_rsa_public_key
 from taf.tuf.repository import MAIN_ROLES
 import taf.yubikey.yubikey as yk
 from taf.yubikey.yubikey import SETUP_SLOTS
@@ -128,10 +128,13 @@ def export_yk_public_pem(
         for serial in serials:
             pub_key_pem = yk.export_piv_pub_key(serial=serial, slot=piv_slot)
             if path is None:
-                pub_key = get_sslib_key_from_value(pub_key_pem, scheme)
-                keyid = yk._get_legacy_keyid(pub_key)
                 print(f"Serial: {serial}")
-                print(f"Key id: {keyid}")
+                is_rsa = is_rsa_public_key(pub_key_pem)
+                if scheme is not None or not is_rsa:
+                    pub_key = get_sslib_key_from_value(
+                        pub_key_pem, scheme if is_rsa else None
+                    )
+                    print(f"Key id: {yk._get_legacy_keyid(pub_key)}")
                 print(pub_key_pem)
             else:
                 if not path.endswith(".pub"):

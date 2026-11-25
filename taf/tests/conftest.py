@@ -95,6 +95,16 @@ def keystore_delegations_root1():
     return KEYSTORES_PATH / "keystore_delegations_root1"
 
 
+@pytest.fixture
+def keystore_password_protected_key(tmp_path):
+    """Copy of a keystore with a password-protected key of new_role, written by
+    an older taf version. A test that writes to it can't change the committed
+    files"""
+    keystore = tmp_path / "keystore_password_protected_key"
+    shutil.copytree(KEYSTORES_PATH / "keystore_password_protected_key", keystore)
+    return keystore
+
+
 @pytest.fixture(scope="session")
 def keystore_delegations_snapshot_timestamp():
     """Only the snapshot and timestamp keys of keystore_delegations"""
