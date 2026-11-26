@@ -157,7 +157,12 @@ def read_input_dict(value):
     if value is None:
         return {}
     if not isinstance(value, dict):
-        if Path(value).is_file():
+        try:
+            is_file = Path(value).is_file()
+        except OSError:
+            # a long JSON string is not a valid file name
+            is_file = False
+        if is_file:
             with open(value) as f:
                 try:
                     value = json.loads(f.read())

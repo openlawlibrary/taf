@@ -648,6 +648,7 @@ def update_target_repos_from_repositories_json(
     add_branch: Optional[bool] = True,
     commit: Optional[bool] = True,
     push: Optional[bool] = True,
+    keys_description: Optional[str] = None,
 ) -> None:
     """
     Create or update target files by reading the latest commit's repositories.json
@@ -659,6 +660,7 @@ def update_target_repos_from_repositories_json(
         add_branch: Indicates whether to add the current branch's name to the target file.
         commit (optional): Indicates if the changes should be committed and pushed automatically.
         push (optional): Flag specifying whether to push to remote
+        keys_description (optional): Keys description, used for the names of the keys.
     Side Effects:
        Update target and metadata files and writes changes to disk.
 
@@ -678,6 +680,8 @@ def update_target_repos_from_repositories_json(
             Path(library_dir), repo_name, repo_path, add_branch
         )
 
+    auth_repo = AuthenticationRepository(path=repo_path, pin_manager=pin_manager)
+    auth_repo.add_key_names(read_keys_name_mapping(keys_description))
     register_target_files(
         path=repo_path,
         pin_manager=pin_manager,
@@ -686,6 +690,7 @@ def update_target_repos_from_repositories_json(
         push=push,
         update_snapshot_and_timestamp=True,
         reset_updated_targets_on_error=True,
+        auth_repo=auth_repo,
     )
 
 

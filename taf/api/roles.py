@@ -353,8 +353,8 @@ def add_signing_key(
     Arguments:
         path: Path to the authentication repository.
         roles: A list of roles whose signing keys need to be extended.
-        pub_key_path (optional): path to the file containing the public component of the new key. If not provided,
-            it will be necessary to ender the key when prompted.
+        pub_key_path (optional): path to the file containing the public component of the new key.
+            Needed if pub_key is not given.
         keystore (optional): Location of the keystore files.
         commit (optional): Indicates if the changes should be committed and pushed automatically.
         push (optional): Flag specifying whether to push to remote.
@@ -512,8 +512,7 @@ def rotate_signing_key(
         path: Path to the authentication repository.
         roles: A list of roles whose signing keys need to be extended.
         key_id: id of the key to be removed
-        pub_key_path (optional): path to the file containing the public component of the new key. If not provided,
-            it will be necessary to ender the key when prompted.
+        pub_key_path (optional): path to the file containing the public component of the new key.
         keystore (optional): Location of the keystore files.
         commit (optional): Indicates if the changes should be committed and pushed automatically.
         push (optional): Flag specifying whether to push to remote.

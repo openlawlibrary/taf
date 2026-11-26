@@ -23,7 +23,6 @@ and this project adheres to [Semantic Versioning][semver].
 ### Removed
 
 - Password-protected keystore files, `--prompt-for-keys`, and generating keys that are not written to a keystore ([839])
-- `--scheme` of `taf roles remove` ([839])
 - `pyOpenSSL` dependency ([839])
 
 ### Fixed

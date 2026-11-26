@@ -172,6 +172,29 @@ def _signed_target_repositories(library, pin_manager, keystore_delegations):
     )
 
 
+def test_targets_update_and_sign_cmd_signs_every_repository_of_repositories_json(
+    auth_repo_when_add_repositories_json, library, keystore_delegations
+):
+    auth_path = str(library / "auth")
+
+    result = CliRunner().invoke(
+        taf,
+        [
+            "targets",
+            "update-and-sign",
+            "--path",
+            auth_path,
+            "--keystore",
+            str(keystore_delegations),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    listed = CliRunner().invoke(taf, ["targets", "list", "--path", auth_path])
+    for name in ("target1", "target2", "target3"):
+        assert f"Target repository: {library.name}/{name}" in listed.output
+
+
 def test_targets_list_prints_each_target_repository_and_its_state(
     auth_repo_when_add_repositories_json,
     pin_manager,

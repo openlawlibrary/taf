@@ -8,7 +8,7 @@ from taf.api.yubikey import (
     setup_signing_yubikey,
     setup_test_yubikey,
 )
-from taf.exceptions import KeystoreError, YubikeyError
+from taf.exceptions import KeystoreError, TAFError, YubikeyError
 from taf.repository_utils import find_valid_repository
 from taf.tools.cli import catch_cli_exception
 from taf.tools.repo import pin_managed
@@ -80,7 +80,7 @@ def export_pub_key_command():
 
 def get_roles_command():
     @click.command(help="List roles the inserted YubiKey is allowed to sign.")
-    @catch_cli_exception(handle=YubikeyError, print_error=True)
+    @catch_cli_exception(handle=TAFError, print_error=True)
     @click.option(
         "--path",
         default=".",

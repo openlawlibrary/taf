@@ -267,8 +267,8 @@ def sign_targets_command():
         to roles responsible for updated target files are updated. Once the targets
         files are updated, so are snapshot and timestamp. All files are then signed. If the
         keystore parameter is provided, keys stored in that directory will be used for
-        signing. If a needed key is not in that directory, the file can either be signed
-        by manually entering the key or by using a Yubikey."""
+        signing. If a needed key is not in that directory, the file can be signed using
+        a Yubikey."""
     )
     @find_repository
     @catch_cli_exception(handle=TAFError)
@@ -387,9 +387,10 @@ def update_and_sign_command():
             else:
                 update_target_repos_from_repositories_json(
                     path,
+                    pin_manager,
                     library_dir,
+                    keystore,
                     add_branch=True,
-                    keystore=keystore,
                     commit=not no_commit,
                     keys_description=keys_description,
                 )
