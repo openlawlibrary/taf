@@ -8,6 +8,9 @@ repositories. Everything else in the [TAF specification](taf-spec.md) still appl
 The earlier layout, one target file per repository that names a branch and a commit, is called the
 *legacy layout* in this document.
 
+What changed from the legacy layout, and why, is in
+[changes and security considerations](taf-spec-1.0-changes.md).
+
 The key words MUST, MUST NOT, SHOULD and MAY are to be read as described in RFC 2119.
 
 ## 1 Terms
@@ -334,3 +337,18 @@ There are 21 checks. Each has an id that readers report and tests refer to.
 | --- | --- | --- |
 | `gitref.branch` | A branch or list ref's git ref is ahead of or off its signed position. Behind is a warning, and so is ahead while unauthenticated commits are allowed ([6](#6-git-refs)) | error |
 | `gitref.pointer` | A pointer's git ref isn't at its last move, or `main` isn't at the current position. Behind is a warning | error |
+
+## 9 Security considerations
+
+- Readers MUST use the signed position of a ref, never its git ref ([6](#6-git-refs)).
+- A ref is authenticated from its first entry. Commits before it, or before a fork's
+  `commit-from`, are not signed states even though the first entry's hash covers them.
+- Readers check what a pointer may do, not why it was created or re-targeted. A holder of the key
+  that signs pointers can switch `current.json` to a new pointer over any authenticated branch.
+- Expiry is the only defense against a mirror that keeps serving an old state, which is why
+  `metadata.expiry` is never a warning.
+- Readers that implement only the legacy layout and predate [2](#2-spec-version) don't refuse a
+  1.0 repository. Every reader of a repository has to be upgraded before its migration commit is
+  published.
+
+[Changes and security considerations](taf-spec-1.0-changes.md) covers each of these in detail.
