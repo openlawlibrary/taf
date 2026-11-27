@@ -141,6 +141,7 @@ def list_slots_command():
     @click.option(
         "--serial",
         default=None,
+        type=int,
         help="Serial number of a specific YubiKey. Lists slots for every inserted YubiKey if not specified",
     )
     @catch_cli_exception(handle=YubikeyError)
@@ -180,11 +181,17 @@ def setup_signing_key_command():
         help="Size of an RSA key in bits, 3072 if not given. "
         "RSA keys longer than 2048 bits need YubiKey firmware 5.7 or newer",
     )
+    @click.option(
+        "--serial",
+        default=None,
+        type=int,
+        help="Serial number of a YubiKey. Has to be provided if more than one YK is inserted",
+    )
     @catch_cli_exception(handle=YubikeyError)
     @pin_managed
-    def setup_signing_key(certs_dir, slot, scheme, key_size, pin_manager):
+    def setup_signing_key(certs_dir, slot, scheme, key_size, serial, pin_manager):
         setup_signing_yubikey(
-            pin_manager, scheme, certs_dir, key_size=key_size, slot=slot
+            pin_manager, scheme, certs_dir, key_size=key_size, slot=slot, serial=serial
         )
 
     return setup_signing_key
@@ -203,10 +210,16 @@ def setup_test_key_command():
         default="SIGNATURE",
         help="PIV slot to copy the key into. Defaults to SIGNATURE.",
     )
+    @click.option(
+        "--serial",
+        default=None,
+        type=int,
+        help="Serial number of a YubiKey. Has to be provided if more than one YK is inserted",
+    )
     @catch_cli_exception(handle=(YubikeyError, KeystoreError))
     @pin_managed
-    def setup_test_key(key_path, slot, pin_manager):
-        setup_test_yubikey(pin_manager, key_path, slot=slot)
+    def setup_test_key(key_path, slot, serial, pin_manager):
+        setup_test_yubikey(pin_manager, key_path, slot=slot, serial=serial)
 
     return setup_test_key
 

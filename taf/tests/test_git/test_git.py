@@ -614,6 +614,22 @@ def test_restore_removes_files_and_directories_unknown_to_git(
     assert not new_dir.exists()
 
 
+def test_restore_removes_files_added_inside_a_directory_known_to_git(
+    repository: GitRepository,
+):
+    metadata_dir = repository.path / "metadata"
+    metadata_dir.mkdir()
+    (metadata_dir / "root.json").write_text("root")
+    repository.commit(message="Add metadata")
+    (metadata_dir / "root.json").write_text("modified")
+    (metadata_dir / "2.root.json").write_text("new")
+
+    repository.restore(["metadata"])
+
+    assert (metadata_dir / "root.json").read_text() == "root"
+    assert not (metadata_dir / "2.root.json").exists()
+
+
 def test_restore_restores_deleted_file(repository: GitRepository):
     (repository.path / "test1.txt").unlink()
 

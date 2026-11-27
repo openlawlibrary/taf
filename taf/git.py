@@ -1986,6 +1986,8 @@ class GitRepository:
         if existing:
             self._git(f"reset HEAD -- {' '.join(existing)}")
             self._git(f"checkout HEAD -- {' '.join(existing)}")
+            # remove files that were added inside directories known to git
+            self._git(f"clean -fd -- {' '.join(existing)}")
         for path in non_existing:
             file_path = Path(path)
             if file_path.is_file():

@@ -299,6 +299,7 @@ def setup_signing_yubikey(
     certs_dir: Optional[str] = None,
     key_size: Optional[int] = None,
     slot: str = "SIGNATURE",
+    serial: Optional[str] = None,
 ) -> None:
     """
     Generate a new key and copy it to the given PIV slot of the inserted YubiKey.
@@ -310,6 +311,7 @@ def setup_signing_yubikey(
         slot (optional): Name of the PIV slot to set the key up in ("SIGNATURE",
             "AUTHENTICATION", "KEY_MANAGEMENT", or "CARD_AUTH"). Defaults to "SIGNATURE".
         key_size (optional): Size of an RSA key in bits, 3072 if not given.
+        serial (optional): Serial number of the YubiKey. Needed if more than one is inserted.
 
     Side Effects:
        None
@@ -322,6 +324,7 @@ def setup_signing_yubikey(
     serial_num, _ = _prepare_setup(
         pin_manager,
         piv_slot,
+        serial=serial,
         insert_prompt="Insert the YubiKey you want to set up and press ENTER",
     )
 
