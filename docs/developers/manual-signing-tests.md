@@ -24,6 +24,9 @@ All paths below are relative to this directory.
 - Keys go into the SIGNATURE, AUTHENTICATION and KEY_MANAGEMENT slots. CARD_AUTH is meant for use without a PIN and is not used here.
 - taf never overwrites an occupied PIV slot. `ykman --device <serial> piv reset` frees all slots of a YubiKey and removes its keys. The PIN is then `123456`.
 - To not type the PIN of a YubiKey in every command, set `PIN_<serial>`, for example `export PIN_12345678=123456`. Leave it unset in the steps that test PIN prompts.
+- With more than one YubiKey inserted, `setup-signing-key`, `setup-test-key` and `list-slots` need `--serial <serial>`.
+- Keep a YubiKey that a command loaded a key from inserted until the command ends. The metadata is signed at the end, and taf asks for that YubiKey again if it is missing.
+- Don't insert two YubiKeys that hold copies of the same key. taf asks for the PIN of the second one and doesn't use its copy.
 
 To see which keys signed a role, compare with `taf roles list-keys`:
 
@@ -145,11 +148,12 @@ taf metadata update-expiration-dates --path test-ns/auth --keystore keystore --r
 jq -r '.signatures[].keyid' test-ns/auth/metadata/root.json
 ```
 
-Run it three times:
+Run it four times:
 
-- **Both YubiKeys inserted before the command:** only the PINs are asked. root has both key ids.
-- **No YubiKey inserted:** answer y to "Sign root using YubiKey(s)?" and insert YK-A, then YK-B, when asked. root has both key ids.
-- **Only YK-A inserted, then decline to insert another:** "Cannot load keys of role root", and nothing changes.
+- Both YubiKeys inserted before the command: only the PINs are asked, for root1 and root2. root has both key ids.
+- No YubiKey inserted: answer y to "Sign root using YubiKey(s)?" and insert YK-A, then YK-B, when asked. root has both key ids.
+- No YubiKey inserted, answer n to "Sign root using YubiKey(s)?": "Cannot load keys of role root", and `git -C test-ns/auth status --short` shows nothing.
+- Only YK-A inserted: taf asks to insert the YubiKey of root2 right away, without "Sign root using YubiKey(s)?". Press Ctrl+C: the command stops, and `git -C test-ns/auth status --short` shows nothing.
 
 snapshot and timestamp are signed from the keystore each time, without prompts.
 
@@ -160,10 +164,11 @@ taf metadata update-expiration-dates --path test-ns/auth --keystore keystore --r
 jq -r '.signatures[].keyid' test-ns/auth/metadata/targets.json
 ```
 
-Run it twice, inserting YK-A when asked:
+Run it three times, inserting YK-A when asked:
 
-- **Answer y to "Threshold of targets keys reached. Do you want to load more targets keys?"** and insert YK-B. targets has both key ids.
-- **Answer n.** targets has one key id.
+- Answer y to "Threshold of targets keys reached. Do you want to load more targets keys?". The request to insert a YubiKey names the missing key, targets2. Insert YK-B. targets has both key ids.
+- Answer n. targets has one key id.
+- Answer y, and insert a YubiKey that holds no targets key: the notice "... do not hold a signing key for role 'targets' ... skipped", and the request to insert repeats.
 
 ### A7. Update snapshot and timestamp
 
@@ -214,6 +219,15 @@ jq -r '.signatures[].keyid' test-ns/auth/metadata/delegated_role.json
 
 Expected: target3's target file is signed by delegated_role.
 
+The targets1 key is now a key of targets and of delegated_role. With only YK-A inserted:
+
+```bash
+taf metadata update-expiration-dates --path test-ns/auth --keystore keystore --role targets
+taf metadata update-expiration-dates --path test-ns/auth --keystore keystore --role delegated_role
+```
+
+Expected: the PIN prompt names the key targets1 when targets is signed, and delegated_role1 when delegated_role is signed. Answer n to "load more targets keys?".
+
 ### A10. Add a key to targets, then rotate it
 
 Changing targets' keys changes root, so both YubiKeys are needed.
@@ -255,7 +269,7 @@ Expected:
 
 ### A12. Both keys of a role on one YubiKey
 
-When only one YubiKey is at hand. Use a spare YubiKey, or reset one and copy its keys back from `yk-keys` afterwards. Copy both targets keys into two slots and sign:
+When only one YubiKey is at hand. Use a spare YubiKey, or reset one and copy its keys back from `yk-keys` afterwards. Unplug YK-A and YK-B, which hold the same keys. Copy both targets keys into two slots and sign:
 
 ```bash
 taf yubikey setup-test-key yk-keys/targets1 --slot SIGNATURE
@@ -296,6 +310,44 @@ Expected: "Sign using yk_a Yubikey?". Answer y, insert YK-A, and the repository 
 
 Without `"scheme"` for an RSA YubiKey key in the `yubikeys` section, `repo create` stops with a message to set it.
 
+### A14. Create a repository that sets up its YubiKey keys
+
+`repo create` reuses a key that is already on a YubiKey, or generates a new one in a free slot. Use a YubiKey with an RSA key in SIGNATURE and a free slot, for example YK-B before A10, and insert only that YubiKey. With two YubiKeys inserted, taf keeps asking to insert only one.
+
+```bash
+mkdir -p create-test && cd create-test
+cat > keys-description.json <<'EOF'
+{
+  "roles": {
+    "root": {"yubikey": true, "scheme": "rsa-pkcs1v15-sha256"},
+    "targets": {"yubikey": true, "scheme": "ecdsa-sha2-nistp256"},
+    "snapshot": {"scheme": "ecdsa-sha2-nistp384"},
+    "timestamp": {"scheme": "ecdsa-sha2-nistp384"}
+  }
+}
+EOF
+taf keystore generate --keystore keystore --keys-description keys-description.json
+taf repo create test-ns/auth --keys-description keys-description.json --keystore keystore --test
+```
+
+At the prompts:
+
+- root: answer y to "reuse already set up Yubikey?". Only the RSA key fits the scheme, so taf uses it without asking for a slot.
+- targets: answer n, pick a free slot other than CARD_AUTH, and enter a key holder's name.
+
+```bash
+taf roles list-keys --path test-ns/auth
+taf yubikey list-slots
+taf metadata update-expiration-dates --path test-ns/auth --keystore keystore --role targets
+cd ..
+```
+
+Expected:
+
+- The repository is created. `list-keys` shows both YubiKey keys with the names from their certificates, and `test-ns/auth/certs` has their certificates.
+- The new key is in the slot that was picked.
+- targets is signed with the new key.
+
 ## B. YubiKey key types and slots
 
 Insert one YubiKey at a time.
@@ -312,7 +364,7 @@ taf yubikey list-slots
 Expected:
 
 - Keys the YubiKey can hold (see the table above) are set up in the given slot.
-- The others fail with "cannot hold this key ... Use a 2048-bit RSA key", and nothing is written to the slot.
+- The others fail with "cannot hold this key ... Use a 2048-bit RSA key" after the PIN, before the key holder's name is asked, and nothing is written to the slot.
 - The occupied slot is refused, on YubiKey 4 too, which has no slot metadata.
 
 Copying a key the YubiKey can't hold fails the same way. On firmware older than 5.7:

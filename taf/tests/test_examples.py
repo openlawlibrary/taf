@@ -47,17 +47,18 @@ def test_doctests(module_name):
 
 
 DOCS_DIR = TAF_DIR.parent / "docs"
-CODE_BLOCK = re.compile(r"```\w*\n(.*?)```", re.DOTALL)
+CODE_BLOCK = re.compile(r"```(\w*)\n(.*?)```", re.DOTALL)
 
 
 def _docs_keys_description_examples():
     """Keys description examples found in the markdown docs, as
-    (file name and position, text of the example) pairs."""
+    (file name and position, text of the example) pairs. Blocks of shell
+    commands are not examples, even if a command writes a keys description"""
     examples = []
     for path in sorted(DOCS_DIR.rglob("*.md")):
         blocks = CODE_BLOCK.findall(path.read_text(encoding="utf-8"))
-        for position, block in enumerate(blocks):
-            if '"roles"' in block:
+        for position, (language, block) in enumerate(blocks):
+            if language in ("", "json") and '"roles"' in block:
                 examples.append(
                     pytest.param(block, id=f"{path.relative_to(DOCS_DIR)}-{position}")
                 )

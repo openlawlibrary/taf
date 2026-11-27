@@ -931,6 +931,20 @@ def _certificate_hash_algorithm(private_key) -> Optional[hashes.HashAlgorithm]:
     return hashes.SHA256()
 
 
+def _check_key_support(ctrl, serial, private_key) -> None:
+    """Raise YubikeyError if the YubiKey can't hold a key of private_key's type"""
+    key_type = KEY_TYPE.from_public_key(private_key.public_key())
+    try:
+        ctrl.check_key_support(
+            key_type, PIN_POLICY.ALWAYS, TOUCH_POLICY.DEFAULT, generate=False
+        )
+    except NotSupportedError as e:
+        raise YubikeyError(
+            f"YubiKey serial={serial} cannot hold this key: {e}. Use a 2048-bit "
+            'RSA key ("length": 2048 or --key-size 2048) or an ECDSA scheme.'
+        ) from e
+
+
 @raise_yubikey_err("Cannot setup Yubikey.")
 def setup(
     pin,
@@ -1021,16 +1035,7 @@ def setup(
                     private_key_pem, pem_pwd, default_backend()
                 )
 
-        key_type = KEY_TYPE.from_public_key(private_key.public_key())
-        try:
-            ctrl.check_key_support(
-                key_type, PIN_POLICY.ALWAYS, TOUCH_POLICY.DEFAULT, generate=False
-            )
-        except NotSupportedError as e:
-            raise YubikeyError(
-                f"YubiKey serial={serial} cannot hold this key: {e}. Use a 2048-bit "
-                'RSA key ("length": 2048 or --key-size 2048) or an ECDSA scheme.'
-            ) from e
+        _check_key_support(ctrl, serial, private_key)
 
         taf_logger.debug(f"Placing key in {slot.name} slot with PIN_POLICY.ALWAYS...")
         ctrl.put_key(slot, private_key, PIN_POLICY.ALWAYS)
@@ -1076,16 +1081,18 @@ def setup_new_yubikey(
         f"key_size={key_size}, slot={slot}"
     )
     pin = pin_manager.get_pin(serial)
-    cert_cn = input("Enter key holder's name: ")
     print("Generating key, please wait...")
+    private_key_pem, _ = generate_keypair(scheme, key_size)
+    with _yk_piv_ctrl(serial=serial) as [(ctrl, _)]:
+        _check_key_support(ctrl, serial, load_pem_private_key(private_key_pem, None))
+    cert_cn = input("Enter key holder's name: ")
     pub_key_pem = setup(
         pin,
         serial,
         cert_cn,
         cert_exp_days=EXPIRATION_INTERVAL,
-        key_size=key_size,
+        private_key_pem=private_key_pem,
         slot=slot,
-        scheme=scheme,
     ).decode("utf-8")
     key = get_sslib_key_from_value(pub_key_pem, scheme)
     taf_logger.debug(

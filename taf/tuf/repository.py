@@ -184,6 +184,9 @@ class MetadataRepository(Repository):
         self.pin_manager = pin_manager
         self.yubikey_store = YubiKeyStore()
         self._keys_name_mappings: Optional[Dict[str, str]] = None
+        # ids of keys named through add_key_name, e.g. from a keys description.
+        # add_default_names_of_role does not rename them
+        self._named_key_ids: Set[str] = set()
 
     @property
     def keys_name_mappings(self):
@@ -244,16 +247,22 @@ class MetadataRepository(Repository):
         self.keys_name_mappings
         if overwrite or not key_id in self.keys_name_mappings:
             self._keys_name_mappings[key_id] = key_name
+            self._named_key_ids.add(key_id)
 
     def add_default_names_of_role(self, role_name):
-        keys_name_mapping = self.keys_name_mappings
-        key_ids = self.get_keyids_of_role(role_name)
-        number = len(key_ids)
-        for index, key_id in enumerate(key_ids):
-            if keys_name_mapping and key_id in keys_name_mapping:
+        """Name the keys of role_name that were not named through add_key_name,
+        e.g. from a keys description. Such a key gets the name stored with the
+        role's keys, or role_name followed by a number. A key that another role
+        also uses can have a different name there"""
+        keys = self.get_public_keys_of_role(role_name)
+        number = len(keys)
+        for index, key in enumerate(keys):
+            if key.keyid in self._named_key_ids:
                 continue
-            key_name = role_name if number == 1 else f"{role_name}{index + 1}"
-            self.add_key_name(key_name, key_id)
+            key_name = key.unrecognized_fields.get("name")
+            if key_name is None:
+                key_name = role_name if number == 1 else f"{role_name}{index + 1}"
+            self.keys_name_mappings[key.keyid] = key_name
 
     def all_target_files(self) -> Set:
         """
