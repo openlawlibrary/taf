@@ -225,8 +225,11 @@ when absent.
 - It is read at each auth commit, from `repositories.json` at that commit. For auth commits before
   the migration commit, the value is the legacy one: `repositories.json` custom data updated with
   the `custom` object of the repo's legacy target file.
-- While it is true, an entry only has to be a first-parent descendant of the previous entry
-  (`ref.follows`), and a git ref ahead of its signed position is a warning (`gitref.branch`).
+- While it is false, every commit of a ref is listed: each entry's first parent is the previous
+  entry, and a first entry without a `fork` is a root commit (`ref.follows`).
+- While it is true, an entry only has to be a first-parent descendant of the previous entry, a
+  first entry may have parents that no entry lists (`ref.follows`), and a git ref ahead of its
+  signed position is a warning (`gitref.branch`).
 - From the migration commit on, it may go from true to false and never back.
 - Entries listed while it was true are not checked again after it turns false.
 
@@ -315,7 +318,7 @@ There are 21 checks. Each has an id that readers report and tests refer to.
 | `ref.owner` | A ref file is signed by the top-level `targets` role ([4](#4-roles)) | warning |
 | `ref.append-only` | An entry, a move or a header field changed or was removed, or a ref file's kind changed | error |
 | `ref.no-disappear` | A ref file is removed, or a data repo has no git ref for a ref file of the last auth commit | error |
-| `ref.follows` | An added entry's first parent isn't the previous entry. While unauthenticated commits are allowed at that auth commit, the previous entry only has to be a first-parent ancestor. Also fails when `allow-unauthenticated-commits` goes from false to true ([5](#5-unauthenticated-commits)) | error |
+| `ref.follows` | An added entry's first parent isn't the previous entry, or a ref's first entry without a `fork` has a parent. While unauthenticated commits are allowed at that auth commit, the previous entry only has to be a first-parent ancestor, and a first entry may have parents. Also fails when `allow-unauthenticated-commits` goes from false to true ([5](#5-unauthenticated-commits)) | error |
 | `ref.fork-listed` | `fork.commit-from` isn't an entry of `fork.from`, or isn't the first parent of the branch's first entry ([3.5](#35-branch-refs)) | error |
 | `ref.fork-tip` | `fork.parent-tip` isn't the last entry of `fork.from` at the auth commit that adds the branch | error |
 | `ref.dates` | A `publish-date` is before an earlier entry's `publish-date` in the same ref. Entries without one are skipped | error |
@@ -341,8 +344,9 @@ There are 21 checks. Each has an id that readers report and tests refer to.
 ## 9 Security considerations
 
 - Readers MUST use the signed position of a ref, never its git ref ([6](#6-git-refs)).
-- A ref is authenticated from its first entry. Commits before it, or before a fork's
-  `commit-from`, are not signed states even though the first entry's hash covers them.
+- In a repo that doesn't allow unauthenticated commits, every commit of a ref is listed. In one
+  that does, commits that no entry lists, including any before a ref's first entry, are not signed
+  states even though a later entry's hash covers them.
 - Readers check what a pointer may do, not why it was created or re-targeted. A holder of the key
   that signs pointers can switch `current.json` to a new pointer over any authenticated branch.
 - Expiry is the only defense against a mirror that keeps serving an old state, which is why

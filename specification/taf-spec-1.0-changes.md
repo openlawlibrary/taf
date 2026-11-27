@@ -17,7 +17,7 @@ implemented by taf's updater before version 1.0.
 | --- | --- | --- |
 | [2.1](#21-one-append-only-file-per-ref) | One append-only file per ref, instead of one overwritten file per repo | Stronger |
 | [2.2](#22-several-commits-per-auth-commit) | An auth commit may list several new commits of a ref | Neutral |
-| [2.3](#23-where-a-ref-starts) | A ref without a fork header is authenticated from its first entry, not from its root commit | **Weaker** |
+| [2.3](#23-where-a-ref-starts) | A ref may start from a fork instead of a root commit | Neutral |
 | [2.4](#24-pointers-and-moves) | Pointers and signed moves are new signed objects | New surface |
 | [2.5](#25-expired-metadata) | Expired metadata is always an error | Stronger |
 | [2.6](#26-spec-version) | The spec version is declared and never goes down | Stronger, with a transition gap |
@@ -60,14 +60,13 @@ keys that are kept online. They can't forge signatures of keys they don't hold.
 - **Legacy:** when a target file switches to another branch, the updater expects the listed commit
   to be that branch's first commit. Every commit from the root on is then listed by some auth
   commit, so every state of the branch was signed.
-- **1.0:** a branch ref may start anywhere. A `fork` header records the ref and commit it started
-  from (`ref.fork-listed`, `ref.fork-tip`). A ref without one, and every list ref, is authenticated
-  from its first entry only.
-- **Effect:** weaker for history before a ref's first entry. Those commits are fixed by the git
-  hash chain of the first entry, but no signature says any of them was a valid state. A reader that
-  checks out the signed position isn't affected. A reader that uses older commits of a ref, for
-  example to show history, must treat commits before the first entry, or before a fork's
-  `commit-from`, as unsigned.
+- **1.0:** a branch ref may start from a commit of another ref. A `fork` header records the ref
+  and commit it started from (`ref.fork-listed`, `ref.fork-tip`), and that commit is an entry of the
+  other ref. In a repo that doesn't allow unauthenticated commits, a ref without a fork, and every
+  list ref, starts at a root commit (`ref.follows`), as in legacy.
+- **Effect:** neutral. In a repo that doesn't allow unauthenticated commits, every commit of every
+  ref is listed by some auth commit. In a repo that allows them, a ref's first entry may have
+  unlisted parents, like the gaps the setting already allows between entries ([2.8](#28-unauthenticated-commits)).
 - **Implementations must:** never present a commit as authenticated because it is an ancestor of
   an entry.
 
@@ -186,7 +185,7 @@ version and role versions never go down.
 | Item | Status |
 | --- | --- |
 | A key that signs pointers can switch `current.json` to a new pointer over any authenticated branch ([2.4](#24-pointers-and-moves)) | Accepted. Readers check the invariants above; the policy for when a pointer is created or re-targeted is the writer's |
-| History before a ref's first entry is unsigned ([2.3](#23-where-a-ref-starts)) | Accepted. Forks make lineage explicit where it matters |
+| In a repo that allows unauthenticated commits, commits that no entry lists, including any before a ref's first entry, are unsigned ([2.3](#23-where-a-ref-starts), [2.8](#28-unauthenticated-commits)) | Accepted. It is what the setting allows, as in legacy |
 | Landing time is unsigned ([2.10](#210-landing-time)) | Open. A signed landing time would make `moves.not-backdated` an error |
 | Released legacy readers report success on 1.0 repositories ([2.6](#26-spec-version)) | Accepted. Mitigated by the order in [3](#3-moving-an-existing-repository) |
 | How the moves of converted pointers are dated | Open (spec [7.1](taf-spec-1.0.md#71-conversion)) |
@@ -200,7 +199,5 @@ version and role versions never go down.
    other.
 2. **Pointer key compromise.** Is it acceptable that readers don't re-derive pointers
    ([2.4](#24-pointers-and-moves)), given that the pointer key is likely kept online?
-3. **Fork-less refs.** Should a ref without a fork be required to start at a root commit, as
-   legacy branches effectively did ([2.3](#23-where-a-ref-starts))?
-4. **Strict expiry.** Is treating expiry as an error in every reader the right default, given the
+3. **Strict expiry.** Is treating expiry as an error in every reader the right default, given the
    availability cost ([2.5](#25-expired-metadata))?
