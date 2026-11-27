@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Draft of the taf 1.0 specification ([840])
+
 ### Changed
 
 - Upgrade to python-tuf 7 and securesystemslib 1.6 ([838])
@@ -21,6 +23,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 [842]: https://github.com/openlawlibrary/taf/pull/842
 [838]: https://github.com/openlawlibrary/taf/pull/838
+[840]: https://github.com/openlawlibrary/taf/pull/840
 
 
 ## [0.42.3]
