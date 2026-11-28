@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 - ECDSA, Ed25519 and ML-DSA keys, not only RSA. YubiKeys can hold ECDSA (P-256, P-384) and Ed25519 keys ([839])
 - `--slot` for `taf yubikey export-pub-key` and `taf yubikey export-certificate` ([839])
+- `--serial` for `taf yubikey setup-signing-key` and `taf yubikey setup-test-key` ([839])
 
 ### Changed
 
@@ -32,6 +33,8 @@ and this project adheres to [Semantic Versioning][semver].
 - Sign with RSA-PSS keys on YubiKeys ([839])
 - Fix finding keys of nested delegated roles ([839])
 - Keep loading keystore files when one of them can't be read ([839])
+- Fix `taf targets update-and-sign` without `--target-type` and `taf yubikey list-slots --serial` ([839])
+- Remove files left behind by a failed command ([839])
 
 [839]: https://github.com/openlawlibrary/taf/pull/839
 [838]: https://github.com/openlawlibrary/taf/pull/838
