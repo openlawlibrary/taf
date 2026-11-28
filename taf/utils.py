@@ -23,6 +23,7 @@ from functools import wraps
 from pathlib import Path
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey, RSAPublicKey
 from cryptography.hazmat.primitives.serialization import (
     load_pem_public_key,
     load_pem_private_key,
@@ -31,7 +32,7 @@ from json import JSONDecoder
 from taf.log import taf_logger
 import taf.settings
 from taf.exceptions import ExecutableNotFoundError, PINMissmatchError
-from typing import List, Optional, Tuple, Dict
+from typing import List, Optional, Tuple, Dict, Union
 from securesystemslib.storage import FilesystemBackend, StorageBackendInterface
 
 
@@ -90,16 +91,19 @@ def get_cert_names_from_keyids(certs_dir, keyids):
     return cert_names
 
 
-def get_key_size(key_pem_path, decrypt_pwd=None):
+def get_key_size(key_pem_path):
+    """Return the size of an RSA key file in bits, or 0 for other key types"""
     try:
         key = load_pem_public_key(Path(key_pem_path).read_bytes(), default_backend())
     except ValueError:
         key = load_pem_private_key(
-            Path(key_pem_path).read_bytes(), decrypt_pwd, default_backend()
+            Path(key_pem_path).read_bytes(), None, default_backend()
         )
     except Exception:
         return 0
 
+    if not isinstance(key, (RSAPublicKey, RSAPrivateKey)):
+        return 0
     return key.key_size
 
 
@@ -153,7 +157,12 @@ def read_input_dict(value):
     if value is None:
         return {}
     if not isinstance(value, dict):
-        if Path(value).is_file():
+        try:
+            is_file = Path(value).is_file()
+        except OSError:
+            # a long JSON string is not a valid file name
+            is_file = False
+        if is_file:
             with open(value) as f:
                 try:
                     value = json.loads(f.read())
@@ -400,6 +409,16 @@ def safely_move_file(src, dst, overwrite=False):
             raise
 
 
+def write_private_file(path: Union[str, Path], data: bytes) -> None:
+    """Write data to path, so that only its owner can read and write it. On
+    Windows, the file gets the permissions of its directory."""
+    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, "O_BINARY", 0)
+    with os.fdopen(os.open(path, flags, 0o600), "wb") as f:
+        f.write(data)
+    # os.open sets the permissions only when it creates the file
+    os.chmod(path, 0o600)
+
+
 def secret_yes_no_prompt(message: str) -> bool:
     """
     Ask user a yes/no question about loading more keys in a "hidden" manner.
@@ -430,13 +449,13 @@ def to_tuf_datetime_format(start_date, interval):
 
 
 def resolve_keystore_path(
-    keystore: Optional[str], roles_key_infos: Optional[str]
+    keystore: Optional[str], roles_key_infos: Optional[Union[str, Dict]]
 ) -> str:
     if not keystore:
         return ""
 
     keystore_path = Path(keystore).expanduser().resolve()
-    if roles_key_infos:
+    if roles_key_infos and not isinstance(roles_key_infos, dict):
         roles_key_infos_path = Path(roles_key_infos)
         if roles_key_infos_path.is_file() and not keystore_path.is_absolute():
             keystore_path = (roles_key_infos_path.parent / keystore_path).resolve()

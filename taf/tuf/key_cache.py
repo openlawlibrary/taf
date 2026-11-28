@@ -1,29 +1,30 @@
-"""Cache PEM public key deserialization in securesystemslib.
+"""Cache public key deserialization in securesystemslib.
 
-``SSlibKey._crypto_key`` re-parses the PEM-encoded public key on every
-signature verification. A TAF update verifies the same handful of keys
-thousands of times (once per metadata file per validated commit), so the
-parsing is memoized here. The cache key is the PEM string itself and the
+``SSlibKey._crypto_key`` re-parses the public key on every signature
+verification. A TAF update verifies the same handful of keys thousands of
+times (once per metadata file per validated commit), so the parsing is
+memoized here. The cache key is the SSlibKey itself and the
 returned ``cryptography`` public key objects are immutable, so sharing them
 between SSlibKey instances cannot change any verification outcome.
 """
 
 from functools import lru_cache
 
-from cryptography.hazmat.primitives.serialization import load_pem_public_key
 from securesystemslib.signer import SSlibKey
 
 from taf.log import taf_logger
 
+_sslib_crypto_key = getattr(SSlibKey, "_crypto_key", None)
+
 
 @lru_cache(maxsize=256)
-def _load_pem_public_key_cached(public_pem: str):
-    return load_pem_public_key(public_pem.encode("utf-8"))
+def _load_crypto_key_cached(key: SSlibKey):
+    return _sslib_crypto_key(key)  # type: ignore
 
 
 def _cached_crypto_key(self):
     """Drop-in replacement for SSlibKey._crypto_key."""
-    return _load_pem_public_key_cached(self.keyval["public"])
+    return _load_crypto_key_cached(self)
 
 
 def enable_public_key_cache() -> None:

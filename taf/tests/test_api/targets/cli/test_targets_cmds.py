@@ -4,7 +4,7 @@ from pathlib import Path
 from click.testing import CliRunner
 
 from taf.api.targets import update_target_repos_from_repositories_json
-from taf.constants import TARGETS_DIRECTORY_NAME
+from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME, TARGETS_DIRECTORY_NAME
 from taf.tests.test_api.util import check_if_targets_signed
 from taf.tools.cli.taf import taf
 
@@ -123,6 +123,40 @@ def test_targets_add_repo_cmd_expect_success(
         assert target_repo_name in delegated_paths
 
 
+def test_targets_add_repo_cmd_uses_scheme_of_new_role_from_config_file(
+    auth_repo_when_add_repositories_json, library, keystore_delegations
+):
+    runner = CliRunner()
+    target_repo_name = f"{library.name}/target4"
+
+    with runner.isolated_filesystem():
+        config_file_path = Path.cwd() / "config.json"
+        config = {"role": {"keys_number": 1, "scheme": DEFAULT_RSA_SIGNATURE_SCHEME}}
+        config_file_path.write_text(json.dumps(config))
+
+        result = runner.invoke(
+            taf,
+            [
+                "targets",
+                "add-repo",
+                target_repo_name,
+                "--role",
+                "new_role1",
+                "--path",
+                str(auth_repo_when_add_repositories_json.path),
+                "--config-file",
+                str(config_file_path),
+                "--keystore",
+                str(keystore_delegations),
+            ],
+        )
+
+    assert result.exit_code == 0, result.output
+    assert target_repo_name in auth_repo_when_add_repositories_json.get_paths_of_role(
+        "new_role1"
+    )
+
+
 def test_targets_remove_repo_cmd_expect_success():
     # TODO: seems like it is not fully supported yet
     pass
@@ -136,6 +170,29 @@ def _signed_target_repositories(library, pin_manager, keystore_delegations):
         keystore_delegations,
         push=False,
     )
+
+
+def test_targets_update_and_sign_cmd_signs_every_repository_of_repositories_json(
+    auth_repo_when_add_repositories_json, library, keystore_delegations
+):
+    auth_path = str(library / "auth")
+
+    result = CliRunner().invoke(
+        taf,
+        [
+            "targets",
+            "update-and-sign",
+            "--path",
+            auth_path,
+            "--keystore",
+            str(keystore_delegations),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    listed = CliRunner().invoke(taf, ["targets", "list", "--path", auth_path])
+    for name in ("target1", "target2", "target3"):
+        assert f"Target repository: {library.name}/{name}" in listed.output
 
 
 def test_targets_list_prints_each_target_repository_and_its_state(

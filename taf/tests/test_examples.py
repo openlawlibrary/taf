@@ -47,17 +47,18 @@ def test_doctests(module_name):
 
 
 DOCS_DIR = TAF_DIR.parent / "docs"
-CODE_BLOCK = re.compile(r"```\w*\n(.*?)```", re.DOTALL)
+CODE_BLOCK = re.compile(r"```(\w*)\n(.*?)```", re.DOTALL)
 
 
 def _docs_keys_description_examples():
     """Keys description examples found in the markdown docs, as
-    (file name and position, text of the example) pairs."""
+    (file name and position, text of the example) pairs. Blocks of shell
+    commands are not examples, even if a command writes a keys description"""
     examples = []
     for path in sorted(DOCS_DIR.rglob("*.md")):
         blocks = CODE_BLOCK.findall(path.read_text(encoding="utf-8"))
-        for position, block in enumerate(blocks):
-            if '"roles"' in block:
+        for position, (language, block) in enumerate(blocks):
+            if language in ("", "json") and '"roles"' in block:
                 examples.append(
                     pytest.param(block, id=f"{path.relative_to(DOCS_DIR)}-{position}")
                 )
@@ -92,9 +93,11 @@ def test_help_keys_description_examples(command_factory, tmp_path):
     keys_description = _json_example_from_help(command_factory())
     keys_description["keystore"] = str(tmp_path)
     roles_keys_data = from_dict(keys_description, RolesKeysData)
-    root = roles_keys_data.roles.root
-    assert (root.number, root.threshold, root.length) == (3, 2, 2048)
-    assert roles_keys_data.roles.targets.length == 2048
+    for role_name, role_data in keys_description["roles"].items():
+        role = getattr(roles_keys_data.roles, role_name)
+        for field in ("number", "threshold", "length", "scheme"):
+            if field in role_data:
+                assert getattr(role, field) == role_data[field]
 
 
 def test_help_add_roles_example():

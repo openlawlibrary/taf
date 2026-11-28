@@ -9,17 +9,36 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- ECDSA, Ed25519 and ML-DSA keys, not only RSA. YubiKeys can hold ECDSA (P-256, P-384) and Ed25519 keys ([839])
+- `--slot` for `taf yubikey export-pub-key` and `taf yubikey export-certificate` ([839])
+- `--serial` for `taf yubikey setup-signing-key` and `taf yubikey setup-test-key` ([839])
+
 ### Changed
 
-- Upgrade to python-tuf 7 and securesystemslib 1.6 ([838])
+- Upgrade to python-tuf 7, securesystemslib 1.6, yubikey-manager 5.9 and cryptography 50 ([838], [839])
+- Generating a key and adding an RSA key need a signing scheme (`--scheme`) ([839])
+- New RSA keys are 3072 bits by default, also on YubiKeys (`--key-size`) ([839])
+- `taf keystore generate` asks before overwriting key files ([839])
+- Keystore paths can't contain '#' or '?' ([839])
 
 ### Removed
 
+- Password-protected keystore files, `--prompt-for-keys`, and generating keys that are not written to a keystore ([839])
+- `pyOpenSSL` dependency ([839])
+
 ### Fixed
 
+- Make generated private keys readable only by their owner ([839])
+- Show errors of `taf keystore generate` ([839])
+- Sign with RSA-PSS keys on YubiKeys ([839])
+- Fix finding keys of nested delegated roles ([839])
+- Keep loading keystore files when one of them can't be read ([839])
+- Fix `taf targets update-and-sign` without `--target-type` and `taf yubikey list-slots --serial` ([839])
+- Remove files left behind by a failed command ([839])
 - Merge auth commits when updating with `no_targets` ([842])
 
 [842]: https://github.com/openlawlibrary/taf/pull/842
+[839]: https://github.com/openlawlibrary/taf/pull/839
 [838]: https://github.com/openlawlibrary/taf/pull/838
 
 

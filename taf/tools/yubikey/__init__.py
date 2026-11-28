@@ -8,10 +8,11 @@ from taf.api.yubikey import (
     setup_signing_yubikey,
     setup_test_yubikey,
 )
-from taf.exceptions import KeystoreError, YubikeyError
+from taf.exceptions import KeystoreError, TAFError, YubikeyError
 from taf.repository_utils import find_valid_repository
 from taf.tools.cli import catch_cli_exception
 from taf.tools.repo import pin_managed
+from taf.tuf.keys import RSA_SCHEMES, YUBIKEY_SCHEMES
 from taf.yubikey.yubikey import list_connected_yubikeys, list_all_devices
 
 SETUP_SLOT_NAMES = [s.name for s in SETUP_SLOTS]
@@ -58,16 +59,28 @@ def export_pub_key_command():
         "--output",
         help="File to which the exported public key will be written. The result will be written to the console if path is not specified",
     )
+    @click.option(
+        "--scheme",
+        type=click.Choice(RSA_SCHEMES),
+        default=None,
+        help="Signing scheme of the key, if it is an RSA key. Needed to print its key id",
+    )
+    @click.option(
+        "--slot",
+        type=click.Choice(SETUP_SLOT_NAMES),
+        default="SIGNATURE",
+        help="PIV slot holding the key. Defaults to SIGNATURE.",
+    )
     @catch_cli_exception(handle=YubikeyError)
-    def export_pub_key(output):
-        export_yk_public_pem(output)
+    def export_pub_key(output, scheme, slot):
+        export_yk_public_pem(output, scheme=scheme, slot=slot)
 
     return export_pub_key
 
 
 def get_roles_command():
     @click.command(help="List roles the inserted YubiKey is allowed to sign.")
-    @catch_cli_exception(handle=YubikeyError, print_error=True)
+    @catch_cli_exception(handle=TAFError, print_error=True)
     @click.option(
         "--path",
         default=".",
@@ -93,9 +106,21 @@ def export_certificate_command():
         "--output",
         help="File to which the exported certificate key will be written. The result will be written to the user's home directory by default",
     )
+    @click.option(
+        "--scheme",
+        type=click.Choice(RSA_SCHEMES),
+        default=None,
+        help="Signing scheme of the key, if it is an RSA key. Needed to name the certificate's file after its key id",
+    )
+    @click.option(
+        "--slot",
+        type=click.Choice(SETUP_SLOT_NAMES),
+        default="SIGNATURE",
+        help="PIV slot holding the key. Defaults to SIGNATURE.",
+    )
     @catch_cli_exception(handle=YubikeyError)
-    def export_certificate(output):
-        export_yk_certificate(output)
+    def export_certificate(output, scheme, slot):
+        export_yk_certificate(output, scheme=scheme, slot=slot)
 
     return export_certificate
 
@@ -116,6 +141,7 @@ def list_slots_command():
     @click.option(
         "--serial",
         default=None,
+        type=int,
         help="Serial number of a specific YubiKey. Lists slots for every inserted YubiKey if not specified",
     )
     @catch_cli_exception(handle=YubikeyError)
@@ -142,10 +168,31 @@ def setup_signing_key_command():
         default="SIGNATURE",
         help="PIV slot to set the key up in. Defaults to SIGNATURE.",
     )
+    @click.option(
+        "--scheme",
+        type=click.Choice(YUBIKEY_SCHEMES),
+        required=True,
+        help="Signing scheme of the generated key, which sets its type. ed25519 needs YubiKey firmware 5.7 or newer",
+    )
+    @click.option(
+        "--key-size",
+        type=int,
+        default=None,
+        help="Size of an RSA key in bits, 3072 if not given. "
+        "RSA keys longer than 2048 bits need YubiKey firmware 5.7 or newer",
+    )
+    @click.option(
+        "--serial",
+        default=None,
+        type=int,
+        help="Serial number of a YubiKey. Has to be provided if more than one YK is inserted",
+    )
     @catch_cli_exception(handle=YubikeyError)
     @pin_managed
-    def setup_signing_key(certs_dir, slot, pin_manager):
-        setup_signing_yubikey(pin_manager, certs_dir, key_size=2048, slot=slot)
+    def setup_signing_key(certs_dir, slot, scheme, key_size, serial, pin_manager):
+        setup_signing_yubikey(
+            pin_manager, scheme, certs_dir, key_size=key_size, slot=slot, serial=serial
+        )
 
     return setup_signing_key
 
@@ -163,10 +210,16 @@ def setup_test_key_command():
         default="SIGNATURE",
         help="PIV slot to copy the key into. Defaults to SIGNATURE.",
     )
+    @click.option(
+        "--serial",
+        default=None,
+        type=int,
+        help="Serial number of a YubiKey. Has to be provided if more than one YK is inserted",
+    )
     @catch_cli_exception(handle=(YubikeyError, KeystoreError))
     @pin_managed
-    def setup_test_key(key_path, slot, pin_manager):
-        setup_test_yubikey(pin_manager, key_path, slot=slot)
+    def setup_test_key(key_path, slot, serial, pin_manager):
+        setup_test_yubikey(pin_manager, key_path, slot=slot, serial=serial)
 
     return setup_test_key
 

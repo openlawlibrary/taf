@@ -2,14 +2,22 @@ import click
 from taf.api.keystore import generate_keys
 from taf.exceptions import KeystoreError
 from taf.tools.cli import catch_cli_exception
+from taf.tuf.keys import SUPPORTED_SCHEMES
 
 
 def generate_keys_command():
     @click.command(
         help="""Generate keystore files and save them to the specified location given a dictionary containing
-        information about each role - total number of keys, their lengths and thresholds.
+        information about each role - total number of keys, their signing scheme, thresholds and,
+        for RSA keys, their lengths. The scheme sets the type of the generated keys and has to be specified.
         It is necessary to either directly specify this dictionary when calling this command or
         to provide a path to a `.json` file which contains the needed information.
+
+        \b
+        Supported schemes:
+        """
+        + "\n        ".join(SUPPORTED_SCHEMES)
+        + """
 
         \b
         Keys description example:
@@ -17,24 +25,28 @@ def generate_keys_command():
             "roles": {
                 "root": {
                     "number": 3,
-                    "length": 2048,
-                    "threshold": 2
+                    "threshold": 2,
+                    "scheme": "ecdsa-sha2-nistp384"
                 },
                 "targets": {
+                    "scheme": "ed25519"
+                },
+                "snapshot": {
+                    "scheme": "rsa-pkcs1v15-sha256",
                     "length": 2048
                 },
-                "snapshot": {},
-                "timestamp": {}
+                "timestamp": {
+                    "scheme": "ecdsa-sha2-nistp256"
+                }
             },
             "keystore": "keystore_path"
         }
 
-        Default number of keys and threshold are 1 and length is 3072. Passwords of the keystore
-        files are entered when the keys are generated.
+        Default number of keys and threshold are 1 and length of RSA keys is 3072.
         If keystore location is specified through the keystore input parameter and not listed
         in keys-description dictionary, keys will be saved to ./keystore"""
     )
-    @catch_cli_exception(handle=KeystoreError)
+    @catch_cli_exception(handle=KeystoreError, print_error=True)
     @click.option(
         "--keystore",
         default=None,

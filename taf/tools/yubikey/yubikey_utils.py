@@ -5,10 +5,17 @@ from contextlib import contextmanager
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, serialization
-from taf.tuf.keys import load_signer_from_file
+from cryptography.hazmat.primitives.asymmetric import ec, ed25519
+from taf.signers.keystore import create_signer_from_keystore_file
 from ykman.piv import OBJECT_ID_PIVMAN_PROTECTED_DATA
+from yubikit.core import Version
 from yubikit.core.smartcard import ApduError, SW
-from yubikit.piv import DEFAULT_MANAGEMENT_KEY, SLOT, InvalidPinError
+from yubikit.piv import (
+    DEFAULT_MANAGEMENT_KEY,
+    SLOT,
+    InvalidPinError,
+    _do_check_key_support,
+)
 
 VALID_PIN = "123456"
 WRONG_PIN = "111111"
@@ -33,7 +40,9 @@ class FakeYubiKey:
             self.pub_key_pem, default_backend()
         )
 
-        self.tuf_key = load_signer_from_file(priv_key_path)
+        self.tuf_key = create_signer_from_keystore_file(
+            priv_key_path.parent, priv_key_path.name, scheme
+        )
 
         # PIV slot state (key/cert per slot), persisted here rather than on
         # FakePivController, since a new FakePivController is constructed on
@@ -46,6 +55,7 @@ class FakeYubiKey:
         self.pin_verified = False
         self.management_key = DEFAULT_MANAGEMENT_KEY
         self.pin_attempts_remaining = 3
+        self.firmware_version = Version(5, 7, 0)
 
     @property
     def driver(self):
@@ -99,6 +109,22 @@ class FakePivController:
     @property
     def _slots(self):
         return self._driver.slots
+
+    @property
+    def version(self):
+        return self._driver.firmware_version
+
+    def check_key_support(
+        self, key_type, pin_policy, touch_policy, generate, fips_restrictions=False
+    ):
+        _do_check_key_support(
+            self.version,
+            key_type,
+            pin_policy,
+            touch_policy,
+            generate,
+            fips_restrictions,
+        )
 
     @property
     def driver(self):
@@ -206,7 +232,12 @@ class FakePivController:
         slot_data = self._slots.get(slot)
         if not slot_data or slot_data.get("priv_key") is None:
             raise ApduError(b"", SW.FILE_NOT_FOUND)
-        return slot_data["priv_key"].sign(data, padding, hash)
+        private_key = slot_data["priv_key"]
+        if isinstance(private_key, ec.EllipticCurvePrivateKey):
+            return private_key.sign(data, ec.ECDSA(hash))
+        if isinstance(private_key, ed25519.Ed25519PrivateKey):
+            return private_key.sign(data)
+        return private_key.sign(data, padding, hash)
 
     def verify_pin(self, pin):
         if self._driver.pin != pin:

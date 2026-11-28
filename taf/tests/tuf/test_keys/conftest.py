@@ -1,10 +1,16 @@
+import click
 import pytest
 import shutil
 
+from cryptography.hazmat.primitives import serialization
 from yubikit.piv import SLOT
 
+from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
+
+import taf.signers.loaders
 import taf.yubikey.yubikey as yk
 from taf.api.targets import register_target_files
+from taf.signers.base import KeyStorage
 from taf.tests.conftest import create_authentication_repository
 from taf.tools.yubikey.yubikey_utils import FakeYubiKey, _yk_piv_ctrl_mock
 from taf.utils import on_rm_error
@@ -27,7 +33,9 @@ def fake_yubikey(monkeypatch, keystore):
     behavior (setup, get_slot_status, get_piv_public_keys_tuf) can be tested
     without real hardware."""
     monkeypatch.setattr(yk, "_yk_piv_ctrl", _yk_piv_ctrl_mock)
-    key = FakeYubiKey(keystore / "root1", keystore / "root1.pub", scheme=None)
+    key = FakeYubiKey(
+        keystore / "root1", keystore / "root1.pub", scheme=DEFAULT_RSA_SIGNATURE_SCHEME
+    )
     key.insert()
     yield key
     key.remove()
@@ -52,12 +60,17 @@ def make_fake_yubikey(monkeypatch, keystore):
     monkeypatch.setattr(yk, "_yk_piv_ctrl", _yk_piv_ctrl_mock)
     created = []
 
-    def _make(key_name, extra_slots=None, keystore_path=None):
+    def _make(
+        key_name,
+        extra_slots=None,
+        keystore_path=None,
+        scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
+    ):
         source_keystore = keystore_path if keystore_path is not None else keystore
         device = FakeYubiKey(
             source_keystore / key_name,
             source_keystore / f"{key_name}.pub",
-            scheme=None,
+            scheme=scheme,
         )
         device.insert()
         for slot, other_key_name in (extra_slots or {}).items():
@@ -154,7 +167,8 @@ def unauthorized_device(make_fake_yubikey, keystore_delegations):
 def block_reprompt(monkeypatch):
     """Fail loudly instead of hanging if yubikey_prompt retries - guards
     against yubikey_prompt's unbounded retry loop turning a real bug into a
-    hang instead of a clean assertion failure."""
+    hang instead of a clean assertion failure. Asking the user to confirm
+    something, or whether to load more keys, fails the same way."""
 
     def _unexpected_reprompt(*_args, **_kwargs):
         raise AssertionError(
@@ -162,7 +176,12 @@ def block_reprompt(monkeypatch):
             "the authorized YubiKey among the inserted devices"
         )
 
+    def _unexpected_prompt(message, *_args, **_kwargs):
+        raise AssertionError(f"unexpected prompt: {message}")
+
     monkeypatch.setattr(yk, "getpass", _unexpected_reprompt)
+    monkeypatch.setattr(click, "confirm", _unexpected_prompt)
+    monkeypatch.setattr(taf.signers.loaders, "secret_yes_no_prompt", _unexpected_prompt)
 
 
 def insert_in_order(*devices):
@@ -180,15 +199,20 @@ def write_target(path, text="hello"):
     path.write_text(text)
 
 
-def write_signing_keystore(tmp_path, source_keystore, names=("snapshot", "timestamp")):
-    signing_keystore = tmp_path / "signing_keystore"
-    signing_keystore.mkdir()
-    for name in names:
-        (signing_keystore / name).write_bytes((source_keystore / name).read_bytes())
-        (signing_keystore / f"{name}.pub").write_bytes(
-            (source_keystore / f"{name}.pub").read_bytes()
+def same_public_key(key, other) -> bool:
+    """Check if two public keys are the same key. Each one can be a
+    cryptography public key or PEM data."""
+
+    def _der(public_key):
+        if isinstance(public_key, str):
+            public_key = public_key.encode()
+        if isinstance(public_key, bytes):
+            public_key = serialization.load_pem_public_key(public_key)
+        return public_key.public_bytes(
+            serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo
         )
-    return signing_keystore
+
+    return _der(key) == _der(other)
 
 
 def pin_manager_for(*devices):
@@ -222,3 +246,33 @@ def sign_target_update(auth_repo, signing_keystore, target_path="a-new-target.tx
         push=False,
     )
     assert target_path in auth_repo.get_signed_target_files()
+
+
+@pytest.fixture
+def decline_prompts(monkeypatch):
+    """Answer no to every confirmation and to the "load more keys?" question"""
+
+    def _decline(*_args, **_kwargs):
+        return False
+
+    monkeypatch.setattr(click, "confirm", _decline)
+    monkeypatch.setattr(taf.signers.loaders, "secret_yes_no_prompt", _decline)
+
+
+class FakeKeyStorage(KeyStorage):
+    """A key storage that always returns the given signers, and appends its
+    name to calls each time it is used, so tests can check the loading order"""
+
+    def __init__(self, name, priority, input_needed, signers, calls):
+        self.name = name
+        self.priority = priority
+        self.input_needed = input_needed
+        self._signers = signers
+        self._calls = calls
+
+    def load_signers(self, role, keys, threshold_reached):
+        self._calls.append(self.name)
+        return self._signers
+
+    def setup_keys(self, role):
+        raise NotImplementedError

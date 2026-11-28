@@ -656,6 +656,7 @@ def add_new_role_and_target_repo(
                     "parent_role": "targets",
                     "paths": [full_name],
                     "threshold": 1,
+                    "scheme": "rsa-pkcs1v15-sha256",
                 }
             }
         },
@@ -963,7 +964,6 @@ def update_role_metadata_without_signing(
         pin_manager=pin_manager,
         roles=[role],
         keystore=KEYSTORE_PATH,
-        prompt_for_keys=False,
         commit=False,
         push=False,
         update_snapshot_and_timestamp=False,
@@ -989,7 +989,6 @@ def sign_target_outside_delegated_paths(
         auth_repo,
         [role],
         keystore=KEYSTORE_PATH,
-        prompt_for_keys=False,
         commit=True,
         commit_msg="Sign target outside delegated paths",
         push=False,
@@ -1004,7 +1003,6 @@ def update_metadata_invalid_signature(auth_repo: AuthenticationRepository, role:
         auth_repo,
         [role],
         keystore=KEYSTORE_PATH,
-        prompt_for_keys=False,
         load_snapshot_and_timestamp=False,
         commit=True,
         commit_msg="Invalid metadata update",
@@ -1027,7 +1025,6 @@ def update_and_sign_metadata_without_clean_check(
         pin_manager=pin_manager,
         roles=roles,
         keystore=KEYSTORE_PATH,
-        prompt_for_keys=False,
         skip_clean_check=True,
         update_snapshot_and_timestamp=True,
     )

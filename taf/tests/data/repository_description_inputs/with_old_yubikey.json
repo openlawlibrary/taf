@@ -1,15 +1,16 @@
 {
   "roles": {
     "root": {
-        "number": 3,
-        "threshold": 2,
-        "yubikey": true
-
+      "number": 3,
+      "threshold": 2,
+      "yubikey": true,
+      "scheme": "rsa-pkcs1v15-sha256"
     },
     "targets": {
       "number": 2,
       "threshold": 1,
-      "yubikey": true
+      "yubikey": true,
+      "scheme": "rsa-pkcs1v15-sha256"
     },
     "snapshot": {
       "number": 1,
@@ -17,7 +18,7 @@
       "scheme": "rsa-pkcs1v15-sha256"
     },
     "timestamp": {
+      "scheme": "rsa-pkcs1v15-sha256"
     }
   }
 }
-  

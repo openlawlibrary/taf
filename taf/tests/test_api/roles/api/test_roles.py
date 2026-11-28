@@ -1,5 +1,9 @@
 import json
+import shutil
 from pathlib import Path
+
+import pytest
+
 from taf.api.roles import (
     add_role,
     add_role_paths,
@@ -9,8 +13,11 @@ from taf.api.roles import (
     remove_paths,
     revoke_signing_key,
 )
+from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.messages import git_commit_message
+from taf.api.utils._conf import read_keys_name_mapping
 from taf.auth_repo import AuthenticationRepository
+from taf.signers.loaders import load_signers
 from taf.tests.test_api.util import check_new_role, check_role_scheme
 from taf.yubikey.yubikey_manager import PinManager
 
@@ -35,6 +42,7 @@ def test_add_role_when_target_is_parent(
         threshold=1,
         yubikey=False,
         keystore=roles_keystore,
+        scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
         push=False,
         skip_prompt=True,
     )
@@ -64,6 +72,7 @@ def test_add_role_when_delegated_role_is_parent(
         threshold=1,
         yubikey=False,
         keystore=roles_keystore,
+        scheme="rsa-pkcs1v15-sha256",
         push=False,
         skip_prompt=True,
     )
@@ -73,6 +82,67 @@ def test_add_role_when_delegated_role_is_parent(
     check_new_role(
         auth_repo_with_delegations, ROLE_NAME, PATHS, roles_keystore, PARENT_NAME
     )
+
+
+def _add_role_with_key_of_targets1(auth_repo, roles_keystore, pin_manager):
+    keystore = Path(roles_keystore)
+    shutil.copy(keystore / "targets1", keystore / "shared_role")
+    shutil.copy(keystore / "targets1.pub", keystore / "shared_role.pub")
+    add_role(
+        path=str(auth_repo.path),
+        pin_manager=pin_manager,
+        auth_repo=auth_repo,
+        role="shared_role",
+        parent_role="targets",
+        paths=["shared-path"],
+        keys_number=1,
+        threshold=1,
+        yubikey=False,
+        keystore=roles_keystore,
+        scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
+        push=False,
+        skip_prompt=True,
+    )
+    return auth_repo.get_keyids_of_role("shared_role")[0]
+
+
+def test_key_of_two_roles_is_named_after_the_role_whose_keys_are_loaded(
+    auth_repo: AuthenticationRepository,
+    roles_keystore: str,
+    pin_manager: PinManager,
+):
+    key_id = _add_role_with_key_of_targets1(auth_repo, roles_keystore, pin_manager)
+    auth_repo = AuthenticationRepository(path=auth_repo.path, pin_manager=pin_manager)
+
+    load_signers(auth_repo, "targets", keystore=roles_keystore)
+    assert auth_repo.keys_name_mappings[key_id] == "targets1"
+    load_signers(auth_repo, "shared_role", keystore=roles_keystore)
+    assert auth_repo.keys_name_mappings[key_id] == "shared_role"
+
+
+@pytest.mark.parametrize("description_name", ["David", "shared_role"])
+def test_key_name_from_keys_description_is_used_for_every_role_of_the_key(
+    auth_repo: AuthenticationRepository,
+    roles_keystore: str,
+    pin_manager: PinManager,
+    description_name: str,
+):
+    key_id = _add_role_with_key_of_targets1(auth_repo, roles_keystore, pin_manager)
+    auth_repo = AuthenticationRepository(path=auth_repo.path, pin_manager=pin_manager)
+    public_key = (Path(roles_keystore) / "targets1.pub").read_text()
+    keys_description = {
+        "yubikeys": {
+            description_name: {
+                "public": public_key,
+                "scheme": DEFAULT_RSA_SIGNATURE_SCHEME,
+            }
+        }
+    }
+    auth_repo.add_key_names(read_keys_name_mapping(keys_description))
+
+    for role in ("targets", "shared_role"):
+        load_signers(auth_repo, role, keystore=roles_keystore)
+        assert auth_repo.keys_name_mappings[key_id] == description_name
 
 
 def test_add_role_applies_requested_scheme_to_generated_key(
@@ -138,7 +208,11 @@ def test_add_multiple_roles_when_parent_is_not_specified(
         path=str(auth_repo.path),
         pin_manager=pin_manager,
         keystore=roles_keystore,
-        roles_key_infos={"roles": {"new_role": {"paths": ["new-path"]}}},
+        roles_key_infos={
+            "roles": {
+                "new_role": {"paths": ["new-path"], "scheme": "rsa-pkcs1v15-sha256"}
+            }
+        },
         push=False,
     )
     assert "new_role" in auth_repo.get_all_targets_roles()
@@ -162,8 +236,13 @@ def test_add_multiple_roles_when_parent_is_a_new_role(
                 "new_inner_role": {
                     "parent_role": "new_role",
                     "paths": ["new-path/inner"],
+                    "scheme": "rsa-pkcs1v15-sha256",
                 },
-                "new_role": {"parent_role": "targets", "paths": ["new-path"]},
+                "new_role": {
+                    "parent_role": "targets",
+                    "paths": ["new-path"],
+                    "scheme": "rsa-pkcs1v15-sha256",
+                },
             }
         },
         push=False,
@@ -383,6 +462,7 @@ def test_add_signing_key(
         keystore=roles_keystore,
         push=False,
         commit_msg=COMMIT_MSG,
+        scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
     )
     commits = auth_repo.list_pygit_commits()
     assert len(commits) == initial_commits_num + 1

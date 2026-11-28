@@ -48,10 +48,14 @@ from tuf.api.metadata import (
 from tuf.api.serialization.json import JSONSerializer
 from taf.exceptions import InvalidKeyError, SignersNotLoaded, TAFError, TargetsError
 from taf.models.types import RolesIterator, RolesKeysData, TargetsRole
-from taf.tuf.keys import SSlibKey, _get_legacy_keyid, get_sslib_key_from_value
+from taf.tuf.keys import (
+    SSlibKey,
+    _get_legacy_keyid,
+    get_public_key_pem,
+    get_sslib_key_from_value,
+    is_rsa_scheme,
+)
 from tuf.repository import Repository
-
-from securesystemslib.signer import CryptoSigner
 
 logger = logging.getLogger(__name__)
 
@@ -180,6 +184,9 @@ class MetadataRepository(Repository):
         self.pin_manager = pin_manager
         self.yubikey_store = YubiKeyStore()
         self._keys_name_mappings: Optional[Dict[str, str]] = None
+        # ids of keys named through add_key_name, e.g. from a keys description.
+        # add_default_names_of_role does not rename them
+        self._named_key_ids: Set[str] = set()
 
     @property
     def keys_name_mappings(self):
@@ -240,16 +247,22 @@ class MetadataRepository(Repository):
         self.keys_name_mappings
         if overwrite or not key_id in self.keys_name_mappings:
             self._keys_name_mappings[key_id] = key_name
+            self._named_key_ids.add(key_id)
 
     def add_default_names_of_role(self, role_name):
-        keys_name_mapping = self.keys_name_mappings
-        key_ids = self.get_keyids_of_role(role_name)
-        number = len(key_ids)
-        for index, key_id in enumerate(key_ids):
-            if keys_name_mapping and key_id in keys_name_mapping:
+        """Name the keys of role_name that were not named through add_key_name,
+        e.g. from a keys description. Such a key gets the name stored with the
+        role's keys, or role_name followed by a number. A key that another role
+        also uses can have a different name there"""
+        keys = self.get_public_keys_of_role(role_name)
+        number = len(keys)
+        for index, key in enumerate(keys):
+            if key.keyid in self._named_key_ids:
                 continue
-            key_name = role_name if number == 1 else f"{role_name}{index + 1}"
-            self.add_key_name(key_name, key_id)
+            key_name = key.unrecognized_fields.get("name")
+            if key_name is None:
+                key_name = role_name if number == 1 else f"{role_name}{index + 1}"
+            self.keys_name_mappings[key.keyid] = key_name
 
     def all_target_files(self) -> Set:
         """
@@ -686,7 +699,7 @@ class MetadataRepository(Repository):
     def create_delegated_roles(
         self,
         roles_data: List[TargetsRole],
-        signers: Dict[str, List[CryptoSigner]],
+        signers: Dict[str, List[Signer]],
         additional_verification_keys: Optional[dict] = None,
     ) -> Tuple[List, List]:
         """
@@ -930,6 +943,20 @@ class MetadataRepository(Repository):
         """
         role_obj = self._role_obj(role_name)
         return role_obj.keyids
+
+    def get_public_keys_of_role(self, role_name: str) -> List[SSlibKey]:
+        """
+        Return the public keys of the specified role, as listed by the role
+        that delegates to it
+        """
+        if role_name in MAIN_ROLES:
+            keys = self.signed_obj("root").keys
+        else:
+            parent = self.find_delegated_roles_parent(role_name)
+            if parent is None:
+                return []
+            keys = self.signed_obj(parent).delegations.keys
+        return [keys[key_id] for key_id in self.get_keyids_of_role(role_name)]
 
     def get_paths_of_role(self, role_name: str) -> List:
         """
@@ -1251,8 +1278,9 @@ class MetadataRepository(Repository):
         self, parent_role: str, keyid: str
     ) -> Tuple:
         """
-        Return length and signing scheme of the specified key id.
-        This data is specified in metadata files (root or a target role that has delegations)
+        Return length, public key value and signing scheme of the specified key id,
+        as listed by the parent role (root or a target role that has delegations).
+        Length is the size of an RSA key in bits, and None for other key types.
         """
         try:
             metadata = json.loads(
@@ -1265,10 +1293,13 @@ class MetadataRepository(Repository):
                 metadata = metadata["delegations"]
             scheme = metadata["keys"][keyid]["scheme"]
             pub_key_pem = metadata["keys"][keyid]["keyval"]["public"]
-            pub_key = serialization.load_pem_public_key(
-                pub_key_pem.encode(), backend=default_backend()
-            )
-            return pub_key, pub_key_pem, scheme
+            length = None
+            if is_rsa_scheme(scheme):
+                pub_key = serialization.load_pem_public_key(
+                    pub_key_pem.encode(), backend=default_backend()
+                )
+                length = pub_key.key_size
+            return length, pub_key_pem, scheme
         except Exception:
             return None, None, None
 
@@ -1296,28 +1327,39 @@ class MetadataRepository(Repository):
         except Exception:
             return None
 
-    def get_public_key_of_keyid(self, keyid: str):
+    def get_public_key(self, keyid: str) -> Optional[SSlibKey]:
+        """
+        Return the public key with the specified key id, as listed by root or by
+        a target role that delegates to other roles
+        """
+
         def _find_keyid(role_name, keyid):
-            _, pub_key_pem, scheme = self.get_key_length_and_scheme_from_metadata(
-                role_name, keyid
-            )
-            if pub_key_pem is not None:
-                return pub_key_pem, scheme
+            delegations = self.signed_obj(role_name).delegations
+            if delegations is None:
+                return None
+            if delegations.keys and keyid in delegations.keys:
+                return delegations.keys[keyid]
 
             for delegation in self.get_delegations_of_role(role_name):
-                pub_key_pem, scheme = self._find_keyid(delegation, keyid)
-                if pub_key_pem is not None:
-                    return pub_key_pem, scheme
+                key = _find_keyid(delegation, keyid)
+                if key is not None:
+                    return key
+            return None
 
-        _, pub_key_pem, scheme = self.get_key_length_and_scheme_from_metadata(
-            "root", keyid
-        )
-        if pub_key_pem is not None:
-            return pub_key_pem, scheme
+        root_keys = self.signed_obj("root").keys
+        if keyid in root_keys:
+            return root_keys[keyid]
 
         targets_obj = self.signed_obj("targets")
         if targets_obj.delegations:
             return _find_keyid("targets", keyid)
+        return None
+
+    def get_public_key_of_keyid(self, keyid: str):
+        key = self.get_public_key(keyid)
+        if key is None:
+            return None
+        return get_public_key_pem(key), key.scheme
 
     def generate_roles_description(self) -> Dict:
         """
@@ -1337,12 +1379,13 @@ class MetadataRepository(Repository):
                     "paths": delegated_role.paths,
                     "terminating": delegated_role.terminating,
                 }
-                pub_key, _, scheme = self.get_key_length_and_scheme_from_metadata(
+                length, _, scheme = self.get_key_length_and_scheme_from_metadata(
                     role_name, delegated_role.keyids[0]
                 )
 
                 delegations_info[delegation]["scheme"] = scheme
-                delegations_info[delegation]["length"] = pub_key.key_size
+                if length is not None:
+                    delegations_info[delegation]["length"] = length
                 delegated_signed = self.signed_obj(delegation)
                 if delegated_signed.delegations:
                     inner_roles_data = _get_delegations(delegation)
@@ -1356,11 +1399,12 @@ class MetadataRepository(Repository):
                 "threshold": role_obj.threshold,
                 "number": len(role_obj.keyids),
             }
-            pub_key, _, scheme = self.get_key_length_and_scheme_from_metadata(
+            length, _, scheme = self.get_key_length_and_scheme_from_metadata(
                 "root", role_obj.keyids[0]
             )
             roles_description[role_name]["scheme"] = scheme
-            roles_description[role_name]["length"] = pub_key.key_size
+            if length is not None:
+                roles_description[role_name]["length"] = length
             if role_name == "targets":
                 targets_signed = self.signed_obj(role_name)
                 if targets_signed.delegations:
@@ -1394,7 +1438,7 @@ class MetadataRepository(Repository):
 
         Args:
         - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
-        - key(securesystemslib.formats.RSAKEY_SCHEMA): Role's key.
+        - key(SSlibKey or str): Role's key, or its public key in PEM format.
 
         Returns:
         Boolean. True if key id is in metadata role key ids, False otherwise.
@@ -1421,7 +1465,7 @@ class MetadataRepository(Repository):
 
         Args:
         - role(str): TUF role (root, targets, timestamp, snapshot or delegated one
-        - public_key(securesystemslib.formats.RSAKEY_SCHEMA): RSA public key dict
+        - public_key(SSlibKey): Public key read from the YubiKey
 
         Returns:
         Boolean. True if smart card key id belongs to metadata role key ids
@@ -1432,7 +1476,9 @@ class MetadataRepository(Repository):
 
         if public_key is None:
             for serial in yk.get_serial_nums():
-                device_keys = yk.get_piv_public_keys_tuf(serial=serial).get(serial, {})
+                device_keys = yk.get_piv_public_keys_tuf(
+                    serial=serial, taf_repo=self
+                ).get(serial, {})
                 for candidate_key in device_keys.values():
                     if self.is_valid_metadata_key(role, candidate_key):
                         return True
@@ -1781,7 +1827,7 @@ class MetadataRepository(Repository):
         - start_date(datetime): Date to which the specified interval is added when calculating
                                 expiration date. If a value is not provided, it is set to the
                                 current time.
-        - signers(List[CryptoSigner]): a list of signers
+        - signers(List[Signer]): a list of signers
         - interval(int): A number of days added to the start date.
                         If not provided, the default value is set based on the role:
 
@@ -1842,8 +1888,7 @@ class MetadataRepository(Repository):
                 for key_data in keys_data:
                     key_id, key_name, keys_role = key_data
                     role_obj.revoke_key(key_id, keys_role)
-                    public_key_pem, _ = self.get_public_key_of_keyid(key_id)
-                    public_key = get_sslib_key_from_value(public_key_pem)
+                    public_key = self.get_public_key(key_id)
                     public_key.unrecognized_fields["name"] = key_name
                     role_obj.add_key(public_key, keys_role)
 

@@ -6,10 +6,11 @@ from cryptography.hazmat.primitives.asymmetric.ec import (
 )
 
 from taf.constants import DEFAULT_ECDSA_SIGNATURE_SCHEME, DEFAULT_RSA_SIGNATURE_SCHEME
+from taf.exceptions import SchemeNotSpecifiedError
+from taf.signers.keystore import create_signer_from_keystore_file
 from taf.tuf.keys import (
-    generate_rsa_keypair,
+    generate_keypair,
     get_sslib_key_from_value,
-    load_signer_from_pem,
 )
 
 
@@ -27,11 +28,10 @@ def _ec_keypair_pem(curve=SECP256R1()):
     return private_pem, public_pem.decode()
 
 
-def test_get_sslib_key_from_value_detects_ecdsa_with_default_rsa_scheme():
+def test_get_sslib_key_from_value_detects_ecdsa_scheme():
     """Callers that don't know the key type ahead of time (e.g. reading a
-    YubiKey's public key) pass no explicit scheme and rely on the RSA
-    default. An EC P-256 key must still be tagged correctly rather than
-    silently mislabeled as RSA or rejected.
+    YubiKey's public key) pass no explicit scheme. An EC P-256 key has only
+    one scheme, so it must be detected rather than rejected.
     """
     _, public_pem = _ec_keypair_pem()
 
@@ -50,11 +50,13 @@ def test_get_sslib_key_from_value_accepts_explicit_ecdsa_scheme():
     assert key.scheme == DEFAULT_ECDSA_SIGNATURE_SCHEME
 
 
-def test_get_sslib_key_from_value_rejects_unsupported_curve():
+def test_get_sslib_key_from_value_detects_ecdsa_curve():
     _, public_pem = _ec_keypair_pem(SECP384R1())
 
-    with pytest.raises(ValueError):
-        get_sslib_key_from_value(public_pem)
+    key = get_sslib_key_from_value(public_pem)
+
+    assert key.keytype == "ecdsa"
+    assert key.scheme == "ecdsa-sha2-nistp384"
 
 
 def test_get_sslib_key_from_value_rejects_mismatched_scheme_for_ecdsa_key():
@@ -64,15 +66,14 @@ def test_get_sslib_key_from_value_rejects_mismatched_scheme_for_ecdsa_key():
         get_sslib_key_from_value(public_pem, "rsassa-pss-sha256")
 
 
-def test_ecdsa_signer_round_trip():
-    """An EC private key loaded through the same RSA-default-scheme path
-    used everywhere else must produce a signer that verifies against the
-    corresponding public key loaded the same way.
+def test_ecdsa_signer_round_trip(keystore_of_scheme):
+    """An EC keystore file loaded through its URI must produce a signer that
+    verifies against the corresponding public key.
     """
-    private_pem, public_pem = _ec_keypair_pem()
+    keystore = keystore_of_scheme(DEFAULT_ECDSA_SIGNATURE_SCHEME)
 
-    signer = load_signer_from_pem(private_pem)
-    public_key = get_sslib_key_from_value(public_pem)
+    signer = create_signer_from_keystore_file(keystore, "targets")
+    public_key = get_sslib_key_from_value((keystore / "targets.pub").read_text())
 
     assert signer.public_key.keyid == public_key.keyid
 
@@ -83,10 +84,11 @@ def test_ecdsa_signer_round_trip():
         public_key.verify_signature(signature, b"NOT DATA")
 
 
-def test_rsa_scheme_default_still_used_for_rsa_keys():
-    _, public_pem = generate_rsa_keypair(key_size=2048)
+def test_rsa_key_without_scheme_is_rejected():
+    _, public_pem = generate_keypair("rsa-pkcs1v15-sha256", 2048)
 
-    key = get_sslib_key_from_value(public_pem.decode())
+    with pytest.raises(SchemeNotSpecifiedError):
+        get_sslib_key_from_value(public_pem.decode())
 
-    assert key.keytype == "rsa"
+    key = get_sslib_key_from_value(public_pem.decode(), DEFAULT_RSA_SIGNATURE_SCHEME)
     assert key.scheme == DEFAULT_RSA_SIGNATURE_SCHEME

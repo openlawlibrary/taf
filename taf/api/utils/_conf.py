@@ -1,6 +1,5 @@
 import json
 
-from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.tuf.keys import get_sslib_key_from_value, _get_legacy_keyid
 from taf.log import taf_logger
 from pathlib import Path
@@ -52,7 +51,7 @@ def build_keys_name_mapping(raw_mapping: Dict) -> Dict[str, str]:
     keys_name_mappings: Dict[str, str] = {}
 
     for key_name, key_data in raw_mapping.items():
-        scheme = key_data.get("scheme", DEFAULT_RSA_SIGNATURE_SCHEME)
+        scheme = key_data.get("scheme")
 
         if "public" in key_data:
             pub_key = key_data["public"]
@@ -70,19 +69,24 @@ def build_keys_name_mapping(raw_mapping: Dict) -> Dict[str, str]:
     return keys_name_mappings
 
 
-def read_keys_name_mapping(keys_description: Optional[Union[str, Path]]) -> Dict:
+def read_keys_name_mapping(
+    keys_description: Optional[Union[str, Path, Dict]],
+) -> Dict:
     keys_name_mappings: Dict = {}
     if keys_description is None:
         return keys_name_mappings
 
-    keys_description_path = Path(keys_description)
-    if not keys_description_path.is_file():
-        return keys_name_mappings
+    if isinstance(keys_description, dict):
+        keys_description_data = keys_description
+    else:
+        keys_description_path = Path(keys_description)
+        if not keys_description_path.is_file():
+            return keys_name_mappings
 
-    try:
-        keys_description_data = json.loads(keys_description_path.read_text())
-    except json.decoder.JSONDecodeError:
-        return keys_name_mappings
+        try:
+            keys_description_data = json.loads(keys_description_path.read_text())
+        except json.decoder.JSONDecodeError:
+            return keys_name_mappings
 
     key_names_mapping = keys_description_data.get("yubikeys")
 

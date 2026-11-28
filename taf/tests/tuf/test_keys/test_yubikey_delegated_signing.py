@@ -9,11 +9,11 @@ from taf.tests.tuf.test_keys.conftest import (
     insert_in_order,
     pin_manager_for,
     sign_target_update,
-    write_signing_keystore,
     write_target,
 )
-from taf.tuf.keys import load_signer_from_file
+from taf.signers.keystore import create_signer_from_keystore_file
 import taf.yubikey.yubikey as yk
+from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 
 
 @pytest.mark.parametrize("device_a_inserted_first", [True, False])
@@ -83,11 +83,11 @@ def test_read_and_check_yubikeys_skips_unauthorized_device_for_delegated_role(
     )
 
     assert result is not None
-    role1_key = load_signer_from_file(
-        keystore_delegations / "delegated_role1"
+    role1_key = create_signer_from_keystore_file(
+        keystore_delegations, "delegated_role1", DEFAULT_RSA_SIGNATURE_SCHEME
     ).public_key
-    role2_key = load_signer_from_file(
-        keystore_delegations / "delegated_role2"
+    role2_key = create_signer_from_keystore_file(
+        keystore_delegations, "delegated_role2", DEFAULT_RSA_SIGNATURE_SCHEME
     ).public_key
     found_keyids = {entry[0].keyid for entry in result}
     assert found_keyids == {role1_key.keyid, role2_key.keyid}
@@ -98,9 +98,8 @@ def test_read_and_check_yubikeys_skips_unauthorized_device_for_delegated_role(
 def test_sign_delegated_role_with_unauthorized_yubikey_inserted(
     delegated_role_device,
     unauthorized_device,
-    keystore_delegations,
+    keystore_delegations_snapshot_timestamp,
     create_delegated_auth_repo,
-    tmp_path,
     block_reprompt,
     authorized_inserted_first,
 ):
@@ -114,7 +113,7 @@ def test_sign_delegated_role_with_unauthorized_yubikey_inserted(
 
     sign_target_update(
         taf_repo,
-        write_signing_keystore(tmp_path, keystore_delegations),
+        keystore_delegations_snapshot_timestamp,
         "dir1/a-new-target.txt",
     )
 
@@ -129,8 +128,8 @@ def test_sign_two_delegated_roles_each_with_its_own_yubikey_in_one_command(
     delegated_role_device,
     make_fake_yubikey,
     keystore_delegations,
+    keystore_delegations_snapshot_timestamp,
     create_delegated_auth_repo,
-    tmp_path,
     block_reprompt,
     device_a_inserted_first,
 ):
@@ -149,7 +148,7 @@ def test_sign_two_delegated_roles_each_with_its_own_yubikey_in_one_command(
     write_target(taf_repo.targets_path / "dir2" / "path2")
     sign_target_update(
         taf_repo,
-        write_signing_keystore(tmp_path, keystore_delegations),
+        keystore_delegations_snapshot_timestamp,
         "dir1/a-new-target.txt",
     )
     assert "dir2/path2" in taf_repo.get_signed_target_files()

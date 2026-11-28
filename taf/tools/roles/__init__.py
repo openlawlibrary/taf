@@ -10,7 +10,6 @@ from taf.api.roles import (
     remove_paths,
     rotate_signing_key,
 )
-from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import TAFError
 from taf.auth_repo import AuthenticationRepository
 from taf.log import taf_logger
@@ -18,6 +17,7 @@ from taf.tools.cli import catch_cli_exception, common_repo_edit_options, find_re
 
 from taf.api.roles import add_role_paths
 from taf.tools.repo import pin_managed
+from taf.tuf.keys import RSA_SCHEMES
 
 
 def add_roles_command():
@@ -30,7 +30,7 @@ def add_roles_command():
     - 'number' (integer): Number of signing keys. Default is 1.
     - 'threshold' (integer): Number of keys required to sign. Default is 1.
     - 'yubikey' (boolean): Whether to use a YubiKey for signing. Default is false.
-    - 'scheme' (string): Signature scheme, e.g., 'rsa-pkcs1v15-sha256'. Default is 'rsa-pkcs1v15-sha256'.
+    - 'scheme' (string): Signature scheme, e.g., 'rsa-pkcs1v15-sha256'. Needed for new keys and RSA keys.
     - 'yubikeys' (array of strings): Names of the YubiKeys used for signing, defined in the 'yubikeys' section.
 
     The structure of the configuration file is very similar to the structure of the one used when creating the repository,
@@ -88,7 +88,6 @@ def add_roles_command():
         path,
         keystore,
         no_commit,
-        prompt_for_keys,
         pin_manager,
         keys_description,
         no_remote_check,
@@ -98,7 +97,6 @@ def add_roles_command():
             pin_manager=pin_manager,
             keystore=keystore,
             roles_key_infos=config_file,
-            prompt_for_keys=prompt_for_keys,
             commit=not no_commit,
             keys_description=keys_description,
             skip_remote_check=no_remote_check,
@@ -161,7 +159,6 @@ def add_role_paths_command():
         delegated_path,
         keystore,
         no_commit,
-        prompt_for_keys,
         pin_manager,
         keys_description,
         no_remote_check,
@@ -177,7 +174,6 @@ def add_role_paths_command():
             delegated_role=role,
             keystore=keystore,
             commit=not no_commit,
-            prompt_for_keys=prompt_for_keys,
             push=not no_commit,
             keys_description=keys_description,
             skip_remote_check=no_remote_check,
@@ -207,11 +203,6 @@ def remove_role_command():
         help="Authentication repository's location. If not specified, set to the current directory",
     )
     @click.option(
-        "--scheme",
-        default=DEFAULT_RSA_SIGNATURE_SCHEME,
-        help="A signature scheme used for signing",
-    )
-    @click.option(
         "--remove-targets/--no-remove-targets",
         default=True,
         help="Should targets delegated to this role also be removed. If not removed, they are signed by the parent role",
@@ -221,10 +212,8 @@ def remove_role_command():
         role,
         path,
         keystore,
-        scheme,
         remove_targets,
         no_commit,
-        prompt_for_keys,
         pin_manager,
         keys_description,
         no_remote_check,
@@ -234,10 +223,8 @@ def remove_role_command():
             pin_manager=pin_manager,
             role=role,
             keystore=keystore,
-            scheme=scheme,
             remove_targets=remove_targets,
             commit=not no_commit,
-            prompt_for_keys=prompt_for_keys,
             keys_description=keys_description,
             skip_remote_check=no_remote_check,
         )
@@ -265,7 +252,6 @@ def remove_paths_command():
         delegated_path,
         keystore,
         no_commit,
-        prompt_for_keys,
         pin_manager,
         keys_description,
         no_remote_check,
@@ -281,7 +267,6 @@ def remove_paths_command():
             paths=delegated_path,
             keystore=keystore,
             commit=not no_commit,
-            prompt_for_keys=prompt_for_keys,
             keys_description=keys_description,
             skip_remote_check=no_remote_check,
             commit_msg=commit_msg,
@@ -295,10 +280,8 @@ def add_signing_key_command():
         Add a new signing key. This will make it possible to a sign metadata files
         corresponding to the specified roles with another key. Although private keys are
         used for signing, key identifiers are calculated based on the public keys. This
-        means that it's necessary to enter the public key in order to register
-        a new signing key. Public key can be loaded from a file, in which case it is
-        necessary to specify its path as the pub_key parameter's value. If this option
-        is not used when calling this command, the key can be directly entered later.
+        means that the public key is needed in order to register a new signing key.
+        Its file is given with --pub-key-path.
         """)
     @find_repository
     @catch_cli_exception(handle=TAFError)
@@ -318,15 +301,21 @@ def add_signing_key_command():
         default=None,
         help="Path to the public key corresponding to the private key which should be registered as the role's signing key",
     )
+    @click.option(
+        "--scheme",
+        type=click.Choice(RSA_SCHEMES),
+        default=None,
+        help="Signing scheme of the key, if it is an RSA key. An RSA key file does not record it",
+    )
     @click.option("--commit-msg", default=None, help="Commit message")
     @pin_managed
     def adding_signing_key(
         path,
         role,
         pub_key_path,
+        scheme,
         keystore,
         no_commit,
-        prompt_for_keys,
         pin_manager,
         keys_description,
         no_remote_check,
@@ -343,10 +332,10 @@ def add_signing_key_command():
             pub_key_path=pub_key_path,
             keystore=keystore,
             commit=not no_commit,
-            prompt_for_keys=prompt_for_keys,
             keys_description=keys_description,
             skip_remote_check=no_remote_check,
             commit_msg=commit_msg,
+            scheme=scheme,
         )
 
     return adding_signing_key
@@ -378,7 +367,6 @@ def revoke_signing_key_command():
         keyid,
         keystore,
         no_commit,
-        prompt_for_keys,
         pin_manager,
         keys_description,
         no_remote_check,
@@ -392,7 +380,6 @@ def revoke_signing_key_command():
             key_id=keyid,
             keystore=keystore,
             commit=not no_commit,
-            prompt_for_keys=prompt_for_keys,
             keys_description=keys_description,
             skip_remote_check=no_remote_check,
             commit_msg=commit_msg,
@@ -423,6 +410,12 @@ def rotate_signing_key_command():
         default=None,
         help="Path to the public key corresponding to the private key which should be registered as the role's signing key",
     )
+    @click.option(
+        "--scheme",
+        type=click.Choice(RSA_SCHEMES),
+        default=None,
+        help="Signing scheme of the key, if it is an RSA key. An RSA key file does not record it",
+    )
     @click.option("--revoke-commit-msg", default=None, help="Revoke key commit message")
     @click.option(
         "--add-commit-msg", default=None, help="Add new signing key commit message"
@@ -434,8 +427,8 @@ def rotate_signing_key_command():
         role,
         keyid,
         pub_key_path,
+        scheme,
         keystore,
-        prompt_for_keys,
         revoke_commit_msg,
         add_commit_msg,
         pin_manager,
@@ -449,13 +442,13 @@ def rotate_signing_key_command():
             roles=role,
             key_id=keyid,
             keystore=keystore,
-            prompt_for_keys=prompt_for_keys,
             pub_key_path=pub_key_path,
             revoke_commit_msg=revoke_commit_msg,
             add_commit_msg=add_commit_msg,
             keys_description=keys_description,
             skip_remote_check=no_remote_check,
             commit=not no_commit,
+            scheme=scheme,
         )
 
     return rotate_key

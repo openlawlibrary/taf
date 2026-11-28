@@ -1,34 +1,35 @@
+import click
 from logging import INFO
-from typing import Optional, Union
+from typing import Dict, Optional, Union
 from logdecorator import log_on_start, log_on_end
 from pathlib import Path
 from taf.models.types import RolesKeysData
 from taf.api.utils._conf import find_taf_directory
 
 from taf.api.roles import initialize_roles_and_keystore
-from taf.keys import get_key_name
+from taf.signers.keystore import check_keystore_path_usable_in_uri, get_key_name
 from taf.log import taf_logger
 from taf.models.types import RolesIterator
 from taf.models.converter import from_dict
 from taf.exceptions import KeystoreError
-from taf.tuf.keys import generate_and_write_rsa_keypair, generate_rsa_keypair
+from taf.tuf.keys import generate_and_write_keypair
 
 
 @log_on_start(INFO, "Generating '{key_path:s}'", logger=taf_logger)
 @log_on_end(INFO, "Generated '{key_path:s}", logger=taf_logger)
-def _generate_rsa_key(key_path: str, password: str, bits: Optional[int] = None) -> None:
+def _generate_key(
+    key_path: str, scheme: Optional[str], rsa_key_size: Optional[int] = None
+) -> None:
     """
     Generate public and private key
 
     Arguments:
-        key_path (optional): The path to write the private key to.
-        password (optional): An encryption password.
-        bits (optional): The number of bits of the generated RSA key.
+        key_path: The path to write the private key to.
+        scheme: Signing scheme, which decides the key type.
+        rsa_key_size (optional): The number of bits of an RSA key. Not used for other key types.
 
     Raises:
-        UnsupportedLibraryError: pyca/cryptography is not available.
-        FormatError: Arguments are malformed.
-        StorageError: Key files cannot be written.
+        KeystoreError: The key could not be generated or written.
 
     Side Effects:
         Writes key files to disk.
@@ -38,15 +39,16 @@ def _generate_rsa_key(key_path: str, password: str, bits: Optional[int] = None) 
         None
     """
     try:
-        generate_and_write_rsa_keypair(path=key_path, key_size=bits, password=password)
+        generate_and_write_keypair(key_path, scheme, rsa_key_size)
         taf_logger.log("NOTICE", f"Generated key {key_path}")
-    except Exception:
-        taf_logger.error(f"An error occurred while generating rsa key {key_path}")
-        raise KeystoreError(f"An error occurred while generating rsa key {key_path}")
+    except Exception as e:
+        raise KeystoreError(
+            f"An error occurred while generating key {key_path}: {e}"
+        ) from e
 
 
 def generate_keys(
-    keystore: Optional[Union[str, Path]], roles_key_infos: Optional[str]
+    keystore: Optional[Union[str, Path]], roles_key_infos: Optional[Union[str, Dict]]
 ) -> None:
     """
     Generate public and private keys and writes them to disk. Names of keys correspond to names
@@ -55,7 +57,7 @@ def generate_keys(
 
     Arguments:
         keystore: Location where the generated files should be saved
-        roles_key_infos: Path to a json file which contains information about repository's roles and keys.
+        roles_key_infos: Path to a json file, or a dictionary, which contains information about repository's roles and keys.
     Raises:
         UnsupportedLibraryError: pyca/cryptography is not available.
         FormatError: One or more keys not properly specified
@@ -71,7 +73,6 @@ def generate_keys(
     Raises:
         KeystoreError if an error occurs while initializing the keystore directory or generating a key
     """
-    # TODO handle scheme
     if keystore is None:
         taf_directory = find_taf_directory(Path())
         if taf_directory:
@@ -83,18 +84,18 @@ def generate_keys(
     roles_key_infos_dict, keystore, _ = initialize_roles_and_keystore(
         roles_key_infos, str(keystore)
     )
+    if keystore is None:
+        raise KeystoreError("No keystore to write the keys to")
 
     roles_keys_data = from_dict(roles_key_infos_dict, RolesKeysData)
     for role in RolesIterator(roles_keys_data.roles, include_delegations=True):
         if not role.is_yubikey:
             for key_num in range(role.number):
                 key_name = get_key_name(role.name, key_num, role.number)
-                if keystore is not None:
-                    password = input(
-                        f"Enter {key_name} keystore password and press ENTER (can be left empty)"
-                    )
-                    key_path = str(Path(keystore, key_name))
-                    _generate_rsa_key(key_path, password, role.length)
-                else:
-                    rsa_key, _ = generate_rsa_keypair(role.length)
-                    print(f"{role.name} key:\n\n{rsa_key.decode()}\n\n")
+                key_path = Path(keystore, key_name)
+                check_keystore_path_usable_in_uri(key_path)
+                if key_path.exists() and not click.confirm(
+                    f"{key_path} already exists. Overwrite it?"
+                ):
+                    continue
+                _generate_key(str(key_path), role.scheme, role.length)
