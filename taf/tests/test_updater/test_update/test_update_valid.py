@@ -27,6 +27,7 @@ from taf.tests.test_updater.update_utils import (
     verify_repos_exist,
 )
 from taf.updater.types.update import OperationType, UpdateType
+from taf.updater.updater import UpdateConfig, update_repository
 
 
 @pytest.mark.parametrize(
@@ -483,6 +484,55 @@ def test_update_when_auth_repo_exists_no_targets(origin_auth_repo, client_dir):
         OperationType.UPDATE,
         origin_auth_repo,
         client_dir,
+    )
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        },
+    ],
+    indirect=True,
+)
+def test_update_with_no_targets_updates_only_auth_repo(origin_auth_repo, client_dir):
+    clone_repositories(
+        origin_auth_repo,
+        client_dir,
+    )
+    client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
+    client_target_repos = load_target_repositories(client_auth_repo)
+    target_heads = {
+        name: repo.head_commit() for name, repo in client_target_repos.items()
+    }
+    last_validated_data = client_auth_repo.last_validated_data
+
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(add_valid_target_commits)
+    setup_manager.execute_tasks()
+
+    update_repository(
+        UpdateConfig(
+            operation=OperationType.UPDATE,
+            remote_url=str(origin_auth_repo.path),
+            update_from_filesystem=True,
+            path=str(client_auth_repo.path),
+            library_dir=str(client_dir),
+            no_targets=True,
+        )
+    )
+
+    assert client_auth_repo.head_commit() == origin_auth_repo.head_commit()
+    for name, repo in client_target_repos.items():
+        assert repo.head_commit() == target_heads[name]
+    assert client_auth_repo.last_validated_data == last_validated_data
+
+    update_and_check_commit_shas(
+        OperationType.UPDATE,
+        origin_auth_repo,
+        client_dir,
+        no_upstream=True,
     )
 
 

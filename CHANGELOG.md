@@ -35,9 +35,26 @@ and this project adheres to [Semantic Versioning][semver].
 - Keep loading keystore files when one of them can't be read ([839])
 - Fix `taf targets update-and-sign` without `--target-type` and `taf yubikey list-slots --serial` ([839])
 - Remove files left behind by a failed command ([839])
+- Merge auth commits when updating with `no_targets` ([842])
 
+[842]: https://github.com/openlawlibrary/taf/pull/842
 [839]: https://github.com/openlawlibrary/taf/pull/839
 [838]: https://github.com/openlawlibrary/taf/pull/838
+
+
+## [0.42.3]
+
+### Added
+
+### Changed
+
+### Removed
+
+### Fixed
+
+- Merge auth commits when updating with `no_targets` ([842])
+
+[842]: https://github.com/openlawlibrary/taf/pull/842
 
 
 ## [0.42.2]
@@ -2110,7 +2127,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
-[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.42.2...HEAD
+[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.42.3...HEAD
+[0.42.3]: https://github.com/openlawlibrary/taf/compare/v0.42.2...v0.42.3
 [0.42.2]: https://github.com/openlawlibrary/taf/compare/v0.42.1...v0.42.2
 [0.42.1]: https://github.com/openlawlibrary/taf/compare/v0.42.0...v0.42.1
 [0.42.0]: https://github.com/openlawlibrary/taf/compare/v0.41.0...v0.42.0
